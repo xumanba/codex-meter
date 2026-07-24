@@ -40,6 +40,8 @@ selection is restored automatically.
 - **Codex Spark support** — automatically shows extra Codex rate windows.
 - **Two native glass themes** — switch between dark and light from the menu.
 - **Position memory** — drag the card anywhere; its fixed position is restored.
+- **Edge shelf** — drag near the left or right screen edge to tuck the card
+  away; touch the same edge to reveal it and move away to hide it again.
 - **Optional Codex following** — show only while Codex is the foreground app.
 - **Private by design** — reads only a localhost endpoint and never displays or
   stores account credentials.
@@ -96,6 +98,12 @@ Drag the card to place it anywhere. Open the `•••` menu to:
 
 The selected theme and fixed position are saved with macOS `UserDefaults`.
 
+To save desktop space, drag the card close to the left or right edge and
+release it. A narrow glass strip remains visible. Move the pointer back to the
+same part of that screen edge to reveal it; move away to tuck it back. Drag the
+revealed card away from the edge to cancel docking. Docking remembers both the
+display and the position along that edge.
+
 ## How it works
 
 ```text
@@ -126,6 +134,12 @@ open ".build/Codex Meter.app"
 
 The project intentionally uses Swift Package Manager and AppKit/SwiftUI only.
 There are no third-party runtime dependencies beyond CodexBar.
+
+The edge interaction uses AppKit's public mouse-position APIs and does not need
+Accessibility permission. The polling and hot-zone approach was informed by
+[SideTerminal](https://github.com/bunnysayzz/sideterminal), an MIT-licensed
+open-source macOS project. Codex Meter implements its own compact-card geometry
+and multi-display position memory.
 
 ## Uninstall
 

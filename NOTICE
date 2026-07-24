@@ -9,6 +9,16 @@ CodexBar:
   Licensed under the MIT License:
   https://github.com/steipete/CodexBar/blob/main/LICENSE
 
+The edge docking interaction was informed by the polling and hot-zone approach
+used by SideTerminal. Codex Meter contains an independent compact-card
+implementation and does not redistribute SideTerminal source code.
+
+SideTerminal:
+  https://github.com/bunnysayzz/sideterminal
+  Copyright (c) 2026 Bunny Says
+  Licensed under the MIT License:
+  https://github.com/bunnysayzz/sideterminal/blob/main/LICENSE
+
 "CodexBar", "Codex", "OpenAI", and "Apple" are names or trademarks of their
 respective owners. This project is not affiliated with or endorsed by
 CodexBar, OpenAI, or Apple.

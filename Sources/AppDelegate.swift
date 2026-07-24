@@ -55,14 +55,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.orderFrontRegardless()
 
         self.panel = panel
+        positioner = PanelPositioner(panel: panel)
         moveObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didMoveNotification,
             object: panel,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.saveFixedOrigin() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if self.positioner?.panelDidMove() == true {
+                    self.saveFixedOrigin()
+                }
+            }
         }
-        positioner = PanelPositioner(panel: panel)
         positioner?.start()
         client.start()
     }
@@ -77,12 +82,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setMode(_ newMode: PanelMode) {
         mode = newMode
-        positioner?.mode = newMode
         guard let panel else { return }
         if newMode == .fixed {
             panel.setFrameOrigin(defaultOrigin(for: panel.frame.size))
             panel.orderFrontRegardless()
         }
+        positioner?.mode = newMode
         panel.contentView = NSHostingView(rootView: MeterView(
             client: client,
             mode: mode,
