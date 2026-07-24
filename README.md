@@ -2,17 +2,37 @@
 
 # ✦ Codex Meter
 
-### A native floating usage meter for macOS, powered by CodexBar
+### Native macOS Codex usage visualization, quota monitor and edge-docking widget
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org/)
 [![CodexBar](https://img.shields.io/badge/Powered%20by-CodexBar-0A84FF?style=flat-square)](https://github.com/steipete/CodexBar)
 [![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](LICENSE)
 
-Keep your Codex weekly allowance, pacing and reset time visible without leaving
-your workspace.
+Visualize your remaining Codex allowance, rate-limit windows, pacing and reset
+time without leaving your workspace.
 
 </div>
+
+> [!TIP]
+> **Signature feature — instant left/right edge docking.** Drag Codex Meter to
+> either side of any display and it tucks itself away as a subtle 5-point glass
+> strip. Touch the edge to reveal the full usage meter in about 0.02 seconds;
+> move away and it smoothly hides again.
+
+## Codex usage and quota visualization
+
+Codex Meter is a native macOS floating widget for people searching for a
+**Codex usage monitor**, **Codex quota visualization**, **Codex rate-limit
+tracker** or a visual view of **Codex token usage capacity**. It shows the
+allowance and rate-window data available through CodexBar; it does not claim to
+count the raw tokens used by each individual prompt.
+
+- Remaining weekly Codex allowance and reset time
+- Usage pace, overage percentage and estimated depletion time
+- Additional Codex Spark rate windows when available
+- Always-on-top visualization with optional Codex app following
+- QQ-style left/right edge auto-hide with native hover reveal
 
 ## Glass themes
 
@@ -33,6 +53,8 @@ selection is restored automatically.
 
 ## Highlights
 
+- **Instant edge shelf** — tuck the card into either side of any display, then
+  reveal it with a near-instant native hover animation.
 - **Always visible** — floats above normal windows and follows every Space.
 - **Remaining allowance** — shows what is left, rather than what has been used.
 - **Pace awareness** — displays over-pace percentage, expected depletion time
@@ -96,6 +118,25 @@ Drag the card to place it anywhere. Open the `•••` menu to:
 
 The selected theme and fixed position are saved with macOS `UserDefaults`.
 
+### Edge shelf
+
+Drag the card close to the left or right edge and release it. The meter slides
+out of the way while leaving a subtle 5-point glass strip:
+
+```text
+drag to edge → tucked strip → hover ~0.02s → reveal
+move away   → wait ~0.18s  → smooth re-hide
+```
+
+- **Fast by design** — the slide animation completes in about 0.12 seconds.
+- **Native and reliable** — AppKit mouse-enter/exit tracking replaces global
+  cursor polling, including on multi-display setups.
+- **Position memory** — the selected display, edge and vertical position are
+  restored after relaunch.
+- **Easy to release** — drag the revealed card away from the edge to return to
+  normal floating mode.
+- **No extra permission** — edge reveal does not require Accessibility access.
+
 ## How it works
 
 ```text
@@ -126,6 +167,12 @@ open ".build/Codex Meter.app"
 
 The project intentionally uses Swift Package Manager and AppKit/SwiftUI only.
 There are no third-party runtime dependencies beyond CodexBar.
+
+The edge interaction uses AppKit's native mouse tracking and does not need
+Accessibility permission. The compact edge-reveal approach was informed by
+[SideTerminal](https://github.com/bunnysayzz/sideterminal), an MIT-licensed
+open-source macOS project. Codex Meter implements its own compact-card geometry
+and multi-display position memory.
 
 ## Uninstall
 
