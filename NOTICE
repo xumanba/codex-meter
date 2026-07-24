@@ -1,0 +1,14 @@
+Codex Meter is an independent, unofficial companion for CodexBar.
+
+It uses the localhost JSON interface exposed by CodexBar and does not include
+or redistribute CodexBar source code, binaries, icons, or trademarks.
+
+CodexBar:
+  https://github.com/steipete/CodexBar
+  Copyright (c) 2026 Peter Steinberger
+  Licensed under the MIT License:
+  https://github.com/steipete/CodexBar/blob/main/LICENSE
+
+"CodexBar", "Codex", "OpenAI", and "Apple" are names or trademarks of their
+respective owners. This project is not affiliated with or endorsed by
+CodexBar, OpenAI, or Apple.
