@@ -9,9 +9,9 @@ CodexBar:
   Licensed under the MIT License:
   https://github.com/steipete/CodexBar/blob/main/LICENSE
 
-The edge docking interaction was informed by the polling and hot-zone approach
-used by SideTerminal. Codex Meter contains an independent compact-card
-implementation and does not redistribute SideTerminal source code.
+The edge docking interaction was informed by SideTerminal's compact
+edge-reveal approach. Codex Meter contains an independent AppKit implementation
+and does not redistribute SideTerminal source code.
 
 SideTerminal:
   https://github.com/bunnysayzz/sideterminal

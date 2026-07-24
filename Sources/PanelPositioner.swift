@@ -12,6 +12,8 @@ final class PanelPositioner {
     private let mouseLocation: () -> NSPoint
     private var timer: Timer?
     private var dockEvaluation: DispatchWorkItem?
+    private var revealTimer: Timer?
+    private var hideTimer: Timer?
     private var isRunning = false
     private var isProgrammaticMove = false
     private var isAnimating = false
@@ -19,15 +21,11 @@ final class PanelPositioner {
     private var dockScreenNumber: Int?
     private var dockAnchor: CGFloat = 0
     private var isDockRevealed = false
-    private var hotZoneEnteredAt: Date?
-    private var panelExitedAt: Date?
 
     private let dockingThreshold: CGFloat = 28
     private let visibleStrip: CGFloat = 5
     private let revealInset: CGFloat = 8
-    private let hotZoneThickness: CGFloat = 4
-    private let hotZoneSpanPadding: CGFloat = 14
-    private let revealDelay: TimeInterval = 0.10
+    private let revealDelay: TimeInterval = 0.05
     private let hideDelay: TimeInterval = 0.45
 
     private let dockEdgeKey = "edgeDockEdge"
@@ -36,8 +34,7 @@ final class PanelPositioner {
 
     var mode: PanelMode = .fixed {
         didSet {
-            hotZoneEnteredAt = nil
-            panelExitedAt = nil
+            cancelPendingPointerActions()
             if mode == .fixed, dockEdge != nil {
                 isDockRevealed = false
             }
@@ -65,6 +62,7 @@ final class PanelPositioner {
         isRunning = false
         timer?.invalidate()
         dockEvaluation?.cancel()
+        cancelPendingPointerActions()
     }
 
     func update() {
@@ -80,7 +78,6 @@ final class PanelPositioner {
                         animated: false
                     )
                 }
-                updateDockInteraction(edge: edge, screen: screen)
                 return
             }
 
@@ -130,12 +127,42 @@ final class PanelPositioner {
         return true
     }
 
+    func pointerEnteredPanel() {
+        guard mode == .fixed, dockEdge != nil else { return }
+        hideTimer?.invalidate()
+        hideTimer = nil
+        guard !isDockRevealed else { return }
+
+        revealTimer?.invalidate()
+        let timer = Timer(timeInterval: revealDelay, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.revealDockedPanelIfNeeded()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        revealTimer = timer
+    }
+
+    func pointerExitedPanel() {
+        revealTimer?.invalidate()
+        revealTimer = nil
+        guard mode == .fixed, dockEdge != nil, isDockRevealed else { return }
+
+        hideTimer?.invalidate()
+        let timer = Timer(timeInterval: hideDelay, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.hideDockedPanelIfNeeded()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        hideTimer = timer
+    }
+
     private func restartTimer() {
         timer?.invalidate()
         guard isRunning else { return }
 
-        let interval = mode == .fixed && dockEdge != nil ? 1.0 / 30.0 : 0.75
-        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.75, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.update() }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -177,52 +204,6 @@ final class PanelPositioner {
         moveDockedPanel(edge: edge, screen: screen, revealed: false, animated: true)
     }
 
-    private func updateDockInteraction(edge: DockEdge, screen: NSScreen) {
-        guard let panel, !isAnimating else { return }
-
-        let point = mouseLocation()
-        let inHotZone = EdgeDockGeometry.isInHotZone(
-            point,
-            edge: edge,
-            panelSize: panel.frame.size,
-            screenFrame: screen.frame,
-            anchor: dockAnchor,
-            thickness: hotZoneThickness,
-            spanPadding: hotZoneSpanPadding
-        )
-
-        if !isDockRevealed {
-            panelExitedAt = nil
-            if inHotZone {
-                let enteredAt = hotZoneEnteredAt ?? Date()
-                hotZoneEnteredAt = enteredAt
-                if Date().timeIntervalSince(enteredAt) >= revealDelay {
-                    isDockRevealed = true
-                    hotZoneEnteredAt = nil
-                    moveDockedPanel(edge: edge, screen: screen, revealed: true, animated: true)
-                }
-            } else {
-                hotZoneEnteredAt = nil
-            }
-            return
-        }
-
-        hotZoneEnteredAt = nil
-        let hoverFrame = panel.frame.insetBy(dx: -20, dy: -20)
-        if hoverFrame.contains(point) || inHotZone || NSEvent.pressedMouseButtons != 0 {
-            panelExitedAt = nil
-            return
-        }
-
-        let exitedAt = panelExitedAt ?? Date()
-        panelExitedAt = exitedAt
-        if Date().timeIntervalSince(exitedAt) >= hideDelay {
-            isDockRevealed = false
-            panelExitedAt = nil
-            moveDockedPanel(edge: edge, screen: screen, revealed: false, animated: true)
-        }
-    }
-
     private func moveDockedPanel(
         edge: DockEdge,
         screen: NSScreen,
@@ -256,9 +237,12 @@ final class PanelPositioner {
 
         isAnimating = true
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.18
+            context.duration = 0.16
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().setFrameOrigin(origin)
+            panel.animator().setFrame(
+                NSRect(origin: origin, size: panel.frame.size),
+                display: true
+            )
         } completionHandler: { [weak self] in
             Task { @MainActor in self?.isAnimating = false }
         }
@@ -269,14 +253,46 @@ final class PanelPositioner {
         dockEdge = nil
         dockScreenNumber = nil
         isDockRevealed = false
-        hotZoneEnteredAt = nil
-        panelExitedAt = nil
+        cancelPendingPointerActions()
 
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: dockEdgeKey)
         defaults.removeObject(forKey: dockScreenKey)
         defaults.removeObject(forKey: dockAnchorKey)
         restartTimer()
+    }
+
+    private func revealDockedPanelIfNeeded() {
+        revealTimer = nil
+        guard mode == .fixed,
+              !isDockRevealed,
+              let edge = dockEdge,
+              let screen = activeDockScreen() else {
+            return
+        }
+        isDockRevealed = true
+        moveDockedPanel(edge: edge, screen: screen, revealed: true, animated: true)
+    }
+
+    private func hideDockedPanelIfNeeded() {
+        hideTimer = nil
+        guard mode == .fixed,
+              isDockRevealed,
+              let panel,
+              !panel.frame.insetBy(dx: -20, dy: -20).contains(mouseLocation()),
+              let edge = dockEdge,
+              let screen = activeDockScreen() else {
+            return
+        }
+        isDockRevealed = false
+        moveDockedPanel(edge: edge, screen: screen, revealed: false, animated: true)
+    }
+
+    private func cancelPendingPointerActions() {
+        revealTimer?.invalidate()
+        revealTimer = nil
+        hideTimer?.invalidate()
+        hideTimer = nil
     }
 
     private func restoreDock() {

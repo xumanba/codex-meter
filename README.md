@@ -100,7 +100,7 @@ The selected theme and fixed position are saved with macOS `UserDefaults`.
 
 To save desktop space, drag the card close to the left or right edge and
 release it. A narrow glass strip remains visible. Move the pointer back to the
-same part of that screen edge to reveal it; move away to tuck it back. Drag the
+strip to reveal it after about 0.05 seconds; move away to tuck it back. Drag the
 revealed card away from the edge to cancel docking. Docking remembers both the
 display and the position along that edge.
 
@@ -135,8 +135,8 @@ open ".build/Codex Meter.app"
 The project intentionally uses Swift Package Manager and AppKit/SwiftUI only.
 There are no third-party runtime dependencies beyond CodexBar.
 
-The edge interaction uses AppKit's public mouse-position APIs and does not need
-Accessibility permission. The polling and hot-zone approach was informed by
+The edge interaction uses AppKit's native mouse tracking and does not need
+Accessibility permission. The compact edge-reveal approach was informed by
 [SideTerminal](https://github.com/bunnysayzz/sideterminal), an MIT-licensed
 open-source macOS project. Codex Meter implements its own compact-card geometry
 and multi-display position memory.

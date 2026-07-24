@@ -1,6 +1,37 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+final class MeterTrackingHostingView: NSHostingView<MeterView> {
+    var onMouseEntered: (() -> Void)?
+    var onMouseExited: (() -> Void)?
+    private var pointerTrackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let pointerTrackingArea {
+            removeTrackingArea(pointerTrackingArea)
+        }
+
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        pointerTrackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        onMouseEntered?()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onMouseExited?()
+    }
+}
+
 @main
 struct CodexBarFloatingMeterApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -42,20 +73,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isMovableByWindowBackground = true
         panel.hidesOnDeactivate = false
 
-        let view = MeterView(
-            client: client,
-            mode: mode,
-            theme: theme,
-            setMode: { [weak self] mode in self?.setMode(mode) },
-            setTheme: { [weak self] theme in self?.setTheme(theme) },
-            quit: { NSApp.terminate(nil) }
-        )
-        panel.contentView = NSHostingView(rootView: view)
+        self.panel = panel
+        positioner = PanelPositioner(panel: panel)
+        panel.contentView = makeContentView()
         panel.setFrameOrigin(defaultOrigin(for: panel.frame.size))
         panel.orderFrontRegardless()
 
-        self.panel = panel
-        positioner = PanelPositioner(panel: panel)
         moveObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didMoveNotification,
             object: panel,
@@ -88,14 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.orderFrontRegardless()
         }
         positioner?.mode = newMode
-        panel.contentView = NSHostingView(rootView: MeterView(
-            client: client,
-            mode: mode,
-            theme: theme,
-            setMode: { [weak self] mode in self?.setMode(mode) },
-            setTheme: { [weak self] theme in self?.setTheme(theme) },
-            quit: { NSApp.terminate(nil) }
-        ))
+        panel.contentView = makeContentView()
     }
 
     private func setTheme(_ newTheme: MeterTheme) {
@@ -103,7 +119,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.set(newTheme.rawValue, forKey: "meterTheme")
         panel?.appearance = appearance(for: newTheme)
         guard let panel else { return }
-        panel.contentView = NSHostingView(rootView: MeterView(
+        panel.contentView = makeContentView()
+    }
+
+    private func makeContentView() -> NSView {
+        let view = MeterTrackingHostingView(rootView: MeterView(
             client: client,
             mode: mode,
             theme: theme,
@@ -111,6 +131,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             setTheme: { [weak self] theme in self?.setTheme(theme) },
             quit: { NSApp.terminate(nil) }
         ))
+        view.onMouseEntered = { [weak self] in
+            self?.positioner?.pointerEnteredPanel()
+        }
+        view.onMouseExited = { [weak self] in
+            self?.positioner?.pointerExitedPanel()
+        }
+        return view
     }
 
     private func appearance(for theme: MeterTheme) -> NSAppearance? {

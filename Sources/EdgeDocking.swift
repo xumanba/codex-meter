@@ -70,28 +70,6 @@ enum EdgeDockGeometry {
         }
     }
 
-    static func isInHotZone(
-        _ point: NSPoint,
-        edge: DockEdge,
-        panelSize: NSSize,
-        screenFrame: NSRect,
-        anchor: CGFloat,
-        thickness: CGFloat,
-        spanPadding: CGFloat
-    ) -> Bool {
-        let withinSpan = point.y >= anchor - spanPadding
-            && point.y <= anchor + panelSize.height + spanPadding
-
-        guard withinSpan else { return false }
-
-        switch edge {
-        case .left:
-            return point.x >= screenFrame.minX && point.x <= screenFrame.minX + thickness
-        case .right:
-            return point.x <= screenFrame.maxX && point.x >= screenFrame.maxX - thickness
-        }
-    }
-
     private static func clampedAnchor(
         _ anchor: CGFloat,
         panelSize: NSSize,
