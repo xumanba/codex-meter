@@ -25,8 +25,8 @@ final class PanelPositioner {
     private let dockingThreshold: CGFloat = 28
     private let visibleStrip: CGFloat = 5
     private let revealInset: CGFloat = 8
-    private let revealDelay: TimeInterval = 0.05
-    private let hideDelay: TimeInterval = 0.45
+    private let revealDelay: TimeInterval = 0.02
+    private let hideDelay: TimeInterval = 0.18
 
     private let dockEdgeKey = "edgeDockEdge"
     private let dockScreenKey = "edgeDockScreenNumber"
@@ -237,7 +237,7 @@ final class PanelPositioner {
 
         isAnimating = true
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.16
+            context.duration = 0.12
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().setFrame(
                 NSRect(origin: origin, size: panel.frame.size),
