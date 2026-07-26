@@ -20,6 +20,20 @@ struct UsageSnapshot: Equatable {
     let updatedAt: Date?
 }
 
+enum UsageSnapshotError: LocalizedError, Equatable {
+    case provider(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .provider(message):
+            if message.localizedCaseInsensitiveContains("authentication required") {
+                return "未检测到 Codex 登录，请先登录 Codex 后重试"
+            }
+            return message
+        }
+    }
+}
+
 enum UsageSnapshotDecoder {
     private struct Payload: Decodable {
         struct Usage: Decodable {
@@ -49,8 +63,13 @@ enum UsageSnapshotDecoder {
             let secondary: Secondary?
         }
 
-        let usage: Usage
+        struct ProviderError: Decodable {
+            let message: String
+        }
+
+        let usage: Usage?
         let pace: Pace?
+        let error: ProviderError?
     }
 
     static func decode(_ data: Data) throws -> UsageSnapshot {
@@ -58,7 +77,16 @@ enum UsageSnapshotDecoder {
         decoder.dateDecodingStrategy = .iso8601
         let payloads = try decoder.decode([Payload].self, from: data)
 
-        guard let payload = payloads.first, let weekly = payload.usage.secondary else {
+        guard let payload = payloads.first else {
+            throw DecodingError.valueNotFound(
+                Payload.self,
+                .init(codingPath: [], debugDescription: "Codex usage response is empty")
+            )
+        }
+        if let providerError = payload.error {
+            throw UsageSnapshotError.provider(providerError.message)
+        }
+        guard let usage = payload.usage, let weekly = usage.secondary else {
             throw DecodingError.valueNotFound(
                 Payload.Usage.Window.self,
                 .init(codingPath: [], debugDescription: "Codex weekly usage is missing")
@@ -71,7 +99,7 @@ enum UsageSnapshotDecoder {
                 usedPercent: weekly.usedPercent,
                 resetsAt: weekly.resetsAt
             ),
-            extras: (payload.usage.extraRateWindows ?? []).map {
+            extras: (usage.extraRateWindows ?? []).map {
                 .init(
                     title: $0.title
                         .replacingOccurrences(of: "Codex ", with: "")
@@ -88,7 +116,7 @@ enum UsageSnapshotDecoder {
                     willLastToReset: $0.willLastToReset
                 )
             },
-            updatedAt: payload.usage.updatedAt
+            updatedAt: usage.updatedAt
         )
     }
 }

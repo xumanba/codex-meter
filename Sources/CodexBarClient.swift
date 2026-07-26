@@ -61,7 +61,7 @@ final class CodexBarClient: ObservableObject {
 
     private func startServer() {
         guard let executableURL = codexBarExecutableURL() else {
-            lastError = "CodexBar CLI is not installed"
+            lastError = "CodexBar helper is unavailable"
             return
         }
 
@@ -80,12 +80,16 @@ final class CodexBarClient: ObservableObject {
             try process.run()
             serverProcess = process
         } catch {
-            lastError = "Could not start CodexBar"
+            lastError = "Could not start CodexBar helper"
         }
     }
 
     private func codexBarExecutableURL() -> URL? {
-        [
+        let bundledExecutable = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Helpers/codexbar")
+
+        return [
+            bundledExecutable.path,
             "/opt/homebrew/bin/codexbar",
             "/usr/local/bin/codexbar"
         ]

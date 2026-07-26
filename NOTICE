@@ -1,13 +1,39 @@
-Codex Meter is an independent, unofficial companion for CodexBar.
+Codex Meter is an independent, unofficial application powered by CodexBar.
 
-It uses the localhost JSON interface exposed by CodexBar and does not include
-or redistribute CodexBar source code, binaries, icons, or trademarks.
+Release packages include the CodexBar CLI binary so users do not need to
+install CodexBar separately. The bundled binary is redistributed under the MIT
+License. Its complete license text is included at:
+
+  ThirdPartyLicenses/CodexBar-LICENSE.txt
+
+and inside the application bundle at:
+
+  Codex Meter.app/Contents/Resources/ThirdPartyLicenses/
 
 CodexBar:
   https://github.com/steipete/CodexBar
   Copyright (c) 2026 Peter Steinberger
   Licensed under the MIT License:
   https://github.com/steipete/CodexBar/blob/main/LICENSE
+
+The bundled CodexBar CLI also incorporates these pinned open-source
+dependencies. Their complete license and notice files are included in the
+application bundle:
+
+  Commander 0.2.2
+  https://github.com/steipete/Commander
+
+  SweetCookieKit 0.4.1
+  https://github.com/steipete/SweetCookieKit
+
+  Swift Crypto 3.15.1
+  https://github.com/apple/swift-crypto
+
+  SwiftLog 1.13.2
+  https://github.com/apple/swift-log
+
+  Swift ASN.1 1.7.1
+  https://github.com/apple/swift-asn1
 
 The edge docking interaction was informed by SideTerminal's compact
 edge-reveal approach. Codex Meter contains an independent AppKit implementation

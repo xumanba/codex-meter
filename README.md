@@ -8,11 +8,17 @@
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org/)
 [![CodexBar](https://img.shields.io/badge/Powered%20by-CodexBar-0A84FF?style=flat-square)](https://github.com/steipete/CodexBar)
 [![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](LICENSE)
+[![Download v0.1.0](https://img.shields.io/badge/Download-v0.1.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0)
 
 Visualize your remaining Codex allowance, rate-limit windows, pacing and reset
 time without leaving your workspace.
 
 </div>
+
+> [!IMPORTANT]
+> **One download, no separate CodexBar installation.** The universal Release
+> package includes the verified CodexBar CLI for both Apple silicon and Intel
+> Macs. It uses your existing local Codex login and never bundles credentials.
 
 > [!TIP]
 > **Signature feature — instant left/right edge docking.** Drag Codex Meter to
@@ -71,23 +77,35 @@ selection is restored automatically.
 ## Requirements
 
 - macOS 14 Sonoma or newer
-- Apple Swift 6 toolchain (Xcode Command Line Tools or Xcode)
-- [CodexBar](https://github.com/steipete/CodexBar) with its CLI installed
-- Codex configured and authenticated in CodexBar
+- A Codex account already signed in on this Mac
 
-Install CodexBar first:
-
-```bash
-brew install --cask codexbar
-```
-
-Open CodexBar once and verify that Codex usage is available:
+Codex Meter reads the same local OAuth session used by Codex. If you have not
+signed in yet, open the Codex app or run:
 
 ```bash
-codexbar usage --provider codex --source oauth --format json
+codex login
 ```
 
-## Quick install
+You do **not** need to install CodexBar separately.
+
+## Download and install
+
+1. Download `Codex-Meter-macos-universal-0.1.0.zip` from
+   [GitHub Releases](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0).
+2. Open the ZIP and move **Codex Meter.app** to Applications.
+3. Because this free preview is not Apple-notarized, Control-click the app and
+   choose **Open** the first time. If macOS still blocks it, go to **System
+   Settings → Privacy & Security** and choose **Open Anyway**.
+4. Open Codex Meter. Your floating usage card appears immediately when your
+   local Codex login is valid.
+
+The Release is ad-hoc signed and includes both `arm64` and `x86_64` slices. No
+administrator password or separate CodexBar installation is required.
+
+### Install from source
+
+Building from source requires the Apple Swift 6 toolchain and network access to
+download the pinned, checksum-verified CodexBar CLI release:
 
 ```bash
 git clone https://github.com/xumanba/codex-meter.git
@@ -99,9 +117,10 @@ chmod +x install.sh uninstall.sh build-app.sh
 The installer:
 
 1. builds an ad-hoc signed native macOS application;
-2. installs it as `/Applications/Codex Meter.app`;
-3. creates a per-user LaunchAgent;
-4. launches the meter in the background without hiding its window.
+2. bundles the verified CodexBar CLI;
+3. installs it as `/Applications/Codex Meter.app`;
+4. creates a per-user LaunchAgent;
+5. launches the meter in the background without hiding its window.
 
 No administrator password is normally required when your user can write to
 `/Applications`.
@@ -143,7 +162,7 @@ move away   → wait ~0.18s  → smooth re-hide
 Codex / OpenAI account
           │
           ▼
-      CodexBar CLI
+  Bundled CodexBar CLI
           │  localhost JSON, port 18747
           ▼
   Codex Meter (SwiftUI + AppKit)
@@ -154,8 +173,9 @@ Codex / OpenAI account
           └── native floating NSPanel
 ```
 
-Codex Meter starts `codexbar serve` on `127.0.0.1:18747` when needed and polls
-the local endpoint every 60 seconds. The server is not exposed to your network.
+Codex Meter starts its bundled `codexbar serve` helper on `127.0.0.1:18747`
+when needed and polls the local endpoint every 60 seconds. The server is not
+exposed to your network.
 
 ## Build manually
 
@@ -166,7 +186,13 @@ open ".build/Codex Meter.app"
 ```
 
 The project intentionally uses Swift Package Manager and AppKit/SwiftUI only.
-There are no third-party runtime dependencies beyond CodexBar.
+The build downloads the pinned CodexBar CLI `v0.45.2` assets from the official
+release, verifies their published SHA-256 values, and bundles the requested
+architecture. Create the same universal package published on GitHub with:
+
+```bash
+./Scripts/package-release.sh
+```
 
 The edge interaction uses AppKit's native mouse tracking and does not need
 Accessibility permission. The compact edge-reveal approach was informed by
@@ -176,32 +202,41 @@ and multi-display position memory.
 
 ## Uninstall
 
+For the downloaded Release, quit Codex Meter and move it from Applications to
+Trash.
+
+For an installation made with `install.sh`, run:
+
 ```bash
 ./uninstall.sh
 ```
 
-The application and LaunchAgent are moved to Trash. CodexBar and its settings
-are left untouched.
+The application and LaunchAgent are moved to Trash. Your Codex login and
+settings are left untouched.
 
 ## Relationship to CodexBar
 
-This project is an **independent, unofficial companion** built on the local
-interface provided by [steipete/CodexBar](https://github.com/steipete/CodexBar).
-CodexBar is copyright Peter Steinberger and is distributed under the
-[MIT License](https://github.com/steipete/CodexBar/blob/main/LICENSE).
+This project is an **independent, unofficial application** powered by
+[steipete/CodexBar](https://github.com/steipete/CodexBar). Release packages
+redistribute the official CodexBar CLI `v0.45.2` binary under its
+[MIT License](ThirdPartyLicenses/CodexBar-LICENSE.txt), including the complete
+copyright and permission notice inside the app bundle.
 
-Codex Meter does not copy or redistribute CodexBar source code, binaries, icons
-or branding. It requires users to install CodexBar separately. This repository
-is not affiliated with or endorsed by CodexBar, OpenAI or Apple. See
-[NOTICE](NOTICE) for attribution details.
+Codex Meter does not redistribute CodexBar icons or present itself as an
+official CodexBar product. This repository is not affiliated with or endorsed
+by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 
 ## Security and privacy
 
-- All usage requests stay on `127.0.0.1`.
-- No passwords, OAuth tokens, cookies or account emails are stored by this app.
+- The floating interface talks only to its helper on `127.0.0.1`.
+- The bundled CodexBar helper reads the existing Codex OAuth session from the
+  user's local Codex configuration and requests that account's usage data.
+- Codex Meter does not copy, display or bundle passwords, OAuth tokens, cookies
+  or account emails.
 - Screenshots in this repository contain usage percentages only.
-- The app is ad-hoc signed when built locally. Review the small Swift codebase
-  before installation if you require additional assurance.
+- The free `v0.1.0` preview is ad-hoc signed but not Apple-notarized, so macOS
+  requires explicit approval on first launch. Review the source before
+  installation if you require additional assurance.
 
 ## License
 
