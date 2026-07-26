@@ -2,13 +2,14 @@
 
 # ✦ Codex Meter
 
-### Native macOS Codex usage visualization, quota monitor and edge-docking widget
+### Native Codex usage visualization for Windows and macOS
 
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows11&logoColor=white)](windows/README.zh-CN.md)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org/)
 [![CodexBar](https://img.shields.io/badge/Powered%20by-CodexBar-0A84FF?style=flat-square)](https://github.com/steipete/CodexBar)
 [![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](LICENSE)
-[![Download v0.1.0](https://img.shields.io/badge/Download-v0.1.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0)
+[![Download v1.0.0](https://img.shields.io/badge/Download-v1.0.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v1.0.0)
 
 Visualize your remaining Codex allowance, rate-limit windows, pacing and reset
 time without leaving your workspace.
@@ -16,19 +17,29 @@ time without leaving your workspace.
 </div>
 
 > [!IMPORTANT]
-> **One download, no separate CodexBar installation.** The universal Release
-> package includes the verified CodexBar CLI for both Apple silicon and Intel
-> Macs. It uses your existing local Codex login and never bundles credentials.
+> **Codex Meter v1.0.0 supports both Windows and macOS.** Windows uses the
+> native WinForms client and an installed Win-CodexBar CLI. macOS uses the
+> native SwiftUI/AppKit client and can bundle the verified CodexBar CLI for
+> Apple silicon and Intel Macs. Neither client stores account credentials.
 
 > [!TIP]
-> **Signature feature — instant left/right edge docking.** Drag Codex Meter to
-> either side of any display and it tucks itself away as a subtle 5-point glass
-> strip. Touch the edge to reveal the full usage meter in about 0.02 seconds;
-> move away and it smoothly hides again.
+> **Signature feature — left/right edge docking.** Drag Codex Meter to either
+> side of a display and it tucks itself away as a narrow glass strip. Touch the
+> edge to reveal the full usage meter; move away and it smoothly hides again.
+
+## Platform support
+
+| Platform | Native UI | Release / install | Data provider |
+|---|---|---|---|
+| Windows 10/11 | WinForms + DWM, Per-Monitor V2 DPI | [`CodexMeter-Windows-portable-v1.0.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v1.0.0/CodexMeter-Windows-portable-v1.0.0.zip) | [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar) CLI |
+| macOS 14+ | SwiftUI + AppKit | Release page or `./install.sh` from source | Bundled CodexBar CLI |
+
+Windows-specific build, install and troubleshooting instructions are available
+in [`windows/README.zh-CN.md`](windows/README.zh-CN.md).
 
 ## Codex usage and quota visualization
 
-Codex Meter is a native macOS floating widget for people searching for a
+Codex Meter is a native Windows and macOS floating widget for people searching for a
 **Codex usage monitor**, **Codex quota visualization**, **Codex rate-limit
 tracker** or a visual view of **Codex token usage capacity**. It shows the
 allowance and rate-window data available through CodexBar; it does not claim to
@@ -53,9 +64,9 @@ count the raw tokens used by each individual prompt.
   </tr>
 </table>
 
-Both themes are designed for legibility and use native macOS materials,
+Both themes are designed for legibility and use native platform materials,
 typography, rounded geometry and system-inspired colors. Your last theme
-selection is restored automatically.
+selection is restored automatically on both systems.
 
 ## Highlights
 
@@ -69,12 +80,24 @@ selection is restored automatically.
 - **Two native glass themes** — switch between dark and light from the menu.
 - **Position memory** — drag the card anywhere; its fixed position is restored.
 - **Optional Codex following** — show only while Codex is the foreground app.
-- **Private by design** — reads only a localhost endpoint and never displays or
-  stores account credentials.
-- **One-minute refresh** — updates every 60 seconds, with an instant manual
-  refresh action.
+- **Tray mode on Windows** — minimize the card to the notification area and
+  restore it from the tray menu.
+- **Instant manual sync** — click the status pill or choose the menu action to
+  refresh allowance, reset and pacing data immediately.
+- **Private by design** — never displays or stores account credentials.
+- **Adaptive refresh on Windows** — refreshes less often while hidden and backs
+  off after failures; macOS refreshes once per minute.
 
 ## Requirements
+
+### Windows
+
+- Windows 10 or Windows 11
+- .NET Framework 4.7.2 or newer (included with supported Windows versions)
+- [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar), installed and
+  signed in so that `codexbar-cli.exe` can read Codex usage
+
+### macOS
 
 - macOS 14 Sonoma or newer
 - A Codex account already signed in on this Mac
@@ -86,23 +109,34 @@ signed in yet, open the Codex app or run:
 codex login
 ```
 
-You do **not** need to install CodexBar separately.
+The macOS build can bundle CodexBar, so a separate CodexBar installation is not
+required for the packaged macOS application.
 
 ## Download and install
 
-1. Download `Codex-Meter-macos-universal-0.1.0.zip` from
-   [GitHub Releases](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0).
-2. Open the ZIP and move **Codex Meter.app** to Applications.
-3. Because this free preview is not Apple-notarized, Control-click the app and
-   choose **Open** the first time. If macOS still blocks it, go to **System
-   Settings → Privacy & Security** and choose **Open Anyway**.
-4. Open Codex Meter. Your floating usage card appears immediately when your
-   local Codex login is valid.
+### Windows v1.0.0
 
-The Release is ad-hoc signed and includes both `arm64` and `x86_64` slices. No
-administrator password or separate CodexBar installation is required.
+1. Install and sign in to Win-CodexBar.
+2. Download `CodexMeter-Windows-portable-v1.0.0.zip` from the
+   [v1.0.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v1.0.0).
+3. Extract the ZIP and run `CodexMeter.exe`.
+4. Windows may show an unknown-publisher warning because the community binary
+   is not Authenticode-signed. Review the source or build locally if required.
 
-### Install from source
+The portable package does not modify the registry or enable startup. Settings
+are stored under `%LOCALAPPDATA%\CodexMeter` and contain no credentials.
+
+### macOS v1.0.0
+
+If the v1.0.0 Release contains `Codex-Meter-macos-universal-1.0.0.zip`, open the
+ZIP and move **Codex Meter.app** to Applications. The package is ad-hoc signed,
+not Apple-notarized: Control-click the app and choose **Open** the first time,
+or approve it under **System Settings → Privacy & Security**.
+
+The macOS application includes both `arm64` and `x86_64` slices when built with
+the release packaging script.
+
+### Install macOS from source
 
 Building from source requires the Apple Swift 6 toolchain and network access to
 download the pinned, checksum-verified CodexBar CLI release:
@@ -132,24 +166,27 @@ Drag the card to place it anywhere. Open the `•••` menu to:
 - choose **固定在桌面** to keep it pinned above normal windows;
 - choose **跟随 Codex** to show it only when Codex is active;
 - switch between **深色玻璃** and **浅色玻璃**;
-- refresh immediately;
+- click the status pill or choose **立即同步** to refresh immediately;
+- choose **最小化到托盘** on Windows to keep only the notification icon;
 - quit the application.
 
-The selected theme and fixed position are saved with macOS `UserDefaults`.
+The selected theme and fixed position are saved with macOS `UserDefaults` or
+the Windows `%LOCALAPPDATA%\CodexMeter\settings.ini` file.
 
 ### Edge shelf
 
 Drag the card close to the left or right edge and release it. The meter slides
-out of the way while leaving a subtle 5-point glass strip:
+out of the way while leaving a narrow glass strip:
 
 ```text
 drag to edge → tucked strip → hover ~0.02s → reveal
 move away   → wait ~0.18s  → smooth re-hide
 ```
 
-- **Fast by design** — the slide animation completes in about 0.12 seconds.
-- **Native and reliable** — AppKit mouse-enter/exit tracking replaces global
-  cursor polling, including on multi-display setups.
+- **Fast by design** — native timers and short animations keep reveal latency
+  low without repainting the whole card continuously.
+- **Multi-display aware** — macOS uses AppKit tracking and Windows uses
+  Per-Monitor V2 DPI-aware edge geometry.
 - **Position memory** — the selected display, edge and vertical position are
   restored after relaunch.
 - **Easy to release** — drag the revealed card away from the edge to return to
@@ -157,6 +194,28 @@ move away   → wait ~0.18s  → smooth re-hide
 - **No extra permission** — edge reveal does not require Accessibility access.
 
 ## How it works
+
+### Windows
+
+```text
+Codex / OpenAI account
+          │
+          ▼
+  Win-CodexBar CLI (on demand)
+          │  JSON stdout
+          ▼
+  Codex Meter (WinForms + DWM)
+          ├── adaptive refresh and stale-data state
+          ├── remaining allowance and reset time
+          ├── edge docking and tray mode
+          └── no stored credentials
+```
+
+The Windows process launches the local CLI only for a refresh, applies a hard
+timeout and cancellation, sanitizes provider errors, and keeps the last valid
+snapshot when a later refresh fails.
+
+### macOS
 
 ```text
 Codex / OpenAI account
@@ -178,6 +237,20 @@ when needed and polls the local endpoint every 60 seconds. The server is not
 exposed to your network.
 
 ## Build manually
+
+### Windows
+
+```powershell
+.\windows\build.ps1
+.\windows\dist\CodexMeter.Tests.exe
+.\windows\package-release.ps1
+```
+
+The Windows build uses the .NET Framework compiler already present on Windows
+and downloads no NuGet dependencies. The Release script verifies the executable
+version, runs the test suite, checks ZIP contents and prints SHA-256 hashes.
+
+### macOS
 
 ```bash
 chmod +x build-app.sh
@@ -228,15 +301,17 @@ by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 
 ## Security and privacy
 
-- The floating interface talks only to its helper on `127.0.0.1`.
-- The bundled CodexBar helper reads the existing Codex OAuth session from the
-  user's local Codex configuration and requests that account's usage data.
+- On macOS, the floating interface talks only to its helper on `127.0.0.1`.
+- On Windows, each refresh directly starts the approved local
+  `codexbar-cli.exe`; the meter does not expose a listening port.
+- CodexBar reads the existing Codex OAuth session from the user's local Codex
+  configuration and requests that account's usage data.
 - Codex Meter does not copy, display or bundle passwords, OAuth tokens, cookies
   or account emails.
 - Screenshots in this repository contain usage percentages only.
-- The free `v0.1.0` preview is ad-hoc signed but not Apple-notarized, so macOS
-  requires explicit approval on first launch. Review the source before
-  installation if you require additional assurance.
+- The v1.0.0 macOS build is ad-hoc signed but not Apple-notarized. The Windows
+  binary is currently not Authenticode-signed. Both systems may therefore
+  require explicit approval on first launch; review the source if required.
 
 ## License
 

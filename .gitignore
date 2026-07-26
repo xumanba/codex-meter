@@ -2,3 +2,7 @@
 .swiftpm/
 .DS_Store
 *.xcuserstate
+/windows/dist/
+/windows/qa/
+/windows/CodexMeter-Windows-portable-v*.zip
+/windows/CodexMeter-Windows-portable-v*.zip.sha256
