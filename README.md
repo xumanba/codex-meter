@@ -84,6 +84,8 @@ selection is restored automatically on both systems.
   restore it from the tray menu.
 - **Instant manual sync** — click the status pill or choose the menu action to
   refresh allowance, reset and pacing data immediately.
+- **Live network speed on Windows** — shows aggregate download and upload speed
+  from active network adapters once per second, without inspecting packet data.
 - **Private by design** — never displays or stores account credentials.
 - **Adaptive refresh on Windows** — refreshes less often while hidden and backs
   off after failures; macOS refreshes once per minute.
@@ -304,6 +306,8 @@ by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 - On macOS, the floating interface talks only to its helper on `127.0.0.1`.
 - On Windows, each refresh directly starts the approved local
   `codexbar-cli.exe`; the meter does not expose a listening port.
+- The Windows network-speed display reads only operating-system byte counters;
+  it does not capture packets, inspect destinations or require administrator access.
 - CodexBar reads the existing Codex OAuth session from the user's local Codex
   configuration and requests that account's usage data.
 - Codex Meter does not copy, display or bundle passwords, OAuth tokens, cookies

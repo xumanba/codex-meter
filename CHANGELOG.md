@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1.0 (unreleased)
+
+### Windows
+
+- Show aggregate real-time download and upload speed in the floating-card header.
+- Sample active Windows network-interface byte counters once per second without
+  packet capture, administrator permission or a background service.
+- Pause network sampling while the card is minimized to the notification area
+  or hidden by Codex-follow mode.
+
 ## v1.0.0
 
 Codex Meter now supports Windows 10/11 and macOS 14+ from one repository.

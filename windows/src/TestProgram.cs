@@ -27,6 +27,8 @@ namespace CodexMeter
                 CheckCancellation();
                 CheckDpiDiscovery();
                 CheckProviderError();
+                CheckNetworkSpeedFormatting();
+                CheckNetworkSpeedSampling();
                 Console.WriteLine(failures == 0 ? "SELF_TEST_OK" : "SELF_TEST_FAILED=" + failures);
                 return failures == 0 ? 0 : 1;
             }
@@ -200,6 +202,27 @@ namespace CodexMeter
             UsageSnapshot snapshot = UsageSnapshotDecoder.Decode(json);
             Expect(snapshot.Weekly != null && snapshot.Weekly.UsedPercent == 8, "Pro Lite weekly mapping");
             Expect(snapshot.Session == null, "Pro Lite placeholder suppressed");
+        }
+
+        private static void CheckNetworkSpeedFormatting()
+        {
+            Expect(NetworkSpeedMonitor.FormatRate(0) == "0 B/s", "network speed zero formatting");
+            Expect(NetworkSpeedMonitor.FormatRate(1536) == "1.5 KB/s", "network speed KB formatting");
+            Expect(NetworkSpeedMonitor.FormatRate(5 * 1024 * 1024) == "5.0 MB/s", "network speed MB formatting");
+            Expect(NetworkSpeedMonitor.FormatRate(Double.NaN) == "0 B/s", "network speed invalid formatting");
+        }
+
+        private static void CheckNetworkSpeedSampling()
+        {
+            NetworkSpeedMonitor monitor = new NetworkSpeedMonitor();
+            NetworkSpeedSnapshot baseline = monitor.Sample();
+            Thread.Sleep(25);
+            NetworkSpeedSnapshot sample = monitor.Sample();
+            Expect(baseline.DownloadBytesPerSecond == 0 && baseline.UploadBytesPerSecond == 0,
+                "network speed first sample baseline");
+            Expect(sample.DownloadBytesPerSecond >= 0 && sample.UploadBytesPerSecond >= 0,
+                "network speed live counters");
+            monitor.Reset();
         }
 
         private static void PrintWindow(UsageWindow window)
