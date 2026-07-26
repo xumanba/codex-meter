@@ -197,7 +197,7 @@ struct MeterView: View {
     private var loading: some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small)
-            Text(client.lastError ?? "正在连接 CodexBar…")
+            Text(client.lastError ?? "正在连接 Codex…")
                 .font(.system(size: 10.5))
                 .foregroundStyle(secondaryText)
                 .lineLimit(1)

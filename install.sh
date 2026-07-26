@@ -8,13 +8,10 @@ target_app="/Applications/$app_name"
 agent_label="com.local.codexbar-floating-meter"
 agent_path="$HOME/Library/LaunchAgents/$agent_label.plist"
 
-if ! command -v codexbar >/dev/null 2>&1; then
-    echo "CodexBar CLI was not found."
-    echo "Install it first with: brew install --cask codexbar"
-    exit 1
-fi
-
 "$project_dir/build-app.sh"
+/bin/launchctl bootout "gui/$(id -u)/$agent_label" 2>/dev/null || true
+/usr/bin/pkill -f "$target_app/Contents/MacOS/CodexBarFloatingMeter" 2>/dev/null || true
+/usr/bin/pkill -f "$target_app/Contents/Helpers/codexbar serve --port 18747" 2>/dev/null || true
 /usr/bin/ditto "$source_app" "$target_app"
 
 mkdir -p "$HOME/Library/LaunchAgents"
@@ -32,8 +29,6 @@ mkdir -p "$HOME/Library/LaunchAgents"
 } > "$agent_path"
 
 /usr/bin/plutil -lint "$agent_path"
-/bin/launchctl bootout "gui/$(id -u)/$agent_label" 2>/dev/null || true
-/usr/bin/pkill -f "$target_app/Contents/MacOS/CodexBarFloatingMeter" 2>/dev/null || true
 /bin/launchctl bootstrap "gui/$(id -u)" "$agent_path"
 
 echo "Installed and launched: $target_app"
