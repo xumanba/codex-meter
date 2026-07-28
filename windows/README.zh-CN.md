@@ -1,8 +1,8 @@
-# Codex Meter for Windows v1.1.0（开发版）
+# Codex Meter for Windows v0.1.0
 
 这是 `xumanba/codex-meter` 的 Windows 原生改编版。它保留了上游的悬浮玻璃卡片交互，但将 SwiftUI/AppKit 界面替换成不需要额外 NuGet 包的 WinForms 单文件程序。
 
-项目同时支持 Windows 与 macOS；跨平台总览和 macOS 使用方式见仓库根目录的 [`README.md`](../README.md)。Windows v1.0.0 便携包发布在 [GitHub Releases](https://github.com/xumanba/codex-meter/releases/tag/v1.0.0)。
+项目同时支持 Windows 与 macOS；跨平台总览和 macOS 使用方式见仓库根目录的 [`README.md`](../README.md)。两个平台的独立 ZIP 都发布在统一的 [v0.1.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0)。
 
 ## 已实现功能
 
@@ -40,7 +40,7 @@
 windows\dist\CodexMeter.exe
 ```
 
-也可以从 v1.0.0 Release 下载 `CodexMeter-Windows-portable-v1.0.0.zip`，解压后直接运行 `CodexMeter.exe`。
+也可以从 v0.1.0 Release 下载 `Codex-Meter-Windows-portable-v0.1.0.zip`。解压后进入 `Codex Meter Windows v0.1.0` 文件夹，再运行 `CodexMeter.exe`。
 
 这是便携版本，不会写注册表，也不会添加开机启动项。界面设置保存在：
 
@@ -68,7 +68,7 @@ windows\dist\CodexMeter.exe
 
 构建脚本使用 Windows 自带的 .NET Framework C# 编译器，不会下载依赖。输出位于 `windows\dist`。
 
-生成经过测试并带 SHA-256 的 v1.1.0 Release 便携包：
+生成经过测试、带顶层文件夹并附 SHA-256 的 v0.1.0 Release 便携包：
 
 ```powershell
 .\windows\package-release.ps1
