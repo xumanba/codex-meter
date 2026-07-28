@@ -1,19 +1,25 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = "1.0.0"
+    [string]$Version = "0.1.0"
 )
 
 $ErrorActionPreference = "Stop"
 $windowsDirectory = $PSScriptRoot
 $repositoryDirectory = Split-Path -Parent $windowsDirectory
 $distDirectory = Join-Path $windowsDirectory "dist"
-$archiveName = "CodexMeter-Windows-portable-v$Version.zip"
+$archiveName = "Codex-Meter-Windows-portable-v$Version.zip"
 $archivePath = Join-Path $windowsDirectory $archiveName
 $checksumPath = "$archivePath.sha256"
+$packageRootName = "Codex Meter Windows v$Version"
+$stageDirectory = Join-Path $windowsDirectory "release-stage-v$Version"
+$packageDirectory = Join-Path $stageDirectory $packageRootName
 
 if ((Test-Path -LiteralPath $archivePath) -or (Test-Path -LiteralPath $checksumPath)) {
     throw "Release archive or checksum already exists and will not be overwritten: $archivePath"
+}
+if (Test-Path -LiteralPath $stageDirectory) {
+    throw "Release staging directory already exists and will not be overwritten: $stageDirectory"
 }
 
 & (Join-Path $windowsDirectory "build.ps1")
@@ -31,31 +37,44 @@ if ($application.VersionInfo.FileVersion -ne $expectedFileVersion) {
     throw "Executable version $($application.VersionInfo.FileVersion) does not match $expectedFileVersion"
 }
 
-$packageFiles = @(
-    $applicationPath,
-    (Join-Path $distDirectory "CodexMeter.exe.config"),
-    (Join-Path $distDirectory "LICENSE.txt"),
-    (Join-Path $distDirectory "NOTICE.txt"),
-    (Join-Path $distDirectory "CodexBar-LICENSE.txt")
-)
+$packageFiles = @{
+    "CodexMeter.exe" = $applicationPath
+    "CodexMeter.exe.config" = Join-Path $distDirectory "CodexMeter.exe.config"
+    "LICENSE.txt" = Join-Path $distDirectory "LICENSE.txt"
+    "NOTICE.txt" = Join-Path $distDirectory "NOTICE.txt"
+    "CodexBar-LICENSE.txt" = Join-Path $distDirectory "CodexBar-LICENSE.txt"
+    "README-Windows.txt" = Join-Path $windowsDirectory "README-Windows.txt"
+}
 
-Compress-Archive -LiteralPath $packageFiles -DestinationPath $archivePath -CompressionLevel Optimal
+New-Item -ItemType Directory -Path $packageDirectory | Out-Null
+foreach ($entry in $packageFiles.GetEnumerator()) {
+    if (-not (Test-Path -LiteralPath $entry.Value)) {
+        throw "Required package file was not found: $($entry.Value)"
+    }
+    Copy-Item -LiteralPath $entry.Value -Destination (Join-Path $packageDirectory $entry.Key)
+}
+
+Compress-Archive -LiteralPath $packageDirectory -DestinationPath $archivePath -CompressionLevel Optimal
+
+$expectedEntries = @(
+    "$packageRootName/CodexBar-LICENSE.txt",
+    "$packageRootName/CodexMeter.exe",
+    "$packageRootName/CodexMeter.exe.config",
+    "$packageRootName/LICENSE.txt",
+    "$packageRootName/NOTICE.txt",
+    "$packageRootName/README-Windows.txt"
+)
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
 try {
-    $entryNames = @($archive.Entries | ForEach-Object { $_.FullName } | Sort-Object)
+    $entryNames = @($archive.Entries |
+        Where-Object { -not [String]::IsNullOrEmpty($_.Name) } |
+        ForEach-Object { $_.FullName.Replace('\', '/') } |
+        Sort-Object)
 } finally {
     $archive.Dispose()
 }
-
-$expectedEntries = @(
-    "CodexBar-LICENSE.txt",
-    "CodexMeter.exe",
-    "CodexMeter.exe.config",
-    "LICENSE.txt",
-    "NOTICE.txt"
-)
 if (Compare-Object -ReferenceObject $expectedEntries -DifferenceObject $entryNames) {
     throw "Release archive contents do not match the expected portable package."
 }
@@ -67,5 +86,6 @@ Set-Content -LiteralPath $checksumPath -Encoding Ascii -Value "$($archiveHash.Ha
 Write-Host "PACKAGE_OK"
 Write-Host "Archive: $archivePath"
 Write-Host "Checksum: $checksumPath"
+Write-Host "Package root: $packageRootName"
 Write-Host "Archive SHA256: $($archiveHash.Hash)"
 Write-Host "Executable SHA256: $($executableHash.Hash)"

@@ -9,7 +9,7 @@
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org/)
 [![CodexBar](https://img.shields.io/badge/Powered%20by-CodexBar-0A84FF?style=flat-square)](https://github.com/steipete/CodexBar)
 [![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](LICENSE)
-[![Download v1.0.0](https://img.shields.io/badge/Download-v1.0.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v1.0.0)
+[![Download v0.1.0](https://img.shields.io/badge/Download-v0.1.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0)
 
 Visualize your remaining Codex allowance, rate-limit windows, pacing and reset
 time without leaving your workspace.
@@ -17,7 +17,7 @@ time without leaving your workspace.
 </div>
 
 > [!IMPORTANT]
-> **Codex Meter v1.0.0 supports both Windows and macOS.** Windows uses the
+> **Codex Meter v0.1.0 supports both Windows and macOS.** Windows uses the
 > native WinForms client and an installed Win-CodexBar CLI. macOS uses the
 > native SwiftUI/AppKit client and can bundle the verified CodexBar CLI for
 > Apple silicon and Intel Macs. Neither client stores account credentials.
@@ -31,8 +31,8 @@ time without leaving your workspace.
 
 | Platform | Native UI | Release / install | Data provider |
 |---|---|---|---|
-| Windows 10/11 | WinForms + DWM, Per-Monitor V2 DPI | [`CodexMeter-Windows-portable-v1.0.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v1.0.0/CodexMeter-Windows-portable-v1.0.0.zip) | [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar) CLI |
-| macOS 14+ | SwiftUI + AppKit | Release page or `./install.sh` from source | Bundled CodexBar CLI |
+| Windows 10/11 | WinForms + DWM, Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-Windows-portable-v0.1.0.zip) | [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar) CLI |
+| macOS 14+ | SwiftUI + AppKit | [`Codex-Meter-macos-universal-0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-macos-universal-0.1.0.zip) | Bundled CodexBar CLI |
 
 Windows-specific build, install and troubleshooting instructions are available
 in [`windows/README.zh-CN.md`](windows/README.zh-CN.md).
@@ -84,6 +84,8 @@ selection is restored automatically on both systems.
   restore it from the tray menu.
 - **Instant manual sync** — click the status pill or choose the menu action to
   refresh allowance, reset and pacing data immediately.
+- **Live network speed on Windows** — shows aggregate download and upload speed
+  from active network adapters once per second, without inspecting packet data.
 - **Private by design** — never displays or stores account credentials.
 - **Adaptive refresh on Windows** — refreshes less often while hidden and backs
   off after failures; macOS refreshes once per minute.
@@ -114,21 +116,21 @@ required for the packaged macOS application.
 
 ## Download and install
 
-### Windows v1.0.0
+### Windows v0.1.0
 
 1. Install and sign in to Win-CodexBar.
-2. Download `CodexMeter-Windows-portable-v1.0.0.zip` from the
-   [v1.0.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v1.0.0).
-3. Extract the ZIP and run `CodexMeter.exe`.
+2. Download `Codex-Meter-Windows-portable-v0.1.0.zip` from the
+   [v0.1.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0).
+3. Extract the ZIP, open `Codex Meter Windows v0.1.0`, and run `CodexMeter.exe`.
 4. Windows may show an unknown-publisher warning because the community binary
    is not Authenticode-signed. Review the source or build locally if required.
 
 The portable package does not modify the registry or enable startup. Settings
 are stored under `%LOCALAPPDATA%\CodexMeter` and contain no credentials.
 
-### macOS v1.0.0
+### macOS v0.1.0
 
-If the v1.0.0 Release contains `Codex-Meter-macos-universal-1.0.0.zip`, open the
+Download `Codex-Meter-macos-universal-0.1.0.zip` from the v0.1.0 Release, open the
 ZIP and move **Codex Meter.app** to Applications. The package is ad-hoc signed,
 not Apple-notarized: Control-click the app and choose **Open** the first time,
 or approve it under **System Settings → Privacy & Security**.
@@ -304,12 +306,14 @@ by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 - On macOS, the floating interface talks only to its helper on `127.0.0.1`.
 - On Windows, each refresh directly starts the approved local
   `codexbar-cli.exe`; the meter does not expose a listening port.
+- The Windows network-speed display reads only operating-system byte counters;
+  it does not capture packets, inspect destinations or require administrator access.
 - CodexBar reads the existing Codex OAuth session from the user's local Codex
   configuration and requests that account's usage data.
 - Codex Meter does not copy, display or bundle passwords, OAuth tokens, cookies
   or account emails.
 - Screenshots in this repository contain usage percentages only.
-- The v1.0.0 macOS build is ad-hoc signed but not Apple-notarized. The Windows
+- The v0.1.0 macOS build is ad-hoc signed but not Apple-notarized. The Windows
   binary is currently not Authenticode-signed. Both systems may therefore
   require explicit approval on first launch; review the source if required.
 

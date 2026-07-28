@@ -1,0 +1,2 @@
+e37514c0b567b3e5e1cea1dd35f34ee5a4ab204b4949f07f26c701894231d5b2  Codex-Meter-macos-universal-0.1.0.zip
+067c0d3569440b2693e08db7be3b74626b4046c41e83ba7294592363a2d5fae2  Codex-Meter-Windows-portable-v0.1.0.zip

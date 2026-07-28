@@ -33,6 +33,8 @@ namespace CodexMeter
         private readonly WinFormsTimer visibilityTimer = new WinFormsTimer();
         private readonly WinFormsTimer dockTimer = new WinFormsTimer();
         private readonly WinFormsTimer statusTimer = new WinFormsTimer();
+        private readonly WinFormsTimer networkTimer = new WinFormsTimer();
+        private readonly NetworkSpeedMonitor networkSpeedMonitor = new NetworkSpeedMonitor();
         private readonly ContextMenuStrip menu = new ContextMenuStrip();
         private readonly NotifyIcon trayIcon = new NotifyIcon();
 
@@ -64,6 +66,7 @@ namespace CodexMeter
         private int consecutiveFailures;
         private DateTimeOffset? lastSuccessfulRefreshAt;
         private CancellationTokenSource refreshCancellation;
+        private NetworkSpeedSnapshot networkSpeed;
 
         public CodexMeterFormV2()
         {
@@ -221,6 +224,8 @@ namespace CodexMeter
                 if (Visible)
                     Invalidate();
             };
+            networkTimer.Interval = 1000;
+            networkTimer.Tick += delegate { UpdateNetworkSpeed(); };
         }
 
         private void OnShown(object sender, EventArgs eventArgs)
@@ -246,6 +251,8 @@ namespace CodexMeter
             visibilityTimer.Stop();
             dockTimer.Stop();
             statusTimer.Stop();
+            networkTimer.Stop();
+            networkSpeedMonitor.Reset();
             if (refreshCancellation != null)
             {
                 refreshCancellation.Cancel();
@@ -365,6 +372,37 @@ namespace CodexMeter
             {
                 dockTimer.Stop();
             }
+
+            bool shouldSampleNetwork = Visible && !manuallyHidden;
+            if (shouldSampleNetwork && !networkTimer.Enabled)
+            {
+                networkSpeedMonitor.Reset();
+                networkSpeed = networkSpeedMonitor.Sample();
+                networkTimer.Start();
+            }
+            else if (!shouldSampleNetwork && networkTimer.Enabled)
+            {
+                networkTimer.Stop();
+                networkSpeedMonitor.Reset();
+                networkSpeed = new NetworkSpeedSnapshot(0, 0);
+            }
+        }
+
+        private void UpdateNetworkSpeed()
+        {
+            if (!Visible || manuallyHidden)
+                return;
+
+            try
+            {
+                networkSpeed = networkSpeedMonitor.Sample();
+            }
+            catch
+            {
+                networkSpeedMonitor.Reset();
+                networkSpeed = new NetworkSpeedSnapshot(0, 0);
+            }
+            Invalidate(NetworkSpeedBounds);
         }
 
         private void ApplyUiScale(float newScale)
@@ -419,6 +457,8 @@ namespace CodexMeter
         protected override void OnPaint(PaintEventArgs eventArgs)
         {
             base.OnPaint(eventArgs);
+            Rectangle networkBounds = NetworkSpeedBounds;
+            bool networkOnlyPaint = networkBounds.Contains(eventArgs.ClipRectangle);
             Graphics graphics = eventArgs.Graphics;
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
@@ -426,6 +466,11 @@ namespace CodexMeter
             graphics.ScaleTransform(uiScale, uiScale);
 
             DrawGlassCard(graphics);
+            if (networkOnlyPaint)
+            {
+                DrawNetworkSpeed(graphics);
+                return;
+            }
             DrawHeader(graphics);
 
             if (snapshot == null)
@@ -500,10 +545,12 @@ namespace CodexMeter
             using (Brush secondary = new SolidBrush(SecondaryText))
             {
                 DrawText(graphics, "Codex 用量", titleFont, primary,
-                    new RectangleF(59, 9, 145, 24), StringAlignment.Near, StringAlignment.Center);
+                    new RectangleF(59, 9, 108, 24), StringAlignment.Near, StringAlignment.Center);
                 DrawText(graphics, HeaderSubtitle(), subtitleFont, secondary,
-                    new RectangleF(59, 31, 164, 17), StringAlignment.Near, StringAlignment.Center);
+                    new RectangleF(59, 31, 108, 17), StringAlignment.Near, StringAlignment.Center);
             }
+
+            DrawNetworkSpeed(graphics);
 
             RectangleF status = new RectangleF(233, 15, 54, 24);
             syncButtonBounds = new Rectangle(S(status.X), S(status.Y), S(status.Width), S(status.Height));
@@ -529,6 +576,29 @@ namespace CodexMeter
                 graphics.FillEllipse(dots, 305, 27, 2.4f, 2.4f);
                 graphics.FillEllipse(dots, 312, 27, 2.4f, 2.4f);
                 graphics.FillEllipse(dots, 319, 27, 2.4f, 2.4f);
+            }
+        }
+
+        private Rectangle NetworkSpeedBounds
+        {
+            get { return new Rectangle(S(169), S(7), S(63), S(42)); }
+        }
+
+        private void DrawNetworkSpeed(Graphics graphics)
+        {
+            string download = "↓ " + NetworkSpeedMonitor.FormatRate(networkSpeed.DownloadBytesPerSecond);
+            string upload = "↑ " + NetworkSpeedMonitor.FormatRate(networkSpeed.UploadBytesPerSecond);
+            Color downloadColor = IsDark ? Color.FromArgb(92, 205, 255) : Color.FromArgb(0, 126, 214);
+            Color uploadColor = IsDark ? Color.FromArgb(175, 153, 255) : Color.FromArgb(112, 82, 210);
+
+            using (Font speedFont = PixelFont(8f, FontStyle.Bold))
+            using (Brush downloadBrush = new SolidBrush(downloadColor))
+            using (Brush uploadBrush = new SolidBrush(uploadColor))
+            {
+                DrawText(graphics, download, speedFont, downloadBrush,
+                    new RectangleF(169, 8, 63, 19), StringAlignment.Near, StringAlignment.Center);
+                DrawText(graphics, upload, speedFont, uploadBrush,
+                    new RectangleF(169, 27, 63, 19), StringAlignment.Near, StringAlignment.Center);
             }
         }
 

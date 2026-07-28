@@ -6,3 +6,7 @@
 /windows/qa/
 /windows/CodexMeter-Windows-portable-v*.zip
 /windows/CodexMeter-Windows-portable-v*.zip.sha256
+/windows/Codex-Meter-Windows-portable-v*.zip
+/windows/Codex-Meter-Windows-portable-v*.zip.sha256
+/windows/release-stage-v*/
+/release-assets/
