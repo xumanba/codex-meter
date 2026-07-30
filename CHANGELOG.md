@@ -10,6 +10,8 @@
 - Sanitizes provider JSON errors before they reach the interface.
 - Adds package-ready install/uninstall scripts with opt-in per-user startup.
 - Adds Windows build and self-test CI coverage.
+- Avoids misleading Spark reset countdowns when the provider returns a rolling full-window placeholder.
+- Rounds long reset countdowns up, shows minutes below one day, and exposes the exact local reset time on hover.
 
 ## v0.1.0
 

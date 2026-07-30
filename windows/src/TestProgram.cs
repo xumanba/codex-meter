@@ -30,6 +30,7 @@ namespace CodexMeter
                 CheckCamelCasePayload();
                 CheckProLiteWindowMapping();
                 CheckPaceDailyAllowance();
+                CheckResetTimePresentation();
                 CheckErrorSanitization();
                 CheckHardTimeout();
                 CheckCancellation();
@@ -281,7 +282,8 @@ namespace CodexMeter
                     Title = "Spark",
                     UsedPercent = 0,
                     ResetsAt = now.AddDays(6).AddHours(23),
-                    WindowMinutes = 7 * 24 * 60
+                    WindowMinutes = 7 * 24 * 60,
+                    ResetIsRollingPlaceholder = true
                 });
 
                 formType.GetField("snapshot", flags).SetValue(form, preview);
@@ -365,6 +367,41 @@ namespace CodexMeter
                 "pace grants full allowance in final daily block");
         }
 
+        private static void CheckResetTimePresentation()
+        {
+            Expect(CodexMeterFormV2.ResetDuration(TimeSpan.FromDays(5).Add(
+                TimeSpan.FromHours(13)).Add(TimeSpan.FromMinutes(47)).TotalSeconds) == "5d 14h",
+                "multi-day reset rounds up instead of truncating");
+            Expect(CodexMeterFormV2.ResetDuration(TimeSpan.FromHours(13).Add(
+                TimeSpan.FromMinutes(47)).TotalSeconds) == "13h 47m",
+                "sub-day reset includes minutes");
+            Expect(CodexMeterFormV2.ResetDuration(30) == "1m",
+                "near reset does not display zero early");
+
+            DateTimeOffset observedAt = new DateTimeOffset(2026, 7, 31, 1, 2, 3, TimeSpan.Zero);
+            UsageWindow rolling = new UsageWindow
+            {
+                UsedPercent = 0,
+                WindowMinutes = 7 * 24 * 60,
+                ResetsAt = observedAt.AddDays(7)
+            };
+            Expect(UsageSnapshotDecoder.IsRollingResetPlaceholder(rolling, observedAt),
+                "unused full-window reset is detected as rolling placeholder");
+            rolling.UsedPercent = 1;
+            Expect(!UsageSnapshotDecoder.IsRollingResetPlaceholder(rolling, observedAt),
+                "used window keeps its provider reset time");
+
+            string json = "[{\"usage\":{\"primary\":{\"used_percent\":1}," +
+                "\"secondary\":{\"used_percent\":50,\"window_minutes\":10080}," +
+                "\"updated_at\":\"" + observedAt.ToString("O") + "\"," +
+                "\"extra_rate_windows\":[{\"title\":\"Codex Spark Weekly\"," +
+                "\"window\":{\"used_percent\":0,\"window_minutes\":10080,\"resets_at\":\"" +
+                observedAt.AddDays(7).ToString("O") + "\"}}]}}]";
+            UsageSnapshot snapshot = UsageSnapshotDecoder.Decode(json);
+            Expect(snapshot.Extras.Count == 1 && snapshot.Extras[0].ResetIsRollingPlaceholder,
+                "decoder marks rolling Spark reset placeholder");
+        }
+
         private static void CheckNetworkSpeedFormatting()
         {
             Expect(NetworkSpeedMonitor.FormatRate(0) == "0 B/s", "network speed zero formatting");
@@ -392,7 +429,9 @@ namespace CodexMeter
                 return;
             Console.WriteLine(window.Title + ": used=" + window.UsedPercent.ToString("0.##") +
                 "% remaining=" + window.RemainingPercent.ToString("0.##") + "% reset=" +
-                (window.ResetsAt.HasValue ? window.ResetsAt.Value.ToString("O") : "<none>"));
+                (window.ResetIsRollingPlaceholder
+                    ? "<rolling-placeholder>"
+                    : (window.ResetsAt.HasValue ? window.ResetsAt.Value.ToString("O") : "<none>")));
         }
 
         private static void Expect(bool condition, string name)

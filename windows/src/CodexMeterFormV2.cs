@@ -39,6 +39,8 @@ namespace CodexMeter
         private readonly NetworkSpeedMonitor networkSpeedMonitor = new NetworkSpeedMonitor();
         private readonly ContextMenuStrip menu = new ContextMenuStrip();
         private readonly NotifyIcon trayIcon = new NotifyIcon();
+        private readonly ToolTip contextualToolTip = new ToolTip();
+        private readonly List<ResetHoverTarget> resetHoverTargets = new List<ResetHoverTarget>();
         private readonly EventWaitHandle showExistingEvent;
 
         private ToolStripMenuItem fixedItem;
@@ -69,6 +71,7 @@ namespace CodexMeter
         private bool budgetMarkerHovered;
         private float budgetMarkerDesignX;
         private string budgetToolTipText = String.Empty;
+        private string activeResetToolTipText = String.Empty;
         private int designHeight = 122;
         private int scheduledRefreshMilliseconds = NormalRefreshMilliseconds;
         private int consecutiveFailures;
@@ -105,6 +108,8 @@ namespace CodexMeter
 
             BuildMenus();
             ConfigureTimers();
+            contextualToolTip.ShowAlways = true;
+            contextualToolTip.AutoPopDelay = 8000;
             RestorePosition();
             UpdateRoundedRegion();
 
@@ -123,6 +128,8 @@ namespace CodexMeter
                     syncButtonHovered = false;
                     bool wasBudgetHovered = budgetMarkerHovered;
                     budgetMarkerHovered = false;
+                    activeResetToolTipText = String.Empty;
+                    contextualToolTip.Hide(this);
                     Cursor = Cursors.Default;
                     if (wasHovered)
                         Invalidate(syncButtonBounds);
@@ -131,6 +138,7 @@ namespace CodexMeter
                 }
             };
             Resize += delegate { UpdateRoundedRegion(); };
+            Disposed += delegate { contextualToolTip.Dispose(); };
         }
 
         protected override CreateParams CreateParams
@@ -520,6 +528,7 @@ namespace CodexMeter
             DrawHeader(graphics);
             budgetMarkerBounds = Rectangle.Empty;
             budgetToolTipText = String.Empty;
+            resetHoverTargets.Clear();
 
             if (snapshot == null)
             {
@@ -795,6 +804,13 @@ namespace CodexMeter
             RectangleF titleBounds = new RectangleF(20, y + 2, 94, 24);
             RectangleF remainingBounds = new RectangleF(226, y + 2, 98, 24);
             RectangleF resetBounds = new RectangleF(104, y + 3, 122, 22);
+            if (!String.IsNullOrEmpty(reset))
+            {
+                resetHoverTargets.Add(new ResetHoverTarget(
+                    new Rectangle(S(resetBounds.X), S(resetBounds.Y),
+                        S(resetBounds.Width), S(resetBounds.Height)),
+                    ResetToolTipText(window)));
+            }
             using (Font titleFont = PixelFont(SectionTitleFontSize, FontStyle.Bold))
             using (Font resetFont = PixelFont(SupportingTextFontSize, FontStyle.Regular))
             using (Brush primary = new SolidBrush(PrimaryText))
@@ -976,6 +992,20 @@ namespace CodexMeter
                 bool hovered = syncButtonBounds.Contains(eventArgs.Location);
                 bool budgetHovered = budgetMarkerBounds.Contains(eventArgs.Location) &&
                     !String.IsNullOrEmpty(budgetToolTipText);
+                string resetToolTipText = resetHoverTargets
+                    .Where(delegate(ResetHoverTarget target) { return target.Bounds.Contains(eventArgs.Location); })
+                    .Select(delegate(ResetHoverTarget target) { return target.Text; })
+                    .FirstOrDefault() ?? String.Empty;
+                if (!String.Equals(resetToolTipText, activeResetToolTipText, StringComparison.Ordinal))
+                {
+                    contextualToolTip.Hide(this);
+                    activeResetToolTipText = resetToolTipText;
+                    if (!String.IsNullOrEmpty(activeResetToolTipText))
+                    {
+                        contextualToolTip.Show(activeResetToolTipText, this,
+                            eventArgs.X, eventArgs.Y + S(18), 8000);
+                    }
+                }
                 if (budgetHovered != budgetMarkerHovered)
                 {
                     budgetMarkerHovered = budgetHovered;
@@ -986,14 +1016,16 @@ namespace CodexMeter
                     syncButtonHovered = hovered;
                     Cursor = hovered || menuButtonBounds.Contains(eventArgs.Location)
                         ? Cursors.Hand
-                        : (budgetHovered ? Cursors.Help : Cursors.Default);
+                        : (budgetHovered || !String.IsNullOrEmpty(resetToolTipText)
+                            ? Cursors.Help : Cursors.Default);
                     Invalidate(syncButtonBounds);
                 }
                 else
                 {
                     Cursor = hovered || menuButtonBounds.Contains(eventArgs.Location)
                         ? Cursors.Hand
-                        : (budgetHovered ? Cursors.Help : Cursors.Default);
+                        : (budgetHovered || !String.IsNullOrEmpty(resetToolTipText)
+                            ? Cursors.Help : Cursors.Default);
                 }
             }
 
@@ -1495,11 +1527,43 @@ namespace CodexMeter
 
         private static string ResetText(UsageWindow window)
         {
+            if (window.ResetIsRollingPlaceholder)
+                return "尚无固定重置时间";
             if (window.ResetsAt.HasValue)
-                return Duration((window.ResetsAt.Value - DateTimeOffset.Now).TotalSeconds) + " 后重置";
+                return ResetDuration((window.ResetsAt.Value - DateTimeOffset.Now).TotalSeconds) + " 后重置";
             if (!String.IsNullOrWhiteSpace(window.ResetDescription))
                 return window.ResetDescription + " 后重置";
             return String.Empty;
+        }
+
+        private static string ResetToolTipText(UsageWindow window)
+        {
+            if (window.ResetIsRollingPlaceholder)
+                return "上游时间随同步滚动，暂不作为固定重置时间";
+            if (window.ResetsAt.HasValue)
+                return "准确重置：" + window.ResetsAt.Value.ToLocalTime().ToString("M月d日 HH:mm:ss") +
+                    "（本机时间）";
+            return window.ResetDescription ?? String.Empty;
+        }
+
+        internal static string ResetDuration(double seconds)
+        {
+            int totalMinutes = Math.Max(0, Convert.ToInt32(Math.Ceiling(seconds / 60)));
+            if (totalMinutes <= 0)
+                return "0m";
+            if (totalMinutes < 60)
+                return totalMinutes + "m";
+            if (totalMinutes < 24 * 60)
+            {
+                int hours = totalMinutes / 60;
+                int minutes = totalMinutes % 60;
+                return minutes > 0 ? hours + "h " + minutes + "m" : hours + "h";
+            }
+
+            int totalHours = Convert.ToInt32(Math.Ceiling(totalMinutes / 60.0));
+            int days = totalHours / 24;
+            int remainingHours = totalHours % 24;
+            return days + "d " + remainingHours + "h";
         }
 
         private static string Duration(double seconds)
@@ -1554,6 +1618,18 @@ namespace CodexMeter
         private static Font PixelFont(float size, FontStyle style)
         {
             return new Font("Microsoft YaHei UI", size, style, GraphicsUnit.Pixel);
+        }
+
+        private sealed class ResetHoverTarget
+        {
+            public Rectangle Bounds { get; private set; }
+            public string Text { get; private set; }
+
+            public ResetHoverTarget(Rectangle bounds, string text)
+            {
+                Bounds = bounds;
+                Text = text ?? String.Empty;
+            }
         }
 
         private static Font FittedPixelFont(Graphics graphics, string text, RectangleF bounds,

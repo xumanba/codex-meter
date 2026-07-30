@@ -14,6 +14,8 @@ features and installation package are unchanged.
 - The portable ZIP includes optional per-user install and confirm-before-remove uninstall scripts.
 - `-StartWithWindows` is opt-in; the portable executable still creates no startup entry.
 - Windows build and self-tests run in GitHub Actions.
+- Unused Spark windows no longer show a false `6d 23h` countdown when the provider moves the reset timestamp forward on every refresh.
+- Fixed reset countdowns no longer truncate almost a full hour; hover the reset text to see the exact local date and time.
 
 ## Packages
 
