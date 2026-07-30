@@ -76,8 +76,9 @@ selection is restored automatically on both systems.
 - **Remaining allowance** — shows what is left, rather than what has been used.
 - **Pace awareness** — displays over-pace percentage, expected depletion time
   and a red pacing marker.
-- **Honest reset timing on Windows** — avoids rolling Spark placeholders,
-  prevents early hour truncation and exposes the exact local time on hover.
+- **Clear reset timing on Windows** — formats rolling Spark windows as the
+  provider's absolute reset date, prevents early hour truncation and exposes
+  fixed reset times on hover.
 - **Codex Spark support** — automatically shows extra Codex rate windows.
 - **Two native glass themes** — switch between dark and light from the menu.
 - **Position memory** — drag the card anywhere; its fixed position is restored.

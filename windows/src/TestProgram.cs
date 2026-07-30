@@ -283,7 +283,7 @@ namespace CodexMeter
                     UsedPercent = 0,
                     ResetsAt = now.AddDays(6).AddHours(23),
                     WindowMinutes = 7 * 24 * 60,
-                    ResetIsRollingPlaceholder = true
+                    DisplayResetAsDate = true
                 });
 
                 formType.GetField("snapshot", flags).SetValue(form, preview);
@@ -385,10 +385,14 @@ namespace CodexMeter
                 WindowMinutes = 7 * 24 * 60,
                 ResetsAt = observedAt.AddDays(7)
             };
-            Expect(UsageSnapshotDecoder.IsRollingResetPlaceholder(rolling, observedAt),
-                "unused full-window reset is detected as rolling placeholder");
+            Expect(UsageSnapshotDecoder.ShouldDisplayResetAsDate(rolling),
+                "unused extra window uses provider reset date");
+            rolling.DisplayResetAsDate = true;
+            string expectedRollingReset = rolling.ResetsAt.Value.ToLocalTime().ToString("M月d日") + "重置";
+            Expect(CodexMeterFormV2.ResetText(rolling) == expectedRollingReset,
+                "rolling Spark reset uses provider date like official usage page");
             rolling.UsedPercent = 1;
-            Expect(!UsageSnapshotDecoder.IsRollingResetPlaceholder(rolling, observedAt),
+            Expect(!UsageSnapshotDecoder.ShouldDisplayResetAsDate(rolling),
                 "used window keeps its provider reset time");
 
             string json = "[{\"usage\":{\"primary\":{\"used_percent\":1}," +
@@ -398,8 +402,8 @@ namespace CodexMeter
                 "\"window\":{\"used_percent\":0,\"window_minutes\":10080,\"resets_at\":\"" +
                 observedAt.AddDays(7).ToString("O") + "\"}}]}}]";
             UsageSnapshot snapshot = UsageSnapshotDecoder.Decode(json);
-            Expect(snapshot.Extras.Count == 1 && snapshot.Extras[0].ResetIsRollingPlaceholder,
-                "decoder marks rolling Spark reset placeholder");
+            Expect(snapshot.Extras.Count == 1 && snapshot.Extras[0].DisplayResetAsDate,
+                "decoder formats unused Spark reset as provider date");
         }
 
         private static void CheckNetworkSpeedFormatting()
@@ -429,9 +433,9 @@ namespace CodexMeter
                 return;
             Console.WriteLine(window.Title + ": used=" + window.UsedPercent.ToString("0.##") +
                 "% remaining=" + window.RemainingPercent.ToString("0.##") + "% reset=" +
-                (window.ResetIsRollingPlaceholder
-                    ? "<rolling-placeholder>"
-                    : (window.ResetsAt.HasValue ? window.ResetsAt.Value.ToString("O") : "<none>")));
+                (window.ResetsAt.HasValue ? window.ResetsAt.Value.ToString("O") : "<none>") +
+                " display=\"" + CodexMeterFormV2.ResetText(window) + "\"" +
+                (window.DisplayResetAsDate ? " mode=provider-date" : String.Empty));
         }
 
         private static void Expect(bool condition, string name)

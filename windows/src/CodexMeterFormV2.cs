@@ -1525,10 +1525,10 @@ namespace CodexMeter
             }
         }
 
-        private static string ResetText(UsageWindow window)
+        internal static string ResetText(UsageWindow window)
         {
-            if (window.ResetIsRollingPlaceholder)
-                return "尚无固定重置时间";
+            if (window.DisplayResetAsDate && window.ResetsAt.HasValue)
+                return window.ResetsAt.Value.ToLocalTime().ToString("M月d日") + "重置";
             if (window.ResetsAt.HasValue)
                 return ResetDuration((window.ResetsAt.Value - DateTimeOffset.Now).TotalSeconds) + " 后重置";
             if (!String.IsNullOrWhiteSpace(window.ResetDescription))
@@ -1538,8 +1538,9 @@ namespace CodexMeter
 
         private static string ResetToolTipText(UsageWindow window)
         {
-            if (window.ResetIsRollingPlaceholder)
-                return "上游时间随同步滚动，暂不作为固定重置时间";
+            if (window.DisplayResetAsDate && window.ResetsAt.HasValue)
+                return "重置日期：" + window.ResetsAt.Value.ToLocalTime().ToString("M月d日") +
+                    "（以上游当前返回为准）";
             if (window.ResetsAt.HasValue)
                 return "准确重置：" + window.ResetsAt.Value.ToLocalTime().ToString("M月d日 HH:mm:ss") +
                     "（本机时间）";

@@ -14,7 +14,7 @@ namespace CodexMeter
         public DateTimeOffset? ResetsAt { get; set; }
         public int? WindowMinutes { get; set; }
         public string ResetDescription { get; set; }
-        public bool ResetIsRollingPlaceholder { get; set; }
+        public bool DisplayResetAsDate { get; set; }
 
         public double RemainingPercent
         {
@@ -111,8 +111,7 @@ namespace CodexMeter
                 UsageWindow window = DecodeWindow(AsDictionary(Get(extra, "window")), title);
                 if (window != null)
                 {
-                    window.ResetIsRollingPlaceholder = IsRollingResetPlaceholder(
-                        window, snapshot.UpdatedAt ?? DateTimeOffset.Now);
+                    window.DisplayResetAsDate = ShouldDisplayResetAsDate(window);
                     snapshot.Extras.Add(window);
                 }
             }
@@ -250,7 +249,7 @@ namespace CodexMeter
             return window != null && window.WindowMinutes.HasValue && window.WindowMinutes.Value >= 7 * 24 * 60;
         }
 
-        internal static bool IsRollingResetPlaceholder(UsageWindow window, DateTimeOffset observedAt)
+        internal static bool ShouldDisplayResetAsDate(UsageWindow window)
         {
             if (window == null || window.UsedPercent > 0.001 || !window.ResetsAt.HasValue ||
                 !window.WindowMinutes.HasValue || window.WindowMinutes.Value <= 0)
@@ -258,9 +257,7 @@ namespace CodexMeter
                 return false;
             }
 
-            double actualMinutes = (window.ResetsAt.Value - observedAt).TotalMinutes;
-            double expectedMinutes = window.WindowMinutes.Value;
-            return actualMinutes > 0 && Math.Abs(actualMinutes - expectedMinutes) <= 2;
+            return true;
         }
 
         private static double Clamp(double value, double minimum, double maximum)
