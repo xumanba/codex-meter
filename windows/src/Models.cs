@@ -66,7 +66,10 @@ namespace CodexMeter
                     throw new InvalidOperationException("未检测到 Codex 登录，请先在 Codex 中登录后重试。");
                 }
 
-                throw new InvalidOperationException(String.IsNullOrEmpty(message) ? "CodexBar 返回了提供商错误。" : message);
+                string safeMessage = CodexBarClient.SanitizeDetail(message);
+                throw new InvalidOperationException(String.IsNullOrEmpty(safeMessage)
+                    ? "CodexBar 返回了提供商错误。"
+                    : safeMessage);
             }
 
             IDictionary<string, object> usage = AsDictionary(Get(payload, "usage"));

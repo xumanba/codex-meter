@@ -1,4 +1,4 @@
-Codex Meter for Windows v0.1.0
+Codex Meter for Windows v0.1.1
 ================================
 
 中文安装说明
@@ -12,6 +12,12 @@ Codex Meter for Windows v0.1.0
 5. 如果 Windows 显示“未知发布者”，请确认文件来自本项目 Release 后，
    选择“更多信息”→“仍要运行”。
 6. 若窗口被隐藏，请双击系统托盘中的 Codex Meter 图标恢复。
+7. 网速是整台电脑所有活动网卡的总流量，并非 Codex 专属流量。
+
+可选安装（当前用户）：在本目录运行 `powershell -ExecutionPolicy Bypass
+-File .\install.ps1 -Launch`。仅在需要开机启动时再加
+`-StartWithWindows`。卸载前从托盘退出程序，再运行 `uninstall.ps1`；
+卸载脚本会逐项请求确认，并默认保留界面设置。
 
 Windows 独有功能：实时上传/下载网速，以及最小化到系统托盘。
 本程序不抓取网络数据包，不保存账号密码、令牌或 Cookie。
@@ -27,6 +33,12 @@ English installation
 5. The binary is not Authenticode-signed. Windows may display an
    unknown-publisher warning; continue only after verifying the download.
 6. If the card is hidden, double-click its notification-area icon to restore it.
+7. Network speed is aggregate system traffic, not Codex-only traffic.
+
+Optional per-user install: run `powershell -ExecutionPolicy Bypass -File
+.\install.ps1 -Launch`. Add `-StartWithWindows` only to opt in. Exit the app
+from the tray before running `uninstall.ps1`; it asks for confirmation and
+keeps interface settings by default.
 
 Windows-only features: live aggregate upload/download speed and notification-
 area minimize/restore. Codex Meter does not capture packets or store passwords,

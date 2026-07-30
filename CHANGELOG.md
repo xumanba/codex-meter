@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.1 (Windows quality update)
+
+- Preserves the macOS v0.1.0 source, application behavior and package unchanged.
+- Restores an existing hidden or tray instance when the executable is launched again.
+- Adds an independent always-on-top toggle, F5 refresh and Esc tray shortcut.
+- Clarifies that the network tile is aggregate system traffic, not Codex-only traffic.
+- Labels quota depletion output as a cumulative-average estimate and suppresses it while the trend is immature.
+- Sanitizes provider JSON errors before they reach the interface.
+- Adds package-ready install/uninstall scripts with opt-in per-user startup.
+- Adds Windows build and self-test CI coverage.
+
 ## v0.1.0
 
 First unified Windows and macOS release of Codex Meter.

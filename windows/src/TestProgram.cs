@@ -34,7 +34,9 @@ namespace CodexMeter
                 CheckHardTimeout();
                 CheckCancellation();
                 CheckDpiDiscovery();
+                CheckSingleInstanceMessage();
                 CheckProviderError();
+                CheckProviderErrorSanitization();
                 CheckNetworkSpeedFormatting();
                 CheckNetworkSpeedSampling();
                 Console.WriteLine(failures == 0 ? "SELF_TEST_OK" : "SELF_TEST_FAILED=" + failures);
@@ -197,6 +199,12 @@ namespace CodexMeter
             Expect(checkedScreens > 0, "DPI screen enumeration");
         }
 
+        private static void CheckSingleInstanceMessage()
+        {
+            Expect(NativeMethods.ShowExistingInstanceMessage != 0,
+                "single-instance restore message registration");
+        }
+
         private static void CheckProLiteWindowMapping()
         {
             string json = @"[{
@@ -210,6 +218,25 @@ namespace CodexMeter
             UsageSnapshot snapshot = UsageSnapshotDecoder.Decode(json);
             Expect(snapshot.Weekly != null && snapshot.Weekly.UsedPercent == 8, "Pro Lite weekly mapping");
             Expect(snapshot.Session == null, "Pro Lite placeholder suppressed");
+        }
+
+        private static void CheckProviderErrorSanitization()
+        {
+            string json = @"[{ ""error"": { ""message"": ""account user@example.com Bearer private-token sk-providerSecret123"" } }]";
+            try
+            {
+                UsageSnapshotDecoder.Decode(json);
+                Expect(false, "sensitive provider error should throw");
+            }
+            catch (InvalidOperationException ex)
+            {
+                Expect(ex.Message.IndexOf("user@example.com", StringComparison.Ordinal) < 0,
+                    "provider error email sanitization");
+                Expect(ex.Message.IndexOf("private-token", StringComparison.Ordinal) < 0,
+                    "provider error Bearer sanitization");
+                Expect(ex.Message.IndexOf("sk-providerSecret123", StringComparison.Ordinal) < 0,
+                    "provider error API token sanitization");
+            }
         }
 
         private static int RenderPreview(string outputPath, bool showBudgetToolTip)

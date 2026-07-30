@@ -39,12 +39,14 @@ namespace CodexMeter
         private readonly NetworkSpeedMonitor networkSpeedMonitor = new NetworkSpeedMonitor();
         private readonly ContextMenuStrip menu = new ContextMenuStrip();
         private readonly NotifyIcon trayIcon = new NotifyIcon();
+        private readonly EventWaitHandle showExistingEvent;
 
         private ToolStripMenuItem fixedItem;
         private ToolStripMenuItem followItem;
         private ToolStripMenuItem lightItem;
         private ToolStripMenuItem darkItem;
         private ToolStripMenuItem edgeItem;
+        private ToolStripMenuItem topMostItem;
         private ToolStripMenuItem visibilityItem;
         private UsageSnapshot snapshot;
         private string lastError;
@@ -72,10 +74,16 @@ namespace CodexMeter
         private int consecutiveFailures;
         private DateTimeOffset? lastSuccessfulRefreshAt;
         private CancellationTokenSource refreshCancellation;
+        private RegisteredWaitHandle showExistingWait;
         private NetworkSpeedSnapshot networkSpeed;
 
-        public CodexMeterFormV2()
+        public CodexMeterFormV2() : this(null)
         {
+        }
+
+        internal CodexMeterFormV2(EventWaitHandle showExistingEvent)
+        {
+            this.showExistingEvent = showExistingEvent;
             uiScale = Math.Max(1f, Math.Min(3f, NativeMethods.SystemScale()));
             settings = settingsStore.Load();
 
@@ -84,9 +92,13 @@ namespace CodexMeter
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
-            TopMost = true;
+            TopMost = settings.AlwaysOnTop;
             DoubleBuffered = true;
             AutoScaleMode = AutoScaleMode.None;
+            KeyPreview = true;
+            AccessibleName = "Codex 用量";
+            AccessibleRole = AccessibleRole.Window;
+            AccessibleDescription = "Codex 用量悬浮卡片。按 F5 立即同步，按 Esc 最小化到托盘。";
             BackColor = IsDark ? Color.FromArgb(23, 28, 39) : Color.FromArgb(232, 242, 248);
             Opacity = 0.995;
             ClientSize = new Size(S(DesignWidth), S(designHeight));
@@ -102,6 +114,7 @@ namespace CodexMeter
             MouseMove += OnCardMouseMove;
             MouseUp += OnCardMouseUp;
             MouseClick += OnCardMouseClick;
+            KeyDown += OnShortcutKeyDown;
             MouseLeave += delegate
             {
                 if (!isDragging)
@@ -156,6 +169,16 @@ namespace CodexMeter
             followItem = new ToolStripMenuItem("跟随 Codex");
             followItem.Click += delegate { SetMode("follow"); };
 
+            topMostItem = new ToolStripMenuItem("始终置顶");
+            topMostItem.CheckOnClick = true;
+            topMostItem.Checked = settings.AlwaysOnTop;
+            topMostItem.CheckedChanged += delegate
+            {
+                settings.AlwaysOnTop = topMostItem.Checked;
+                TopMost = settings.AlwaysOnTop;
+                SaveSettings();
+            };
+
             ToolStripMenuItem appearance = new ToolStripMenuItem("外观");
             lightItem = new ToolStripMenuItem("浅色玻璃");
             lightItem.Click += delegate { SetTheme("light"); };
@@ -179,6 +202,8 @@ namespace CodexMeter
 
             ToolStripMenuItem refresh = new ToolStripMenuItem("立即同步");
             refresh.Click += delegate { RefreshNow(); };
+            ToolStripMenuItem networkInfo = new ToolStripMenuItem("网速为系统总流量（非 Codex 专属）");
+            networkInfo.Enabled = false;
             ToolStripMenuItem openFolder = new ToolStripMenuItem("打开 CodexBar 目录");
             openFolder.Click += delegate { OpenCodexBarFolder(); };
             ToolStripMenuItem quit = new ToolStripMenuItem("退出");
@@ -192,11 +217,13 @@ namespace CodexMeter
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(fixedItem);
             menu.Items.Add(followItem);
+            menu.Items.Add(topMostItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(appearance);
             menu.Items.Add(edgeItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(refresh);
+            menu.Items.Add(networkInfo);
             menu.Items.Add(openFolder);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(quit);
@@ -241,6 +268,7 @@ namespace CodexMeter
 
         private void OnShown(object sender, EventArgs eventArgs)
         {
+            StartShowExistingWait();
             ApplyUiScale(NativeMethods.WindowScale(Handle));
             NativeMethods.ApplyWindowStyle(Handle, IsDark);
             RestoreDockIfNeeded();
@@ -264,6 +292,11 @@ namespace CodexMeter
             statusTimer.Stop();
             networkTimer.Stop();
             networkSpeedMonitor.Reset();
+            if (showExistingWait != null)
+            {
+                showExistingWait.Unregister(null);
+                showExistingWait = null;
+            }
             if (refreshCancellation != null)
             {
                 refreshCancellation.Cancel();
@@ -328,6 +361,7 @@ namespace CodexMeter
                                 refreshCancellation = null;
                             requestCancellation.Dispose();
                             trayIcon.Text = BuildTrayText();
+                            UpdateAccessibleSummary();
                             ResizeForContent();
                             ScheduleNextRefresh();
                             Invalidate();
@@ -413,6 +447,7 @@ namespace CodexMeter
                 networkSpeedMonitor.Reset();
                 networkSpeed = new NetworkSpeedSnapshot(0, 0);
             }
+            UpdateAccessibleSummary();
             Invalidate(NetworkSpeedBounds);
         }
 
@@ -868,11 +903,11 @@ namespace CodexMeter
                 : "节奏正常";
             string right;
             if (!pace.IsTrendStable)
-                right = "趋势尚不稳定";
+                right = "趋势不足，暂不预测";
             else if (pace.WillLastToReset)
-                right = "预计可用至重置";
+                right = "平均估算可用至重置";
             else if (pace.EtaSeconds.HasValue)
-                right = "预计 " + Duration(pace.EtaSeconds.Value) + " 后耗尽";
+                right = "平均估算 " + Duration(pace.EtaSeconds.Value) + " 后耗尽";
             else
                 right = "暂无消耗趋势";
 
@@ -982,6 +1017,12 @@ namespace CodexMeter
 
         protected override void WndProc(ref Message message)
         {
+            if (message.Msg == NativeMethods.ShowExistingInstanceMessage)
+            {
+                RestoreAndActivate();
+                return;
+            }
+
             base.WndProc(ref message);
             if (message.Msg == 0x02E0) // WM_DPICHANGED
             {
@@ -1196,7 +1237,7 @@ namespace CodexMeter
         {
             manuallyHidden = false;
             Show();
-            TopMost = true;
+            TopMost = settings.AlwaysOnTop;
             BringToFront();
             ConfigureModeTimers();
             ScheduleNextRefresh();
@@ -1239,6 +1280,59 @@ namespace CodexMeter
             SyncMenuChecks();
         }
 
+        private void RestoreAndActivate()
+        {
+            if (IsDisposed)
+                return;
+
+            if (WindowState == FormWindowState.Minimized)
+                WindowState = FormWindowState.Normal;
+            RestoreFromTray();
+            Activate();
+            BringToFront();
+        }
+
+        private void StartShowExistingWait()
+        {
+            if (showExistingEvent == null || showExistingWait != null)
+                return;
+
+            showExistingWait = ThreadPool.RegisterWaitForSingleObject(
+                showExistingEvent,
+                delegate
+                {
+                    if (IsDisposed || Disposing)
+                        return;
+                    try
+                    {
+                        BeginInvoke((MethodInvoker)delegate { RestoreAndActivate(); });
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // The form may be closing while the event is delivered.
+                    }
+                },
+                null,
+                Timeout.Infinite,
+                false);
+        }
+
+        private void OnShortcutKeyDown(object sender, KeyEventArgs eventArgs)
+        {
+            if (eventArgs.KeyCode == Keys.F5)
+            {
+                RefreshNow();
+                eventArgs.Handled = true;
+                eventArgs.SuppressKeyPress = true;
+            }
+            else if (eventArgs.KeyCode == Keys.Escape)
+            {
+                MinimizeToTray();
+                eventArgs.Handled = true;
+                eventArgs.SuppressKeyPress = true;
+            }
+        }
+
         private void SyncMenuChecks()
         {
             visibilityItem.Text = Visible ? "最小化到托盘" : "显示悬浮卡片";
@@ -1247,6 +1341,19 @@ namespace CodexMeter
             lightItem.Checked = !IsDark;
             darkItem.Checked = IsDark;
             edgeItem.Checked = settings.EdgeAutoHide;
+            topMostItem.Checked = settings.AlwaysOnTop;
+        }
+
+        private void UpdateAccessibleSummary()
+        {
+            UsageWindow main = snapshot == null ? null : snapshot.Weekly ?? snapshot.Session;
+            string usage = main == null
+                ? "用量数据尚未载入"
+                : "每周剩余 " + Math.Round(main.RemainingPercent).ToString("0") + "%";
+            AccessibleDescription = usage + "。状态：" + StatusText +
+                "。系统总网速，下载 " + NetworkSpeedMonitor.FormatRate(networkSpeed.DownloadBytesPerSecond) +
+                "，上传 " + NetworkSpeedMonitor.FormatRate(networkSpeed.UploadBytesPerSecond) +
+                "。网速不是 Codex 专属流量。按 F5 立即同步，按 Esc 最小化到托盘。";
         }
 
         private void OpenCodexBarFolder()

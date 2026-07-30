@@ -69,7 +69,7 @@ namespace CodexMeter
                 }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException("无法启动 CodexBar CLI：" + ex.Message, ex);
+                    throw new InvalidOperationException("无法启动 CodexBar CLI：" + SanitizeDetail(ex.Message), ex);
                 }
 
                 // Drain both redirected streams asynchronously before waiting. Reading
@@ -107,7 +107,9 @@ namespace CodexMeter
                 }
                 catch (Exception ex)
                 {
-                    throw new InvalidOperationException("无法解析 CodexBar 用量数据：" + ex.Message, ex);
+                    string detail = SanitizeDetail(ex.Message);
+                    throw new InvalidOperationException("无法解析 CodexBar 用量数据：" +
+                        (String.IsNullOrEmpty(detail) ? "未知错误" : detail), ex);
                 }
             }
         }

@@ -15,6 +15,7 @@ namespace CodexMeter
         public string DockEdge { get; set; }
         public int? DockTop { get; set; }
         public bool EdgeAutoHide { get; set; }
+        public bool AlwaysOnTop { get; set; }
         public string DockScreen { get; set; }
         public int UiVersion { get; set; }
 
@@ -23,6 +24,7 @@ namespace CodexMeter
             Theme = "light";
             Mode = "fixed";
             EdgeAutoHide = true;
+            AlwaysOnTop = true;
             UiVersion = 0;
         }
     }
@@ -100,6 +102,7 @@ namespace CodexMeter
                 lines.Add("theme=" + (settings.Theme ?? "dark"));
                 lines.Add("mode=" + (settings.Mode ?? "fixed"));
                 lines.Add("edge_auto_hide=" + (settings.EdgeAutoHide ? "true" : "false"));
+                lines.Add("always_on_top=" + (settings.AlwaysOnTop ? "true" : "false"));
                 lines.Add("ui_version=" + settings.UiVersion.ToString(CultureInfo.InvariantCulture));
                 if (!String.IsNullOrEmpty(settings.DockEdge))
                     lines.Add("dock_edge=" + settings.DockEdge);
@@ -107,7 +110,20 @@ namespace CodexMeter
                     lines.Add("dock_screen=" + settings.DockScreen);
                 Add(lines, "dock_top", settings.DockTop);
 
-                File.WriteAllLines(settingsPath, lines.ToArray(), new UTF8Encoding(false));
+                string temporaryPath = settingsPath + ".tmp";
+                try
+                {
+                    File.WriteAllLines(temporaryPath, lines.ToArray(), new UTF8Encoding(false));
+                    if (File.Exists(settingsPath))
+                        File.Replace(temporaryPath, settingsPath, null);
+                    else
+                        File.Move(temporaryPath, settingsPath);
+                }
+                finally
+                {
+                    if (File.Exists(temporaryPath))
+                        File.Delete(temporaryPath);
+                }
             }
         }
 
@@ -128,6 +144,8 @@ namespace CodexMeter
                 settings.DockEdge = value == "left" || value == "right" ? value : null;
             else if (String.Equals(key, "edge_auto_hide", StringComparison.OrdinalIgnoreCase))
                 settings.EdgeAutoHide = !String.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
+            else if (String.Equals(key, "always_on_top", StringComparison.OrdinalIgnoreCase))
+                settings.AlwaysOnTop = !String.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
             else if (String.Equals(key, "dock_screen", StringComparison.OrdinalIgnoreCase))
                 settings.DockScreen = value;
             else if (String.Equals(key, "ui_version", StringComparison.OrdinalIgnoreCase) && TryInt(value, out parsed))
