@@ -141,6 +141,20 @@ namespace CodexMeter
 
         public static Icon CreateAppIcon()
         {
+            try
+            {
+                string executablePath = Process.GetCurrentProcess().MainModule.FileName;
+                using (Icon executableIcon = Icon.ExtractAssociatedIcon(executablePath))
+                {
+                    if (executableIcon != null)
+                        return (Icon)executableIcon.Clone();
+                }
+            }
+            catch
+            {
+                // Keep the generated fallback below for unusual host environments.
+            }
+
             using (Bitmap bitmap = new Bitmap(32, 32))
             using (Graphics graphics = Graphics.FromImage(bitmap))
             {

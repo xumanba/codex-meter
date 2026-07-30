@@ -27,6 +27,7 @@ namespace CodexMeter
         public double ExpectedUsedPercent { get; set; }
         public double? EtaSeconds { get; set; }
         public bool WillLastToReset { get; set; }
+        public bool IsTrendStable { get; set; }
     }
 
     internal sealed class UsageSnapshot
@@ -249,6 +250,9 @@ namespace CodexMeter
 
     internal static class PaceCalculator
     {
+        private static readonly double DailyAllowanceSeconds = TimeSpan.FromDays(1).TotalSeconds;
+        private static readonly double StableTrendSeconds = TimeSpan.FromHours(6).TotalSeconds;
+
         public static PaceInfo Calculate(UsageWindow window, DateTimeOffset now)
         {
             if (window == null || !window.ResetsAt.HasValue || !window.WindowMinutes.HasValue || window.WindowMinutes.Value <= 0)
@@ -257,7 +261,15 @@ namespace CodexMeter
             double totalSeconds = TimeSpan.FromMinutes(window.WindowMinutes.Value).TotalSeconds;
             double secondsToReset = Math.Max(0, (window.ResetsAt.Value - now).TotalSeconds);
             double elapsedSeconds = Math.Max(0, Math.Min(totalSeconds, totalSeconds - secondsToReset));
-            double expectedUsed = Math.Max(0, Math.Min(100, elapsedSeconds / totalSeconds * 100));
+
+            // The warning marker represents the allowance available during the
+            // current 24-hour block, measured from the actual quota reset time.
+            // This gives a fresh seven-day window one seventh of its budget
+            // immediately, then advances the marker once per completed day.
+            double allowanceBlockSeconds = Math.Min(DailyAllowanceSeconds, totalSeconds);
+            double availableBlocks = Math.Floor(elapsedSeconds / allowanceBlockSeconds) + 1;
+            double allowedSeconds = Math.Min(totalSeconds, availableBlocks * allowanceBlockSeconds);
+            double expectedUsed = Math.Max(0, Math.Min(100, allowedSeconds / totalSeconds * 100));
 
             double? eta = null;
             bool willLast = true;
@@ -273,6 +285,7 @@ namespace CodexMeter
             pace.ExpectedUsedPercent = expectedUsed;
             pace.EtaSeconds = eta;
             pace.WillLastToReset = willLast;
+            pace.IsTrendStable = elapsedSeconds >= Math.Min(StableTrendSeconds, totalSeconds);
             return pace;
         }
     }

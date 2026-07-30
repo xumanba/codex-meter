@@ -14,12 +14,14 @@ namespace CodexMeter
 {
     internal sealed class CodexMeterFormV2 : Form
     {
-        private const int DesignWidth = 334;
-        private const int HeaderHeight = 55;
-        private const int MeterHeight = 47;
-        private const int PaceHeight = 27;
-        private const int BottomPadding = 11;
+        private const int DesignWidth = 344;
+        private const int HeaderHeight = 58;
+        private const int MeterHeight = 50;
+        private const int PaceHeight = 30;
+        private const int BottomPadding = 10;
         private const int DockStrip = 7;
+        private const float SectionTitleFontSize = 14f;
+        private const float SupportingTextFontSize = 12.5f;
         private const int ActiveRefreshMilliseconds = 30000;
         private const int NormalRefreshMilliseconds = 60000;
         private const int HiddenRefreshMilliseconds = 120000;
@@ -60,8 +62,12 @@ namespace CodexMeter
         private Screen activeDockScreen;
         private Rectangle menuButtonBounds;
         private Rectangle syncButtonBounds;
+        private Rectangle budgetMarkerBounds;
         private bool syncButtonHovered;
-        private int designHeight = 118;
+        private bool budgetMarkerHovered;
+        private float budgetMarkerDesignX;
+        private string budgetToolTipText = String.Empty;
+        private int designHeight = 122;
         private int scheduledRefreshMilliseconds = NormalRefreshMilliseconds;
         private int consecutiveFailures;
         private DateTimeOffset? lastSuccessfulRefreshAt;
@@ -74,14 +80,15 @@ namespace CodexMeter
             settings = settingsStore.Load();
 
             Text = "Codex Meter";
+            Icon = NativeMethods.CreateAppIcon();
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
             TopMost = true;
             DoubleBuffered = true;
             AutoScaleMode = AutoScaleMode.None;
-            BackColor = IsDark ? Color.FromArgb(23, 28, 39) : Color.FromArgb(226, 233, 234);
-            Opacity = 0.985;
+            BackColor = IsDark ? Color.FromArgb(23, 28, 39) : Color.FromArgb(232, 242, 248);
+            Opacity = 0.995;
             ClientSize = new Size(S(DesignWidth), S(designHeight));
 
             BuildMenus();
@@ -101,9 +108,13 @@ namespace CodexMeter
                 {
                     bool wasHovered = syncButtonHovered;
                     syncButtonHovered = false;
+                    bool wasBudgetHovered = budgetMarkerHovered;
+                    budgetMarkerHovered = false;
                     Cursor = Cursors.Default;
                     if (wasHovered)
                         Invalidate(syncButtonBounds);
+                    if (wasBudgetHovered)
+                        Invalidate();
                 }
             };
             Resize += delegate { UpdateRoundedRegion(); };
@@ -431,7 +442,7 @@ namespace CodexMeter
             int target;
             if (snapshot == null)
             {
-                target = 118;
+                target = 122;
             }
             else
             {
@@ -472,6 +483,8 @@ namespace CodexMeter
                 return;
             }
             DrawHeader(graphics);
+            budgetMarkerBounds = Rectangle.Empty;
+            budgetToolTipText = String.Empty;
 
             if (snapshot == null)
             {
@@ -495,120 +508,227 @@ namespace CodexMeter
                 DrawMeter(graphics, extra, y, false, null);
                 y += MeterHeight;
             }
+
+            if (budgetMarkerHovered && !String.IsNullOrEmpty(budgetToolTipText))
+                DrawBudgetToolTip(graphics);
         }
 
         private void DrawGlassCard(Graphics graphics)
         {
             RectangleF bounds = new RectangleF(0.5f, 0.5f, DesignWidth - 1f, designHeight - 1f);
-            using (GraphicsPath path = RoundedRectangle(bounds, 23f))
+            using (GraphicsPath path = RoundedRectangle(bounds, 22f))
             using (LinearGradientBrush baseBrush = new LinearGradientBrush(
                 bounds,
-                IsDark ? Color.FromArgb(248, 25, 31, 43) : Color.FromArgb(250, 241, 246, 246),
-                IsDark ? Color.FromArgb(248, 38, 45, 59) : Color.FromArgb(248, 215, 224, 226),
-                22f))
+                IsDark ? Color.FromArgb(250, 22, 29, 43) : Color.FromArgb(255, 250, 253, 255),
+                IsDark ? Color.FromArgb(250, 35, 43, 61) : Color.FromArgb(255, 225, 239, 248),
+                28f))
             {
                 graphics.FillPath(baseBrush, path);
 
+                GraphicsState state = graphics.Save();
+                graphics.SetClip(path);
+                DrawAmbientGlow(graphics, new RectangleF(-74, -78, 245, 176),
+                    IsDark ? Color.FromArgb(54, 21, 176, 255) : Color.FromArgb(74, 46, 198, 255));
+                DrawAmbientGlow(graphics, new RectangleF(210, designHeight - 118, 208, 168),
+                    IsDark ? Color.FromArgb(40, 126, 84, 255) : Color.FromArgb(48, 111, 84, 255));
+                DrawTechGrid(graphics);
+
                 using (LinearGradientBrush highlight = new LinearGradientBrush(
-                    new RectangleF(0, 0, DesignWidth, designHeight),
-                    IsDark ? Color.FromArgb(18, 255, 255, 255) : Color.FromArgb(150, 255, 255, 255),
+                    new RectangleF(0, 0, DesignWidth, Math.Max(80, designHeight * 0.72f)),
+                    IsDark ? Color.FromArgb(25, 255, 255, 255) : Color.FromArgb(188, 255, 255, 255),
                     Color.FromArgb(0, 255, 255, 255), 90f))
                 {
                     graphics.FillPath(highlight, path);
                 }
+                graphics.Restore(state);
 
                 using (Pen border = new Pen(
-                    IsDark ? Color.FromArgb(74, 255, 255, 255) : Color.FromArgb(235, 255, 255, 255), 0.8f))
+                    IsDark ? Color.FromArgb(88, 150, 214, 255) : Color.FromArgb(220, 255, 255, 255), 1f))
                 {
                     graphics.DrawPath(border, path);
                 }
+
+                using (Pen innerBorder = new Pen(
+                    IsDark ? Color.FromArgb(30, 104, 186, 255) : Color.FromArgb(58, 96, 178, 222), 0.7f))
+                using (GraphicsPath innerPath = RoundedRectangle(
+                    new RectangleF(2.5f, 2.5f, DesignWidth - 5f, designHeight - 5f), 20f))
+                    graphics.DrawPath(innerBorder, innerPath);
+
+                using (LinearGradientBrush accent = new LinearGradientBrush(
+                    new RectangleF(20, 1, DesignWidth - 40, 2),
+                    Color.FromArgb(0, 24, 193, 255), Color.FromArgb(190, 103, 82, 255), 0f))
+                    graphics.FillRectangle(accent, 20, 1, DesignWidth - 40, 1.4f);
+            }
+        }
+
+        private void DrawAmbientGlow(Graphics graphics, RectangleF bounds, Color centerColor)
+        {
+            using (GraphicsPath ellipse = new GraphicsPath())
+            {
+                ellipse.AddEllipse(bounds);
+                using (PathGradientBrush glow = new PathGradientBrush(ellipse))
+                {
+                    glow.CenterColor = centerColor;
+                    glow.SurroundColors = new Color[] { Color.FromArgb(0, centerColor) };
+                    graphics.FillPath(glow, ellipse);
+                }
+            }
+        }
+
+        private void DrawTechGrid(Graphics graphics)
+        {
+            Color gridColor = IsDark ? Color.FromArgb(12, 107, 204, 255) : Color.FromArgb(11, 19, 112, 170);
+            using (Pen grid = new Pen(gridColor, 0.5f))
+            {
+                for (int x = 20; x < DesignWidth; x += 28)
+                    graphics.DrawLine(grid, x, HeaderHeight, x, designHeight - 12);
+                for (int y = HeaderHeight + 16; y < designHeight; y += 24)
+                    graphics.DrawLine(grid, 12, y, DesignWidth - 12, y);
             }
         }
 
         private void DrawHeader(Graphics graphics)
         {
-            RectangleF icon = new RectangleF(18, 13, 31, 31);
-            using (GraphicsPath iconPath = new GraphicsPath())
-            using (LinearGradientBrush iconBrush = new LinearGradientBrush(
-                icon, Color.FromArgb(53, 195, 255), Color.FromArgb(0, 112, 255), 55f))
-            {
-                iconPath.AddEllipse(icon);
-                graphics.FillPath(iconBrush, iconPath);
-            }
-            DrawSparkle(graphics, 33.5f, 28.5f, 5.3f);
-            DrawSparkle(graphics, 40.5f, 20f, 2.3f);
-            DrawSparkle(graphics, 27.5f, 21.5f, 1.7f);
+            RectangleF iconGlow = new RectangleF(10, 5, 50, 50);
+            DrawAmbientGlow(graphics, iconGlow,
+                IsDark ? Color.FromArgb(72, 31, 185, 255) : Color.FromArgb(62, 0, 157, 255));
 
-            using (Font titleFont = PixelFont(16f, FontStyle.Bold))
-            using (Font subtitleFont = PixelFont(10f, FontStyle.Bold))
+            RectangleF icon = new RectangleF(17, 11, 36, 36);
+            using (GraphicsPath iconPath = RoundedRectangle(icon, 11f))
+            using (LinearGradientBrush iconBrush = new LinearGradientBrush(
+                icon, Color.FromArgb(38, 211, 239), Color.FromArgb(77, 91, 255), 55f))
+            {
+                graphics.FillPath(iconBrush, iconPath);
+                using (Pen iconBorder = new Pen(Color.FromArgb(118, 255, 255, 255), 0.8f))
+                    graphics.DrawPath(iconBorder, iconPath);
+            }
+            DrawSparkle(graphics, 34.5f, 29f, 5.7f);
+            DrawSparkle(graphics, 43f, 19.5f, 2.2f);
+            DrawSparkle(graphics, 25.8f, 20.7f, 1.6f);
+
+            RectangleF titleBounds = new RectangleF(62, 8, 106, 25);
+            RectangleF subtitleBounds = new RectangleF(62, 32, 108, 16);
+            string subtitle = HeaderSubtitle();
+            using (Font titleFont = FittedPixelFont(graphics, "Codex 用量", titleBounds, 18f, 15.5f, FontStyle.Bold))
+            using (Font subtitleFont = PixelFont(SupportingTextFontSize, FontStyle.Regular))
             using (Brush primary = new SolidBrush(PrimaryText))
             using (Brush secondary = new SolidBrush(SecondaryText))
             {
-                DrawText(graphics, "Codex 用量", titleFont, primary,
-                    new RectangleF(59, 9, 108, 24), StringAlignment.Near, StringAlignment.Center);
-                DrawText(graphics, HeaderSubtitle(), subtitleFont, secondary,
-                    new RectangleF(59, 31, 108, 17), StringAlignment.Near, StringAlignment.Center);
+                DrawText(graphics, "Codex 用量", titleFont, primary, titleBounds,
+                    StringAlignment.Near, StringAlignment.Center);
+                DrawText(graphics, subtitle, subtitleFont, secondary, subtitleBounds,
+                    StringAlignment.Near, StringAlignment.Center);
             }
 
+            RectangleF networkTile = new RectangleF(171, 8, 73, 41);
+            using (GraphicsPath tile = RoundedRectangle(networkTile, 10f))
+            using (Brush tileBrush = new SolidBrush(IsDark
+                ? Color.FromArgb(28, 255, 255, 255)
+                : Color.FromArgb(126, 255, 255, 255)))
+            using (Pen tileBorder = new Pen(IsDark
+                ? Color.FromArgb(36, 98, 190, 255)
+                : Color.FromArgb(50, 69, 151, 205), 0.7f))
+            {
+                graphics.FillPath(tileBrush, tile);
+                graphics.DrawPath(tileBorder, tile);
+            }
             DrawNetworkSpeed(graphics);
 
-            RectangleF status = new RectangleF(233, 15, 54, 24);
+            RectangleF status = new RectangleF(249, 15, 58, 26);
             syncButtonBounds = new Rectangle(S(status.X), S(status.Y), S(status.Width), S(status.Height));
-            using (GraphicsPath pill = RoundedRectangle(status, 12f))
+            using (GraphicsPath pill = RoundedRectangle(status, 13f))
             using (Brush pillBrush = new SolidBrush(syncButtonHovered
-                ? (IsDark ? Color.FromArgb(48, 80, 174, 255) : Color.FromArgb(35, 0, 122, 255))
-                : (IsDark ? Color.FromArgb(25, 255, 255, 255) : Color.FromArgb(19, 50, 61, 65))))
+                ? (IsDark ? Color.FromArgb(55, 58, 180, 255) : Color.FromArgb(44, 0, 147, 255))
+                : (IsDark ? Color.FromArgb(31, 255, 255, 255) : Color.FromArgb(137, 255, 255, 255))))
+            using (Pen pillBorder = new Pen(IsDark
+                ? Color.FromArgb(48, 85, 196, 255)
+                : Color.FromArgb(58, 40, 152, 211), 0.7f))
             {
                 graphics.FillPath(pillBrush, pill);
+                graphics.DrawPath(pillBorder, pill);
             }
 
             Color dotColor = StatusDotColor;
+            using (Brush dotGlow = new SolidBrush(Color.FromArgb(45, dotColor)))
+                graphics.FillEllipse(dotGlow, 254, 20, 12, 12);
             using (Brush dot = new SolidBrush(dotColor))
-                graphics.FillEllipse(dot, 241, 23, 6, 6);
-            using (Font statusFont = PixelFont(9.5f, FontStyle.Bold))
+                graphics.FillEllipse(dot, 257, 23, 6, 6);
+            RectangleF statusTextBounds = new RectangleF(265, 17, 38, 21);
+            using (Font statusFont = FittedPixelFont(
+                graphics, StatusText, statusTextBounds, SectionTitleFontSize,
+                SupportingTextFontSize, FontStyle.Bold))
             using (Brush secondary = new SolidBrush(SecondaryText))
-                DrawText(graphics, StatusText, statusFont, secondary,
-                    new RectangleF(250, 16, 33, 21), StringAlignment.Center, StringAlignment.Center);
+                DrawText(graphics, StatusText, statusFont, secondary, statusTextBounds,
+                    StringAlignment.Center, StringAlignment.Center);
 
-            menuButtonBounds = new Rectangle(S(302), S(14), S(22), S(27));
+            RectangleF menuSurface = new RectangleF(313, 15, 24, 26);
+            menuButtonBounds = new Rectangle(S(menuSurface.X), S(menuSurface.Y), S(menuSurface.Width), S(menuSurface.Height));
+            using (GraphicsPath menuPath = RoundedRectangle(menuSurface, 9f))
+            using (Brush menuBrush = new SolidBrush(IsDark
+                ? Color.FromArgb(24, 255, 255, 255)
+                : Color.FromArgb(94, 255, 255, 255)))
+                graphics.FillPath(menuBrush, menuPath);
             using (Brush dots = new SolidBrush(PrimaryText))
             {
-                graphics.FillEllipse(dots, 305, 27, 2.4f, 2.4f);
-                graphics.FillEllipse(dots, 312, 27, 2.4f, 2.4f);
-                graphics.FillEllipse(dots, 319, 27, 2.4f, 2.4f);
+                graphics.FillEllipse(dots, 318, 27, 2.2f, 2.2f);
+                graphics.FillEllipse(dots, 324, 27, 2.2f, 2.2f);
+                graphics.FillEllipse(dots, 330, 27, 2.2f, 2.2f);
             }
+
+            using (Pen divider = new Pen(IsDark
+                ? Color.FromArgb(28, 108, 184, 240)
+                : Color.FromArgb(32, 51, 119, 162), 0.6f))
+                graphics.DrawLine(divider, 18, HeaderHeight - 1, DesignWidth - 18, HeaderHeight - 1);
         }
 
         private Rectangle NetworkSpeedBounds
         {
-            get { return new Rectangle(S(169), S(7), S(63), S(42)); }
+            get { return new Rectangle(S(171), S(8), S(73), S(41)); }
         }
 
         private void DrawNetworkSpeed(Graphics graphics)
         {
             string download = "↓ " + NetworkSpeedMonitor.FormatRate(networkSpeed.DownloadBytesPerSecond);
             string upload = "↑ " + NetworkSpeedMonitor.FormatRate(networkSpeed.UploadBytesPerSecond);
-            Color downloadColor = IsDark ? Color.FromArgb(92, 205, 255) : Color.FromArgb(0, 126, 214);
-            Color uploadColor = IsDark ? Color.FromArgb(175, 153, 255) : Color.FromArgb(112, 82, 210);
+            Color downloadColor = IsDark ? Color.FromArgb(92, 211, 255) : Color.FromArgb(0, 125, 204);
+            Color uploadColor = IsDark ? Color.FromArgb(179, 157, 255) : Color.FromArgb(102, 74, 207);
 
-            using (Font speedFont = PixelFont(8f, FontStyle.Bold))
+            RectangleF downloadBounds = new RectangleF(177, 9, 64, 18);
+            RectangleF uploadBounds = new RectangleF(177, 29, 64, 18);
+            float speedSize = Math.Min(
+                FittedPixelFontSize(graphics, download, downloadBounds, 11f, 7.8f, FontStyle.Bold),
+                FittedPixelFontSize(graphics, upload, uploadBounds, 11f, 7.8f, FontStyle.Bold));
+            using (Font speedFont = PixelFont(speedSize, FontStyle.Bold))
             using (Brush downloadBrush = new SolidBrush(downloadColor))
             using (Brush uploadBrush = new SolidBrush(uploadColor))
             {
-                DrawText(graphics, download, speedFont, downloadBrush,
-                    new RectangleF(169, 8, 63, 19), StringAlignment.Near, StringAlignment.Center);
-                DrawText(graphics, upload, speedFont, uploadBrush,
-                    new RectangleF(169, 27, 63, 19), StringAlignment.Near, StringAlignment.Center);
+                DrawText(graphics, download, speedFont, downloadBrush, downloadBounds,
+                    StringAlignment.Near, StringAlignment.Center);
+                DrawText(graphics, upload, speedFont, uploadBrush, uploadBounds,
+                    StringAlignment.Near, StringAlignment.Center);
             }
         }
 
         private void DrawEmptyState(Graphics graphics)
         {
             string message = String.IsNullOrWhiteSpace(lastError) ? "正在连接 CodexBar…" : lastError;
-            using (Font font = PixelFont(10f, FontStyle.Regular))
+            RectangleF surface = new RectangleF(14, 66, DesignWidth - 28, 40);
+            using (GraphicsPath path = RoundedRectangle(surface, 12f))
+            using (Brush fill = new SolidBrush(IsDark
+                ? Color.FromArgb(24, 255, 255, 255)
+                : Color.FromArgb(132, 255, 255, 255)))
+            using (Pen border = new Pen(IsDark
+                ? Color.FromArgb(34, 91, 178, 236)
+                : Color.FromArgb(42, 61, 143, 199), 0.7f))
+            {
+                graphics.FillPath(fill, path);
+                graphics.DrawPath(border, path);
+            }
+            RectangleF messageBounds = new RectangleF(27, 66, DesignWidth - 54, 40);
+            using (Font font = FittedPixelFont(graphics, message, messageBounds, 13f, 10f, FontStyle.Regular))
             using (Brush brush = new SolidBrush(String.IsNullOrWhiteSpace(lastError) ? SecondaryText : Color.FromArgb(218, 112, 0)))
-                DrawText(graphics, message, font, brush, new RectangleF(18, 60, 298, 42),
-                    StringAlignment.Near, StringAlignment.Near);
+                DrawText(graphics, message, font, brush, messageBounds,
+                    StringAlignment.Near, StringAlignment.Center);
         }
 
         private void DrawMeter(Graphics graphics, UsageWindow window, int y, bool prominent, PaceInfo pace)
@@ -616,30 +736,51 @@ namespace CodexMeter
             if (window == null)
                 return;
 
-            string title = prominent ? "每周额度" : window.Title;
+            string title = prominent
+                ? "每周额度"
+                : (String.Equals(window.Title, "Spark", StringComparison.OrdinalIgnoreCase)
+                    ? "Spark额度"
+                    : window.Title);
             string reset = ResetText(window);
             string remaining = "剩余 " + Math.Round(window.RemainingPercent).ToString("0") + "%";
 
-            using (Font titleFont = PixelFont(prominent ? 12f : 11f, FontStyle.Bold))
-            using (Font resetFont = PixelFont(9f, FontStyle.Regular))
-            using (Font percentFont = PixelFont(prominent ? 16f : 12f, FontStyle.Bold))
+            RectangleF panel = new RectangleF(10, y + 1, DesignWidth - 20, MeterHeight - 3);
+            using (GraphicsPath panelPath = RoundedRectangle(panel, 14f))
+            using (Brush panelBrush = new SolidBrush(IsDark
+                ? Color.FromArgb(prominent ? 31 : 21, 255, 255, 255)
+                : Color.FromArgb(prominent ? 164 : 105, 255, 255, 255)))
+            using (Pen panelBorder = new Pen(IsDark
+                ? Color.FromArgb(prominent ? 44 : 28, 91, 178, 236)
+                : Color.FromArgb(prominent ? 48 : 30, 59, 136, 191), 0.7f))
+            {
+                graphics.FillPath(panelBrush, panelPath);
+                graphics.DrawPath(panelBorder, panelPath);
+            }
+
+            RectangleF titleBounds = new RectangleF(20, y + 2, 94, 24);
+            RectangleF remainingBounds = new RectangleF(226, y + 2, 98, 24);
+            RectangleF resetBounds = new RectangleF(104, y + 3, 122, 22);
+            using (Font titleFont = PixelFont(SectionTitleFontSize, FontStyle.Bold))
+            using (Font resetFont = PixelFont(SupportingTextFontSize, FontStyle.Regular))
             using (Brush primary = new SolidBrush(PrimaryText))
             using (Brush secondary = new SolidBrush(prominent ? TertiaryText : SecondaryText))
             {
-                DrawText(graphics, title, titleFont, prominent ? primary : secondary,
-                    new RectangleF(18, y + 1, 102, 24), StringAlignment.Near, StringAlignment.Center);
-                DrawText(graphics, remaining, percentFont, primary,
-                    new RectangleF(229, y - 1, 88, 28), StringAlignment.Far, StringAlignment.Center);
+                DrawText(graphics, title, titleFont, prominent ? primary : secondary, titleBounds,
+                    StringAlignment.Near, StringAlignment.Center);
+                DrawText(graphics, remaining, titleFont, primary, remainingBounds,
+                    StringAlignment.Far, StringAlignment.Center);
                 if (!String.IsNullOrEmpty(reset))
                 {
-                    DrawText(graphics, reset, resetFont, secondary,
-                        new RectangleF(102, y + 2, 124, 22), StringAlignment.Far, StringAlignment.Center);
+                    DrawText(graphics, reset, resetFont, secondary, resetBounds,
+                        StringAlignment.Far, StringAlignment.Center);
                 }
             }
 
-            RectangleF track = new RectangleF(18, y + 31, 298, prominent ? 9f : 7f);
+            RectangleF track = new RectangleF(20, y + 34, DesignWidth - 40, prominent ? 9f : 7f);
             using (GraphicsPath path = RoundedRectangle(track, track.Height / 2f))
-            using (Brush trackBrush = new SolidBrush(IsDark ? Color.FromArgb(31, 255, 255, 255) : Color.FromArgb(22, 31, 42, 48)))
+            using (Brush trackBrush = new SolidBrush(IsDark
+                ? Color.FromArgb(38, 255, 255, 255)
+                : Color.FromArgb(28, 29, 74, 105)))
                 graphics.FillPath(trackBrush, path);
 
             float fillWidth = Math.Max(4f, (float)(track.Width * window.RemainingPercent / 100.0));
@@ -648,17 +789,76 @@ namespace CodexMeter
             Color start;
             Color end;
             BarColors(window.RemainingPercent, prominent, out start, out end);
+            RectangleF glowBounds = new RectangleF(fill.X - 1, fill.Y - 1.5f, fill.Width + 2, fill.Height + 3);
+            using (GraphicsPath glowPath = RoundedRectangle(glowBounds, glowBounds.Height / 2f))
+            using (Brush glowBrush = new SolidBrush(Color.FromArgb(IsDark ? 34 : 26, end)))
+                graphics.FillPath(glowBrush, glowPath);
             using (GraphicsPath fillPath = RoundedRectangle(fill, fill.Height / 2f))
             using (LinearGradientBrush fillBrush = new LinearGradientBrush(fill, start, end, 0f))
                 graphics.FillPath(fillBrush, fillPath);
+            using (Pen highlight = new Pen(Color.FromArgb(92, 255, 255, 255), 0.7f))
+                graphics.DrawLine(highlight, track.X + 4, track.Y + 1, track.X + Math.Max(4, fillWidth - 4), track.Y + 1);
 
-            if (pace != null)
+            if (prominent && pace != null)
             {
                 double expectedRemaining = Math.Max(0, Math.Min(100, 100 - pace.ExpectedUsedPercent));
                 float markerX = track.X + (float)(track.Width * expectedRemaining / 100.0);
-                using (Pen marker = new Pen(Color.FromArgb(255, 59, 48), 3f))
-                    graphics.DrawLine(marker, markerX, track.Y - 3, markerX, track.Bottom + 3);
+                bool overBudget = pace.DeltaPercent > 0.5;
+                Color markerColor = overBudget ? Color.FromArgb(255, 116, 48) : Color.FromArgb(105, 76, 255);
+                using (Pen markerGlow = new Pen(Color.FromArgb(46, markerColor), 7f))
+                    graphics.DrawLine(markerGlow, markerX, track.Y - 3, markerX, track.Bottom + 3);
+                using (Pen marker = new Pen(markerColor, 2f))
+                    graphics.DrawLine(marker, markerX, track.Y - 4, markerX, track.Bottom + 4);
+                PointF[] pointer = new PointF[]
+                {
+                    new PointF(markerX, track.Y - 1),
+                    new PointF(markerX - 3.4f, track.Y - 5.6f),
+                    new PointF(markerX + 3.4f, track.Y - 5.6f)
+                };
+                using (Brush pointerBrush = new SolidBrush(markerColor))
+                    graphics.FillPolygon(pointerBrush, pointer);
+
+                budgetMarkerBounds = new Rectangle(
+                    S(markerX - 8f), S(track.Y - 10f), S(16f), S(track.Height + 20f));
+                budgetMarkerDesignX = markerX;
+                budgetToolTipText = "预算线 " + Math.Round(pace.ExpectedUsedPercent).ToString("0") + "%";
             }
+
+        }
+
+        private void DrawBudgetToolTip(Graphics graphics)
+        {
+            const float width = 88f;
+            const float height = 24f;
+            float x = Math.Max(14f, Math.Min(DesignWidth - width - 14f, budgetMarkerDesignX - width / 2f));
+            float y = HeaderHeight + 3f;
+            RectangleF bounds = new RectangleF(x, y, width, height);
+
+            using (GraphicsPath path = RoundedRectangle(bounds, 9f))
+            using (Brush background = new SolidBrush(IsDark
+                ? Color.FromArgb(35, 49, 76)
+                : Color.FromArgb(35, 54, 82)))
+            using (Pen border = new Pen(Color.FromArgb(170, 105, 154, 255), 0.8f))
+            {
+                graphics.FillPath(background, path);
+                graphics.DrawPath(border, path);
+            }
+
+            PointF[] pointer = new PointF[]
+            {
+                new PointF(budgetMarkerDesignX, bounds.Bottom + 5f),
+                new PointF(budgetMarkerDesignX - 4f, bounds.Bottom - 0.5f),
+                new PointF(budgetMarkerDesignX + 4f, bounds.Bottom - 0.5f)
+            };
+            using (Brush pointerBrush = new SolidBrush(IsDark
+                ? Color.FromArgb(35, 49, 76)
+                : Color.FromArgb(35, 54, 82)))
+                graphics.FillPolygon(pointerBrush, pointer);
+
+            using (Font font = PixelFont(11f, FontStyle.Bold))
+            using (Brush textBrush = new SolidBrush(Color.White))
+                DrawText(graphics, budgetToolTipText, font, textBrush, bounds,
+                    StringAlignment.Center, StringAlignment.Center);
         }
 
         private void DrawPace(Graphics graphics, PaceInfo pace, int y)
@@ -667,20 +867,45 @@ namespace CodexMeter
                 ? "超额 " + Math.Round(pace.DeltaPercent).ToString("0") + "%"
                 : "节奏正常";
             string right;
-            if (pace.WillLastToReset)
+            if (!pace.IsTrendStable)
+                right = "趋势尚不稳定";
+            else if (pace.WillLastToReset)
                 right = "预计可用至重置";
             else if (pace.EtaSeconds.HasValue)
                 right = "预计 " + Duration(pace.EtaSeconds.Value) + " 后耗尽";
             else
                 right = "暂无消耗趋势";
 
-            using (Font font = PixelFont(9f, FontStyle.Bold))
-            using (Brush leftBrush = new SolidBrush(pace.DeltaPercent > 0.5 ? Color.FromArgb(255, 139, 0) : SecondaryText))
+            bool overBudget = pace.DeltaPercent > 0.5;
+            Color stateColor = overBudget ? Color.FromArgb(255, 132, 38) : Color.FromArgb(18, 183, 127);
+            RectangleF surface = new RectangleF(14, y + 2, DesignWidth - 28, 25);
+            using (GraphicsPath surfacePath = RoundedRectangle(surface, 12.5f))
+            using (Brush surfaceBrush = new SolidBrush(IsDark
+                ? Color.FromArgb(23, 255, 255, 255)
+                : Color.FromArgb(116, 255, 255, 255)))
+            using (Pen surfaceBorder = new Pen(IsDark
+                ? Color.FromArgb(30, 91, 178, 236)
+                : Color.FromArgb(35, 59, 136, 191), 0.7f))
+            {
+                graphics.FillPath(surfaceBrush, surfacePath);
+                graphics.DrawPath(surfaceBorder, surfacePath);
+            }
+
+            using (Brush dotGlow = new SolidBrush(Color.FromArgb(38, stateColor)))
+                graphics.FillEllipse(dotGlow, 20, y + 8, 12, 12);
+            using (Brush dot = new SolidBrush(stateColor))
+                graphics.FillEllipse(dot, 23, y + 11, 6, 6);
+
+            RectangleF stateBounds = new RectangleF(35, y + 3, 108, 23);
+            RectangleF forecastBounds = new RectangleF(140, y + 3, 183, 23);
+            using (Font font = PixelFont(SupportingTextFontSize, FontStyle.Bold))
+            using (Font forecastFont = PixelFont(SupportingTextFontSize, FontStyle.Regular))
+            using (Brush leftBrush = new SolidBrush(overBudget ? stateColor : PrimaryText))
             using (Brush rightBrush = new SolidBrush(SecondaryText))
             {
-                DrawText(graphics, left, font, leftBrush, new RectangleF(18, y + 1, 120, 22),
+                DrawText(graphics, left, font, leftBrush, stateBounds,
                     StringAlignment.Near, StringAlignment.Center);
-                DrawText(graphics, right, font, rightBrush, new RectangleF(132, y + 1, 188, 22),
+                DrawText(graphics, right, forecastFont, rightBrush, forecastBounds,
                     StringAlignment.Far, StringAlignment.Center);
             }
         }
@@ -714,15 +939,26 @@ namespace CodexMeter
             if (!isDragging)
             {
                 bool hovered = syncButtonBounds.Contains(eventArgs.Location);
+                bool budgetHovered = budgetMarkerBounds.Contains(eventArgs.Location) &&
+                    !String.IsNullOrEmpty(budgetToolTipText);
+                if (budgetHovered != budgetMarkerHovered)
+                {
+                    budgetMarkerHovered = budgetHovered;
+                    Invalidate();
+                }
                 if (hovered != syncButtonHovered)
                 {
                     syncButtonHovered = hovered;
-                    Cursor = hovered || menuButtonBounds.Contains(eventArgs.Location) ? Cursors.Hand : Cursors.Default;
+                    Cursor = hovered || menuButtonBounds.Contains(eventArgs.Location)
+                        ? Cursors.Hand
+                        : (budgetHovered ? Cursors.Help : Cursors.Default);
                     Invalidate(syncButtonBounds);
                 }
                 else
                 {
-                    Cursor = hovered || menuButtonBounds.Contains(eventArgs.Location) ? Cursors.Hand : Cursors.Default;
+                    Cursor = hovered || menuButtonBounds.Contains(eventArgs.Location)
+                        ? Cursors.Hand
+                        : (budgetHovered ? Cursors.Help : Cursors.Default);
                 }
             }
 
@@ -1181,13 +1417,13 @@ namespace CodexMeter
             }
             else if (prominent)
             {
-                start = Color.FromArgb(57, 199, 248);
-                end = Color.FromArgb(0, 122, 255);
+                start = Color.FromArgb(30, 205, 235);
+                end = Color.FromArgb(74, 88, 255);
             }
             else
             {
-                start = Color.FromArgb(86, 204, 235);
-                end = Color.FromArgb(91, 111, 255);
+                start = Color.FromArgb(74, 194, 223);
+                end = Color.FromArgb(119, 91, 245);
             }
         }
 
@@ -1211,6 +1447,35 @@ namespace CodexMeter
         private static Font PixelFont(float size, FontStyle style)
         {
             return new Font("Microsoft YaHei UI", size, style, GraphicsUnit.Pixel);
+        }
+
+        private static Font FittedPixelFont(Graphics graphics, string text, RectangleF bounds,
+            float preferredSize, float minimumSize, FontStyle style)
+        {
+            return PixelFont(
+                FittedPixelFontSize(graphics, text, bounds, preferredSize, minimumSize, style), style);
+        }
+
+        private static float FittedPixelFontSize(Graphics graphics, string text, RectangleF bounds,
+            float preferredSize, float minimumSize, FontStyle style)
+        {
+            float size = Math.Max(minimumSize, preferredSize);
+            using (StringFormat format = new StringFormat(StringFormat.GenericTypographic))
+            {
+                format.FormatFlags |= StringFormatFlags.NoWrap | StringFormatFlags.MeasureTrailingSpaces;
+                while (size > minimumSize)
+                {
+                    using (Font font = PixelFont(size, style))
+                    {
+                        SizeF measured = graphics.MeasureString(text ?? String.Empty, font,
+                            new SizeF(10000f, bounds.Height), format);
+                        if (measured.Width <= bounds.Width - 1f && measured.Height <= bounds.Height + 1f)
+                            return size;
+                    }
+                    size = Math.Max(minimumSize, size - 0.25f);
+                }
+            }
+            return minimumSize;
         }
 
         private static void DrawText(Graphics graphics, string text, Font font, Brush brush,
@@ -1260,17 +1525,17 @@ namespace CodexMeter
 
         private Color PrimaryText
         {
-            get { return IsDark ? Color.FromArgb(246, 248, 252) : Color.FromArgb(35, 39, 42); }
+            get { return IsDark ? Color.FromArgb(246, 248, 252) : Color.FromArgb(21, 36, 55); }
         }
 
         private Color SecondaryText
         {
-            get { return IsDark ? Color.FromArgb(190, 199, 213) : Color.FromArgb(85, 91, 94); }
+            get { return IsDark ? Color.FromArgb(190, 199, 213) : Color.FromArgb(65, 84, 105); }
         }
 
         private Color TertiaryText
         {
-            get { return IsDark ? Color.FromArgb(150, 161, 176) : Color.FromArgb(105, 110, 112); }
+            get { return IsDark ? Color.FromArgb(150, 161, 176) : Color.FromArgb(101, 119, 139); }
         }
     }
 }

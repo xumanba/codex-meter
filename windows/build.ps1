@@ -6,6 +6,7 @@ $windowsDirectory = $PSScriptRoot
 $repositoryDirectory = Split-Path -Parent $windowsDirectory
 $sourceDirectory = Join-Path $windowsDirectory "src"
 $outputDirectory = Join-Path $windowsDirectory "dist"
+$iconPath = Join-Path $windowsDirectory "assets\CodexMeter.ico"
 $compilerCandidates = @(
     "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe",
     "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
@@ -14,6 +15,9 @@ $compiler = $compilerCandidates | Where-Object { Test-Path -LiteralPath $_ } | S
 
 if (-not $compiler) {
     throw "The .NET Framework C# compiler csc.exe was not found."
+}
+if (-not (Test-Path -LiteralPath $iconPath)) {
+    throw "The Windows application icon was not found: $iconPath"
 }
 
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
@@ -34,7 +38,7 @@ $commonArguments = @(
 )
 
 $applicationPath = Join-Path $outputDirectory "CodexMeter.exe"
-& $compiler $commonArguments "/target:winexe" "/main:CodexMeter.Program" "/win32manifest:$windowsDirectory\app.manifest" "/out:$applicationPath" $sourceFiles
+& $compiler $commonArguments "/target:winexe" "/main:CodexMeter.Program" "/win32manifest:$windowsDirectory\app.manifest" "/win32icon:$iconPath" "/out:$applicationPath" $sourceFiles
 if ($LASTEXITCODE -ne 0) {
     throw "CodexMeter.exe build failed with exit code $LASTEXITCODE"
 }

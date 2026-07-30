@@ -1,5 +1,8 @@
 using System;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -16,12 +19,17 @@ namespace CodexMeter
             try
             {
                 NativeMethods.EnableDpiAwareness();
+                if (args.Length > 1 && String.Equals(args[0], "--preview-hover", StringComparison.OrdinalIgnoreCase))
+                    return RenderPreview(args[1], true);
+                if (args.Length > 1 && String.Equals(args[0], "--preview", StringComparison.OrdinalIgnoreCase))
+                    return RenderPreview(args[1], false);
                 if (args.Length > 0 && String.Equals(args[0], "--live", StringComparison.OrdinalIgnoreCase))
                     return RunLiveProbe();
 
                 CheckSnakeCasePayload();
                 CheckCamelCasePayload();
                 CheckProLiteWindowMapping();
+                CheckPaceDailyAllowance();
                 CheckErrorSanitization();
                 CheckHardTimeout();
                 CheckCancellation();
@@ -202,6 +210,132 @@ namespace CodexMeter
             UsageSnapshot snapshot = UsageSnapshotDecoder.Decode(json);
             Expect(snapshot.Weekly != null && snapshot.Weekly.UsedPercent == 8, "Pro Lite weekly mapping");
             Expect(snapshot.Session == null, "Pro Lite placeholder suppressed");
+        }
+
+        private static int RenderPreview(string outputPath, bool showBudgetToolTip)
+        {
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            CodexMeterFormV2 form = null;
+            NotifyIcon trayIcon = null;
+            ContextMenuStrip menu = null;
+            try
+            {
+                form = new CodexMeterFormV2();
+                Type formType = typeof(CodexMeterFormV2);
+                AppSettings settings = (AppSettings)formType.GetField("settings", flags).GetValue(form);
+                settings.Theme = "light";
+                settings.Mode = "fixed";
+                settings.DockEdge = null;
+                settings.EdgeAutoHide = false;
+                form.BackColor = Color.FromArgb(232, 242, 248);
+
+                DateTimeOffset now = DateTimeOffset.Now;
+                UsageSnapshot preview = new UsageSnapshot
+                {
+                    Weekly = new UsageWindow
+                    {
+                        Title = "每周额度",
+                        UsedPercent = 7,
+                        ResetsAt = now.AddDays(6).AddHours(19),
+                        WindowMinutes = 7 * 24 * 60
+                    },
+                    WeeklyPace = new PaceInfo
+                    {
+                        ExpectedUsedPercent = 100.0 / 7.0,
+                        DeltaPercent = 7 - 100.0 / 7.0,
+                        EtaSeconds = 9 * 24 * 60 * 60,
+                        WillLastToReset = true,
+                        IsTrendStable = true
+                    },
+                    UpdatedAt = now
+                };
+                preview.Extras.Add(new UsageWindow
+                {
+                    Title = "Spark",
+                    UsedPercent = 0,
+                    ResetsAt = now.AddDays(6).AddHours(23),
+                    WindowMinutes = 7 * 24 * 60
+                });
+
+                formType.GetField("snapshot", flags).SetValue(form, preview);
+                formType.GetField("isConnected", flags).SetValue(form, true);
+                formType.GetField("lastSuccessfulRefreshAt", flags).SetValue(form, (DateTimeOffset?)now);
+                formType.GetField("networkSpeed", flags).SetValue(form,
+                    new NetworkSpeedSnapshot(8.3 * 1024, 2.6 * 1024 * 1024));
+                formType.GetMethod("ResizeForContent", flags).Invoke(form, null);
+
+                form.CreateControl();
+                if (showBudgetToolTip)
+                {
+                    using (Bitmap warmup = new Bitmap(form.ClientSize.Width, form.ClientSize.Height))
+                        form.DrawToBitmap(warmup, new Rectangle(Point.Empty, form.ClientSize));
+                    Rectangle markerBounds = (Rectangle)formType.GetField("budgetMarkerBounds", flags).GetValue(form);
+                    if (markerBounds.IsEmpty)
+                        throw new InvalidOperationException("Budget marker hover bounds were not created.");
+                    formType.GetField("budgetMarkerHovered", flags).SetValue(form, true);
+                }
+                using (Bitmap previewImage = new Bitmap(form.ClientSize.Width, form.ClientSize.Height))
+                {
+                    previewImage.SetResolution(96f, 96f);
+                    form.DrawToBitmap(previewImage, new Rectangle(Point.Empty, form.ClientSize));
+                    string fullPath = Path.GetFullPath(outputPath);
+                    string directory = Path.GetDirectoryName(fullPath);
+                    if (!String.IsNullOrEmpty(directory))
+                        Directory.CreateDirectory(directory);
+                    previewImage.Save(fullPath, ImageFormat.Png);
+                    Console.WriteLine("PREVIEW_OK=" + fullPath);
+                }
+
+                trayIcon = (NotifyIcon)formType.GetField("trayIcon", flags).GetValue(form);
+                menu = (ContextMenuStrip)formType.GetField("menu", flags).GetValue(form);
+                return 0;
+            }
+            finally
+            {
+                if (trayIcon != null)
+                {
+                    trayIcon.Visible = false;
+                    trayIcon.Dispose();
+                }
+                if (menu != null)
+                    menu.Dispose();
+                if (form != null)
+                    form.Dispose();
+            }
+        }
+
+        private static void CheckPaceDailyAllowance()
+        {
+            DateTimeOffset reset = new DateTimeOffset(2026, 8, 5, 4, 9, 16, TimeSpan.Zero);
+            DateTimeOffset start = reset.AddDays(-7);
+            UsageWindow window = new UsageWindow
+            {
+                UsedPercent = 7,
+                WindowMinutes = 7 * 24 * 60,
+                ResetsAt = reset
+            };
+            double oneDayPercent = 100.0 / 7.0;
+
+            PaceInfo justReset = PaceCalculator.Calculate(window, start);
+            Expect(Math.Abs(justReset.ExpectedUsedPercent - oneDayPercent) < 0.001,
+                "pace grants first daily allowance at reset");
+            Expect(justReset.DeltaPercent < 0, "pace treats seven percent as normal on first day");
+            Expect(!justReset.IsTrendStable, "pace trend starts unstable");
+
+            PaceInfo beforeDayTwo = PaceCalculator.Calculate(window, start.AddDays(1).AddSeconds(-1));
+            Expect(Math.Abs(beforeDayTwo.ExpectedUsedPercent - oneDayPercent) < 0.001,
+                "pace keeps first allowance through first 24 hours");
+
+            PaceInfo dayTwo = PaceCalculator.Calculate(window, start.AddDays(1));
+            Expect(Math.Abs(dayTwo.ExpectedUsedPercent - oneDayPercent * 2) < 0.001,
+                "pace advances allowance at 24 hour boundary");
+
+            PaceInfo stable = PaceCalculator.Calculate(window, start.AddHours(6));
+            Expect(stable.IsTrendStable, "pace trend stabilizes after six hours");
+
+            PaceInfo finalDay = PaceCalculator.Calculate(window, start.AddDays(6));
+            Expect(Math.Abs(finalDay.ExpectedUsedPercent - 100) < 0.001,
+                "pace grants full allowance in final daily block");
         }
 
         private static void CheckNetworkSpeedFormatting()
