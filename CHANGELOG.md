@@ -10,7 +10,7 @@
 - Sanitizes provider JSON errors before they reach the interface.
 - Adds package-ready install/uninstall scripts with opt-in per-user startup.
 - Adds Windows build and self-test CI coverage.
-- Shows an unused Spark rolling reset as the provider's absolute date, matching the official usage page instead of presenting it as a fixed countdown.
+- Uses the same compact `xd xh` reset countdown for weekly and Spark allowances.
 - Rounds long reset countdowns up, shows minutes below one day, and exposes the exact local reset time on hover.
 
 ## v0.1.0

@@ -282,8 +282,7 @@ namespace CodexMeter
                     Title = "Spark",
                     UsedPercent = 0,
                     ResetsAt = now.AddDays(6).AddHours(23),
-                    WindowMinutes = 7 * 24 * 60,
-                    DisplayResetAsDate = true
+                    WindowMinutes = 7 * 24 * 60
                 });
 
                 formType.GetField("snapshot", flags).SetValue(form, preview);
@@ -378,22 +377,17 @@ namespace CodexMeter
             Expect(CodexMeterFormV2.ResetDuration(30) == "1m",
                 "near reset does not display zero early");
 
-            DateTimeOffset observedAt = new DateTimeOffset(2026, 7, 31, 1, 2, 3, TimeSpan.Zero);
-            UsageWindow rolling = new UsageWindow
+            DateTimeOffset observedAt = DateTimeOffset.Now;
+            UsageWindow spark = new UsageWindow
             {
                 UsedPercent = 0,
                 WindowMinutes = 7 * 24 * 60,
                 ResetsAt = observedAt.AddDays(7)
             };
-            Expect(UsageSnapshotDecoder.ShouldDisplayResetAsDate(rolling),
-                "unused extra window uses provider reset date");
-            rolling.DisplayResetAsDate = true;
-            string expectedRollingReset = rolling.ResetsAt.Value.ToLocalTime().ToString("M月d日") + "重置";
-            Expect(CodexMeterFormV2.ResetText(rolling) == expectedRollingReset,
-                "rolling Spark reset uses provider date like official usage page");
-            rolling.UsedPercent = 1;
-            Expect(!UsageSnapshotDecoder.ShouldDisplayResetAsDate(rolling),
-                "used window keeps its provider reset time");
+            string sparkReset = CodexMeterFormV2.ResetText(spark);
+            Expect(sparkReset.IndexOf("d ", StringComparison.Ordinal) >= 0 &&
+                sparkReset.EndsWith("h 后重置", StringComparison.Ordinal),
+                "Spark reset uses the same day-hour countdown as weekly quota");
 
             string json = "[{\"usage\":{\"primary\":{\"used_percent\":1}," +
                 "\"secondary\":{\"used_percent\":50,\"window_minutes\":10080}," +
@@ -402,8 +396,8 @@ namespace CodexMeter
                 "\"window\":{\"used_percent\":0,\"window_minutes\":10080,\"resets_at\":\"" +
                 observedAt.AddDays(7).ToString("O") + "\"}}]}}]";
             UsageSnapshot snapshot = UsageSnapshotDecoder.Decode(json);
-            Expect(snapshot.Extras.Count == 1 && snapshot.Extras[0].DisplayResetAsDate,
-                "decoder formats unused Spark reset as provider date");
+            Expect(snapshot.Extras.Count == 1 && snapshot.Extras[0].ResetsAt.HasValue,
+                "decoder preserves Spark provider reset time");
         }
 
         private static void CheckNetworkSpeedFormatting()
@@ -434,8 +428,7 @@ namespace CodexMeter
             Console.WriteLine(window.Title + ": used=" + window.UsedPercent.ToString("0.##") +
                 "% remaining=" + window.RemainingPercent.ToString("0.##") + "% reset=" +
                 (window.ResetsAt.HasValue ? window.ResetsAt.Value.ToString("O") : "<none>") +
-                " display=\"" + CodexMeterFormV2.ResetText(window) + "\"" +
-                (window.DisplayResetAsDate ? " mode=provider-date" : String.Empty));
+                " display=\"" + CodexMeterFormV2.ResetText(window) + "\"");
         }
 
         private static void Expect(bool condition, string name)

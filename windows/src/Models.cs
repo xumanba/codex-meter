@@ -14,7 +14,6 @@ namespace CodexMeter
         public DateTimeOffset? ResetsAt { get; set; }
         public int? WindowMinutes { get; set; }
         public string ResetDescription { get; set; }
-        public bool DisplayResetAsDate { get; set; }
 
         public double RemainingPercent
         {
@@ -110,10 +109,7 @@ namespace CodexMeter
                 string title = CleanExtraTitle(rawTitle);
                 UsageWindow window = DecodeWindow(AsDictionary(Get(extra, "window")), title);
                 if (window != null)
-                {
-                    window.DisplayResetAsDate = ShouldDisplayResetAsDate(window);
                     snapshot.Extras.Add(window);
-                }
             }
 
             snapshot.WeeklyPace = PaceCalculator.Calculate(snapshot.Weekly, DateTimeOffset.Now);
@@ -247,17 +243,6 @@ namespace CodexMeter
         private static bool IsSevenDayWindow(UsageWindow window)
         {
             return window != null && window.WindowMinutes.HasValue && window.WindowMinutes.Value >= 7 * 24 * 60;
-        }
-
-        internal static bool ShouldDisplayResetAsDate(UsageWindow window)
-        {
-            if (window == null || window.UsedPercent > 0.001 || !window.ResetsAt.HasValue ||
-                !window.WindowMinutes.HasValue || window.WindowMinutes.Value <= 0)
-            {
-                return false;
-            }
-
-            return true;
         }
 
         private static double Clamp(double value, double minimum, double maximum)

@@ -13,8 +13,8 @@ Codex Meter for Windows v0.1.1
    选择“更多信息”→“仍要运行”。
 6. 若窗口被隐藏，请双击系统托盘中的 Codex Meter 图标恢复。
 7. 网速是整台电脑所有活动网卡的总流量，并非 Codex 专属流量。
-8. 固定重置时间可悬停查看准确本机时间；未使用 Spark 的滚动时间
-   按官方页面显示为绝对日期，例如“8月7日重置”。
+8. 每周额度和 Spark 额度统一显示“xd xh 后重置”，悬停可查看准确
+   的本机日期和时间。
 
 可选安装（当前用户）：在本目录运行 `powershell -ExecutionPolicy Bypass
 -File .\install.ps1 -Launch`。仅在需要开机启动时再加
@@ -36,8 +36,8 @@ English installation
    unknown-publisher warning; continue only after verifying the download.
 6. If the card is hidden, double-click its notification-area icon to restore it.
 7. Network speed is aggregate system traffic, not Codex-only traffic.
-8. Hover a fixed reset countdown for its exact local time. An unused Spark
-   rolling reset is shown as the provider's absolute date, like the official page.
+8. Weekly and Spark allowances use the same "xd xh until reset" format. Hover
+   either countdown to see the exact local date and time.
 
 Optional per-user install: run `powershell -ExecutionPolicy Bypass -File
 .\install.ps1 -Launch`. Add `-StartWithWindows` only to opt in. Exit the app
