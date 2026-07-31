@@ -12,6 +12,7 @@
 - Adds Windows build and self-test CI coverage.
 - Uses the same compact `xd xh` reset countdown for weekly and Spark allowances.
 - Rounds long reset countdowns up, shows minutes below one day, and exposes the exact local reset time on hover.
+- Aligns weekly and Spark reset countdowns to one fixed column and moves the latest update time into the status-pill tooltip.
 
 ## v0.1.0
 

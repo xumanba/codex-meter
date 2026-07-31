@@ -16,6 +16,7 @@ features and installation package are unchanged.
 - Windows build and self-tests run in GitHub Actions.
 - Weekly and Spark allowances use the same compact `xd xh` reset countdown.
 - Fixed reset countdowns no longer truncate almost a full hour; hover the reset text to see the exact local date and time.
+- Weekly and Spark reset countdowns share one aligned column; hover the status pill to see the latest data-update time.
 
 ## Packages
 

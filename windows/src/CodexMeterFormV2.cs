@@ -71,7 +71,7 @@ namespace CodexMeter
         private bool budgetMarkerHovered;
         private float budgetMarkerDesignX;
         private string budgetToolTipText = String.Empty;
-        private string activeResetToolTipText = String.Empty;
+        private string activeContextToolTipText = String.Empty;
         private int designHeight = 122;
         private int scheduledRefreshMilliseconds = NormalRefreshMilliseconds;
         private int consecutiveFailures;
@@ -128,7 +128,7 @@ namespace CodexMeter
                     syncButtonHovered = false;
                     bool wasBudgetHovered = budgetMarkerHovered;
                     budgetMarkerHovered = false;
-                    activeResetToolTipText = String.Empty;
+                    activeContextToolTipText = String.Empty;
                     contextualToolTip.Hide(this);
                     Cursor = Cursors.Default;
                     if (wasHovered)
@@ -650,17 +650,11 @@ namespace CodexMeter
             DrawSparkle(graphics, 43f, 19.5f, 2.2f);
             DrawSparkle(graphics, 25.8f, 20.7f, 1.6f);
 
-            RectangleF titleBounds = new RectangleF(62, 8, 106, 25);
-            RectangleF subtitleBounds = new RectangleF(62, 32, 108, 16);
-            string subtitle = HeaderSubtitle();
+            RectangleF titleBounds = new RectangleF(62, 14, 106, 28);
             using (Font titleFont = FittedPixelFont(graphics, "Codex 用量", titleBounds, 18f, 15.5f, FontStyle.Bold))
-            using (Font subtitleFont = PixelFont(SupportingTextFontSize, FontStyle.Regular))
             using (Brush primary = new SolidBrush(PrimaryText))
-            using (Brush secondary = new SolidBrush(SecondaryText))
             {
                 DrawText(graphics, "Codex 用量", titleFont, primary, titleBounds,
-                    StringAlignment.Near, StringAlignment.Center);
-                DrawText(graphics, subtitle, subtitleFont, secondary, subtitleBounds,
                     StringAlignment.Near, StringAlignment.Center);
             }
 
@@ -803,7 +797,9 @@ namespace CodexMeter
 
             RectangleF titleBounds = new RectangleF(20, y + 2, 94, 24);
             RectangleF remainingBounds = new RectangleF(226, y + 2, 98, 24);
-            RectangleF resetBounds = new RectangleF(104, y + 3, 122, 22);
+            // Use one fixed, left-aligned reset column so the weekly and Spark
+            // countdowns start at exactly the same horizontal position.
+            RectangleF resetBounds = new RectangleF(120, y + 3, 106, 22);
             if (!String.IsNullOrEmpty(reset))
             {
                 resetHoverTargets.Add(new ResetHoverTarget(
@@ -823,7 +819,7 @@ namespace CodexMeter
                 if (!String.IsNullOrEmpty(reset))
                 {
                     DrawText(graphics, reset, resetFont, secondary, resetBounds,
-                        StringAlignment.Far, StringAlignment.Center);
+                        StringAlignment.Near, StringAlignment.Center);
                 }
             }
 
@@ -996,13 +992,14 @@ namespace CodexMeter
                     .Where(delegate(ResetHoverTarget target) { return target.Bounds.Contains(eventArgs.Location); })
                     .Select(delegate(ResetHoverTarget target) { return target.Text; })
                     .FirstOrDefault() ?? String.Empty;
-                if (!String.Equals(resetToolTipText, activeResetToolTipText, StringComparison.Ordinal))
+                string contextToolTipText = hovered ? StatusToolTipText() : resetToolTipText;
+                if (!String.Equals(contextToolTipText, activeContextToolTipText, StringComparison.Ordinal))
                 {
                     contextualToolTip.Hide(this);
-                    activeResetToolTipText = resetToolTipText;
-                    if (!String.IsNullOrEmpty(activeResetToolTipText))
+                    activeContextToolTipText = contextToolTipText;
+                    if (!String.IsNullOrEmpty(activeContextToolTipText))
                     {
-                        contextualToolTip.Show(activeResetToolTipText, this,
+                        contextualToolTip.Show(activeContextToolTipText, this,
                             eventArgs.X, eventArgs.Y + S(18), 8000);
                     }
                 }
@@ -1458,7 +1455,7 @@ namespace CodexMeter
             }
         }
 
-        private string HeaderSubtitle()
+        private string StatusToolTipText()
         {
             if (isRefreshing && snapshot == null)
                 return "正在同步数据…";
