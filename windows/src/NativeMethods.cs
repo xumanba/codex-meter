@@ -9,6 +9,10 @@ namespace CodexMeter
     {
         public const int WM_NCLBUTTONDOWN = 0x00A1;
         public const int HTCAPTION = 2;
+        public static readonly int ShowExistingInstanceMessage =
+            unchecked((int)RegisterWindowMessage("CodexMeter.Windows.ShowExisting.v1"));
+
+        private static readonly IntPtr BroadcastWindow = new IntPtr(0xFFFF);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -16,6 +20,13 @@ namespace CodexMeter
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern uint RegisterWindowMessage(string messageName);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool PostMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
@@ -139,8 +150,30 @@ namespace CodexMeter
             }
         }
 
+        public static bool BroadcastShowExistingInstance()
+        {
+            if (ShowExistingInstanceMessage == 0)
+                return false;
+
+            return PostMessage(BroadcastWindow, ShowExistingInstanceMessage, IntPtr.Zero, IntPtr.Zero);
+        }
+
         public static Icon CreateAppIcon()
         {
+            try
+            {
+                string executablePath = Process.GetCurrentProcess().MainModule.FileName;
+                using (Icon executableIcon = Icon.ExtractAssociatedIcon(executablePath))
+                {
+                    if (executableIcon != null)
+                        return (Icon)executableIcon.Clone();
+                }
+            }
+            catch
+            {
+                // Keep the generated fallback below for unusual host environments.
+            }
+
             using (Bitmap bitmap = new Bitmap(32, 32))
             using (Graphics graphics = Graphics.FromImage(bitmap))
             {

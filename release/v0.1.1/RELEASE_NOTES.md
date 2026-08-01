@@ -1,0 +1,33 @@
+# Codex Meter v0.1.1
+
+This is a Windows quality update. The existing macOS v0.1.0 application,
+features and installation package are unchanged.
+
+## Windows v0.1.1
+
+- Launching the executable again restores the existing card from the tray or edge shelf.
+- “Always on top” can be turned off independently of fixed/follow display mode.
+- F5 refreshes immediately; Esc minimizes to the notification area.
+- Provider errors are sanitized before display, including errors embedded in JSON responses.
+- Network speed is explicitly documented as aggregate system traffic, not Codex-only traffic.
+- Quota depletion is labelled as a cumulative-average estimate and withheld during an immature trend.
+- The portable ZIP includes optional per-user install and confirm-before-remove uninstall scripts.
+- `-StartWithWindows` is opt-in; the portable executable still creates no startup entry.
+- Windows build and self-tests run in GitHub Actions.
+- Weekly and Spark allowances use the same compact `xd xh` reset countdown.
+- Fixed reset countdowns no longer truncate almost a full hour; hover the reset text to see the exact local date and time.
+- Weekly and Spark reset countdowns share one aligned column; hover the status pill to see the latest data-update time.
+- The Windows update-time prompt now uses the same rounded blue-to-violet visual language as the active allowance bar.
+- Old provider timestamps are treated as stale even when the local CLI invocation succeeds, so cached data is not shown as live.
+- Script-based upgrades stop with a clear instruction when the installed app is still running.
+- Windows CI renders both hover states and validates the portable package layout and checksum.
+
+## Packages
+
+- Windows: `Codex-Meter-Windows-portable-v0.1.1.zip`
+- Windows v0.1.1 checksum: `SHA256SUMS-v0.1.1.txt`
+- Version differences: `README-v0.1.1.txt` and [`VERSION-GUIDE.md`](../../VERSION-GUIDE.md)
+- macOS: keep using the unchanged v0.1.0 Release and `Codex-Meter-macos-universal-0.1.0.zip`
+
+The Windows binary is not Authenticode-signed. The macOS v0.1.0 package remains
+ad-hoc signed and not Apple-notarized.

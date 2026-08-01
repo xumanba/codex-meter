@@ -9,7 +9,7 @@
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org/)
 [![CodexBar](https://img.shields.io/badge/Powered%20by-CodexBar-0A84FF?style=flat-square)](https://github.com/steipete/CodexBar)
 [![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](LICENSE)
-[![Download v0.1.0](https://img.shields.io/badge/Download-v0.1.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0)
+[![Downloads](https://img.shields.io/badge/Download-Releases-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases)
 
 Visualize your remaining Codex allowance, rate-limit windows, pacing and reset
 time without leaving your workspace.
@@ -17,9 +17,9 @@ time without leaving your workspace.
 </div>
 
 > [!IMPORTANT]
-> **Codex Meter v0.1.0 supports both Windows and macOS.** Windows uses the
+> **Codex Meter supports both Windows and macOS.** Windows v0.1.1 uses the
 > native WinForms client and an installed Win-CodexBar CLI. macOS uses the
-> native SwiftUI/AppKit client and can bundle the verified CodexBar CLI for
+> unchanged v0.1.0 SwiftUI/AppKit client and can bundle the verified CodexBar CLI for
 > Apple silicon and Intel Macs. Neither client stores account credentials.
 
 > [!TIP]
@@ -31,11 +31,13 @@ time without leaving your workspace.
 
 | Platform | Native UI | Release / install | Data provider |
 |---|---|---|---|
-| Windows 10/11 | WinForms + DWM, Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-Windows-portable-v0.1.0.zip) | [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar) CLI |
+| Windows 10/11 | WinForms + DWM, Per-Monitor V2 DPI | `Codex-Meter-Windows-portable-v0.1.1.zip` | [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar) CLI |
 | macOS 14+ | SwiftUI + AppKit | [`Codex-Meter-macos-universal-0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-macos-universal-0.1.0.zip) | Bundled CodexBar CLI |
 
 Windows-specific build, install and troubleshooting instructions are available
-in [`windows/README.zh-CN.md`](windows/README.zh-CN.md).
+in [`windows/README.zh-CN.md`](windows/README.zh-CN.md). See the bilingual
+[`VERSION-GUIDE.md`](VERSION-GUIDE.md) for separate Windows/macOS downloads and
+the differences between Windows v0.1.0 and v0.1.1.
 
 ## Codex usage and quota visualization
 
@@ -48,7 +50,7 @@ count the raw tokens used by each individual prompt.
 - Remaining weekly Codex allowance and reset time
 - Usage pace, overage percentage and estimated depletion time
 - Additional Codex Spark rate windows when available
-- Always-on-top visualization with optional Codex app following
+- Optional always-on-top visualization with optional Codex app following
 - QQ-style left/right edge auto-hide with native hover reveal
 
 ## Glass themes
@@ -76,6 +78,9 @@ selection is restored automatically on both systems.
 - **Remaining allowance** — shows what is left, rather than what has been used.
 - **Pace awareness** — displays over-pace percentage, expected depletion time
   and a red pacing marker.
+- **Clear reset timing on Windows** — uses the same `xd xh` countdown for
+  weekly and Spark allowances, prevents early hour truncation and exposes exact
+  reset times on hover.
 - **Codex Spark support** — automatically shows extra Codex rate windows.
 - **Two native glass themes** — switch between dark and light from the menu.
 - **Position memory** — drag the card anywhere; its fixed position is restored.
@@ -83,7 +88,8 @@ selection is restored automatically on both systems.
 - **Tray mode on Windows** — minimize the card to the notification area and
   restore it from the tray menu.
 - **Instant manual sync** — click the status pill or choose the menu action to
-  refresh allowance, reset and pacing data immediately.
+  refresh allowance, reset and pacing data immediately; hover the pill to see
+  the latest data-update time in a progress-bar-matched prompt.
 - **Live network speed on Windows** — shows aggregate download and upload speed
   from active network adapters once per second, without inspecting packet data.
 - **Private by design** — never displays or stores account credentials.
@@ -116,17 +122,20 @@ required for the packaged macOS application.
 
 ## Download and install
 
-### Windows v0.1.0
+### Windows v0.1.1
 
 1. Install and sign in to Win-CodexBar.
-2. Download `Codex-Meter-Windows-portable-v0.1.0.zip` from the
-   [v0.1.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0).
-3. Extract the ZIP, open `Codex Meter Windows v0.1.0`, and run `CodexMeter.exe`.
+2. Download [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip).
+3. Extract the ZIP, open `Codex Meter Windows v0.1.1`, and run `CodexMeter.exe`.
 4. Windows may show an unknown-publisher warning because the community binary
    is not Authenticode-signed. Review the source or build locally if required.
 
-The portable package does not modify the registry or enable startup. Settings
+Direct portable use does not modify the registry or enable startup. The ZIP
+also includes opt-in install and uninstall scripts. Settings
 are stored under `%LOCALAPPDATA%\CodexMeter` and contain no credentials.
+Before upgrading a script-installed copy, exit Codex Meter from the system tray
+and run the new `install.ps1`; the installer now detects a running installed
+copy and stops with a clear message instead of attempting to replace it.
 
 ### macOS v0.1.0
 
@@ -167,6 +176,7 @@ Drag the card to place it anywhere. Open the `•••` menu to:
 
 - choose **固定在桌面** to keep it pinned above normal windows;
 - choose **跟随 Codex** to show it only when Codex is active;
+- toggle **始终置顶** independently from the display mode;
 - switch between **深色玻璃** and **浅色玻璃**;
 - click the status pill or choose **立即同步** to refresh immediately;
 - choose **最小化到托盘** on Windows to keep only the notification icon;
@@ -217,6 +227,11 @@ The Windows process launches the local CLI only for a refresh, applies a hard
 timeout and cancellation, sanitizes provider errors, and keeps the last valid
 snapshot when a later refresh fails.
 
+The Windows network tile reports aggregate operating-system traffic across
+active non-loopback, non-tunnel adapters. It is a system-wide activity hint,
+not a measurement of Codex-only traffic. Depletion time is a cumulative-average
+estimate and is withheld until enough of the current quota window has elapsed.
+
 ### macOS
 
 ```text
@@ -245,7 +260,7 @@ exposed to your network.
 ```powershell
 .\windows\build.ps1
 .\windows\dist\CodexMeter.Tests.exe
-.\windows\package-release.ps1
+.\windows\package-release.ps1 -Version 0.1.1
 ```
 
 The Windows build uses the .NET Framework compiler already present on Windows
@@ -313,8 +328,8 @@ by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 - Codex Meter does not copy, display or bundle passwords, OAuth tokens, cookies
   or account emails.
 - Screenshots in this repository contain usage percentages only.
-- The v0.1.0 macOS build is ad-hoc signed but not Apple-notarized. The Windows
-  binary is currently not Authenticode-signed. Both systems may therefore
+- The v0.1.0 macOS build is ad-hoc signed but not Apple-notarized. The v0.1.1
+  Windows binary is currently not Authenticode-signed. Both systems may therefore
   require explicit approval on first launch; review the source if required.
 
 ## License

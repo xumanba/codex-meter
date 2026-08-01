@@ -6,6 +6,9 @@ namespace CodexMeter
 {
     internal static class Program
     {
+        private const string InstanceMutexName = "Local\\CodexMeter.Windows";
+        private const string ShowExistingEventName = "Local\\CodexMeter.Windows.ShowExisting";
+
         [STAThread]
         private static void Main()
         {
@@ -14,18 +17,22 @@ namespace CodexMeter
             Application.SetCompatibleTextRenderingDefault(false);
 
             bool createdNew;
-            using (Mutex mutex = new Mutex(true, "Local\\CodexMeter.Windows", out createdNew))
+            using (EventWaitHandle showExistingEvent = new EventWaitHandle(
+                false, EventResetMode.AutoReset, ShowExistingEventName))
+            using (Mutex mutex = new Mutex(true, InstanceMutexName, out createdNew))
             {
                 if (!createdNew)
                 {
-                    MessageBox.Show("Codex Meter 已在运行。请查看桌面悬浮卡片或系统托盘。",
-                        "Codex Meter", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // The named event works even while the first window is hidden.
+                    // Keep the registered message as a compatibility fallback.
+                    showExistingEvent.Set();
+                    NativeMethods.BroadcastShowExistingInstance();
                     return;
                 }
 
                 try
                 {
-                    Application.Run(new CodexMeterFormV2());
+                    Application.Run(new CodexMeterFormV2(showExistingEvent));
                 }
                 catch (Exception ex)
                 {

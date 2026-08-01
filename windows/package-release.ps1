@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = "0.1.0"
+    [string]$Version = "0.1.1"
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,6 +44,8 @@ $packageFiles = @{
     "NOTICE.txt" = Join-Path $distDirectory "NOTICE.txt"
     "CodexBar-LICENSE.txt" = Join-Path $distDirectory "CodexBar-LICENSE.txt"
     "README-Windows.txt" = Join-Path $windowsDirectory "README-Windows.txt"
+    "install.ps1" = Join-Path $windowsDirectory "install.ps1"
+    "uninstall.ps1" = Join-Path $windowsDirectory "uninstall.ps1"
 }
 
 New-Item -ItemType Directory -Path $packageDirectory | Out-Null
@@ -62,7 +64,9 @@ $expectedEntries = @(
     "$packageRootName/CodexMeter.exe.config",
     "$packageRootName/LICENSE.txt",
     "$packageRootName/NOTICE.txt",
-    "$packageRootName/README-Windows.txt"
+    "$packageRootName/README-Windows.txt",
+    "$packageRootName/install.ps1",
+    "$packageRootName/uninstall.ps1"
 )
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
