@@ -35,7 +35,9 @@ time without leaving your workspace.
 | macOS 14+ | SwiftUI + AppKit | [`Codex-Meter-macos-universal-0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-macos-universal-0.1.0.zip) | Bundled CodexBar CLI |
 
 Windows-specific build, install and troubleshooting instructions are available
-in [`windows/README.zh-CN.md`](windows/README.zh-CN.md).
+in [`windows/README.zh-CN.md`](windows/README.zh-CN.md). See the bilingual
+[`VERSION-GUIDE.md`](VERSION-GUIDE.md) for separate Windows/macOS downloads and
+the differences between Windows v0.1.0 and v0.1.1.
 
 ## Codex usage and quota visualization
 
@@ -123,8 +125,7 @@ required for the packaged macOS application.
 ### Windows v0.1.1
 
 1. Install and sign in to Win-CodexBar.
-2. Download `Codex-Meter-Windows-portable-v0.1.1.zip` from the
-   [Releases page](https://github.com/xumanba/codex-meter/releases).
+2. Download [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip).
 3. Extract the ZIP, open `Codex Meter Windows v0.1.1`, and run `CodexMeter.exe`.
 4. Windows may show an unknown-publisher warning because the community binary
    is not Authenticode-signed. Review the source or build locally if required.
