@@ -33,6 +33,7 @@ namespace CodexMeter
                 CheckProLiteWindowMapping();
                 CheckPaceDailyAllowance();
                 CheckResetTimePresentation();
+                CheckDataFreshnessPresentation();
                 CheckErrorSanitization();
                 CheckHardTimeout();
                 CheckCancellation();
@@ -405,6 +406,36 @@ namespace CodexMeter
             UsageSnapshot snapshot = UsageSnapshotDecoder.Decode(json);
             Expect(snapshot.Extras.Count == 1 && snapshot.Extras[0].ResetsAt.HasValue,
                 "decoder preserves Spark provider reset time");
+        }
+
+        private static void CheckDataFreshnessPresentation()
+        {
+            DateTimeOffset now = new DateTimeOffset(2026, 8, 2, 12, 0, 0, TimeSpan.Zero);
+            UsageSnapshot fresh = new UsageSnapshot { UpdatedAt = now.AddSeconds(-30) };
+            Expect(!CodexMeterFormV2.IsSnapshotStale(
+                fresh, true, null, now, 60000, now),
+                "fresh provider snapshot remains live");
+
+            UsageSnapshot providerStale = new UsageSnapshot { UpdatedAt = now.AddMinutes(-10) };
+            Expect(CodexMeterFormV2.IsSnapshotStale(
+                providerStale, true, null, now, 60000, now),
+                "stale provider timestamp overrides a successful local refresh");
+
+            UsageSnapshot withoutProviderTime = new UsageSnapshot();
+            Expect(CodexMeterFormV2.IsSnapshotStale(
+                withoutProviderTime, true, null, now.AddMinutes(-10), 60000, now),
+                "local refresh time is used when provider time is absent");
+            Expect(CodexMeterFormV2.IsSnapshotStale(
+                fresh, false, null, now, 60000, now),
+                "disconnected snapshot is stale");
+            Expect(CodexMeterFormV2.IsSnapshotStale(
+                fresh, true, "provider unavailable", now, 60000, now),
+                "provider error marks retained data stale");
+
+            UsageSnapshot futureClock = new UsageSnapshot { UpdatedAt = now.AddHours(1) };
+            Expect(!CodexMeterFormV2.IsSnapshotStale(
+                futureClock, true, null, now, 60000, now),
+                "implausible future provider time falls back to local refresh");
         }
 
         private static void CheckNetworkSpeedFormatting()

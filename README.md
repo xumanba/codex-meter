@@ -132,6 +132,9 @@ required for the packaged macOS application.
 Direct portable use does not modify the registry or enable startup. The ZIP
 also includes opt-in install and uninstall scripts. Settings
 are stored under `%LOCALAPPDATA%\CodexMeter` and contain no credentials.
+Before upgrading a script-installed copy, exit Codex Meter from the system tray
+and run the new `install.ps1`; the installer now detects a running installed
+copy and stops with a clear message instead of attempting to replace it.
 
 ### macOS v0.1.0
 

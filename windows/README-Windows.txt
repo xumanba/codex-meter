@@ -20,7 +20,9 @@ Codex Meter for Windows v0.1.1
 
 可选安装（当前用户）：在本目录运行 `powershell -ExecutionPolicy Bypass
 -File .\install.ps1 -Launch`。仅在需要开机启动时再加
-`-StartWithWindows`。卸载前从托盘退出程序，再运行 `uninstall.ps1`；
+`-StartWithWindows`。升级已安装版本前，请先从托盘退出程序，再运行新版
+`install.ps1`；脚本若检测到安装目录中的程序仍在运行，会停止安装并提示。
+卸载前也应从托盘退出程序，再运行 `uninstall.ps1`；
 卸载脚本会逐项请求确认，并默认保留界面设置。
 
 Windows 独有功能：实时上传/下载网速，以及最小化到系统托盘。
@@ -44,9 +46,11 @@ English installation
    that uses the same color palette as the allowance progress bar.
 
 Optional per-user install: run `powershell -ExecutionPolicy Bypass -File
-.\install.ps1 -Launch`. Add `-StartWithWindows` only to opt in. Exit the app
-from the tray before running `uninstall.ps1`; it asks for confirmation and
-keeps interface settings by default.
+.\install.ps1 -Launch`. Add `-StartWithWindows` only to opt in. Before upgrading
+an installed copy, exit the app from the tray and then run the new
+`install.ps1`; the script stops with a clear message if that installed copy is
+still running. Exit the app before running `uninstall.ps1`; it asks for
+confirmation and keeps interface settings by default.
 
 Windows-only features: live aggregate upload/download speed and notification-
 area minimize/restore. Codex Meter does not capture packets or store passwords,

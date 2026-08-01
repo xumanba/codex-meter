@@ -30,6 +30,18 @@ jobs:
         shell: powershell
         run: .\windows\dist\CodexMeter.Tests.exe
 
+      - name: Render interface regression previews
+        shell: powershell
+        run: |
+          .\windows\dist\CodexMeter.Tests.exe --preview-status-hover .\windows\qa\preview-status-hover.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\windows\dist\CodexMeter.Tests.exe --preview-hover .\windows\qa\preview-budget-hover.png
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Validate Windows portable package
+        shell: powershell
+        run: .\windows\package-release.ps1 -Version 0.1.1
+
       - name: Upload unsigned test build
         uses: actions/upload-artifact@v4
         with:
@@ -37,4 +49,8 @@ jobs:
           path: |
             windows/dist/CodexMeter.exe
             windows/dist/CodexMeter.exe.config
+            windows/qa/preview-status-hover.png
+            windows/qa/preview-budget-hover.png
+            windows/Codex-Meter-Windows-portable-v0.1.1.zip
+            windows/Codex-Meter-Windows-portable-v0.1.1.zip.sha256
           if-no-files-found: error

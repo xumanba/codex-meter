@@ -19,6 +19,28 @@ if (Test-Path -LiteralPath $portableApplication) {
 }
 
 $installDirectory = Join-Path $env:LOCALAPPDATA "Programs\CodexMeter"
+$installedApplication = Join-Path $installDirectory "CodexMeter.exe"
+
+if (Test-Path -LiteralPath $installedApplication) {
+    $installedFullPath = [System.IO.Path]::GetFullPath($installedApplication)
+    $runningInstalledProcesses = @(Get-Process -Name "CodexMeter" -ErrorAction SilentlyContinue |
+        Where-Object {
+            try {
+                $processPath = $_.Path
+                $processPath -and [String]::Equals(
+                    [System.IO.Path]::GetFullPath($processPath),
+                    $installedFullPath,
+                    [StringComparison]::OrdinalIgnoreCase)
+            } catch {
+                $false
+            }
+        })
+    if ($runningInstalledProcesses.Count -gt 0) {
+        $processIds = ($runningInstalledProcesses | ForEach-Object { $_.Id }) -join ", "
+        throw "Codex Meter is running from the install directory (PID: $processIds). Exit it from the system tray, then run this installer again."
+    }
+}
+
 New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
 
 function Copy-InstallFile {
@@ -63,7 +85,7 @@ New-Item -ItemType Directory -Path $startMenuDirectory -Force | Out-Null
 $shortcutPath = Join-Path $startMenuDirectory "Codex Meter.lnk"
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = Join-Path $installDirectory "CodexMeter.exe"
+$shortcut.TargetPath = $installedApplication
 $shortcut.WorkingDirectory = $installDirectory
 $shortcut.Description = "Codex usage floating meter"
 $shortcut.Save()
@@ -89,5 +111,5 @@ if ($StartWithWindows) {
 }
 
 if ($Launch) {
-    Start-Process -FilePath (Join-Path $installDirectory "CodexMeter.exe")
+    Start-Process -FilePath $installedApplication
 }

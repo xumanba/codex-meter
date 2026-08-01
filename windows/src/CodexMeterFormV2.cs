@@ -1536,13 +1536,35 @@ namespace CodexMeter
         {
             get
             {
-                if (snapshot == null)
-                    return false;
-                if (!isConnected || !String.IsNullOrWhiteSpace(lastError) || !lastSuccessfulRefreshAt.HasValue)
-                    return true;
-                double staleAfterMilliseconds = Math.Max(180000, scheduledRefreshMilliseconds * 2.5);
-                return (DateTimeOffset.Now - lastSuccessfulRefreshAt.Value).TotalMilliseconds > staleAfterMilliseconds;
+                return IsSnapshotStale(snapshot, isConnected, lastError,
+                    lastSuccessfulRefreshAt, scheduledRefreshMilliseconds, DateTimeOffset.Now);
             }
+        }
+
+        internal static bool IsSnapshotStale(
+            UsageSnapshot currentSnapshot,
+            bool connected,
+            string error,
+            DateTimeOffset? successfulRefreshAt,
+            int refreshMilliseconds,
+            DateTimeOffset now)
+        {
+            if (currentSnapshot == null)
+                return false;
+            if (!connected || !String.IsNullOrWhiteSpace(error) || !successfulRefreshAt.HasValue)
+                return true;
+
+            DateTimeOffset effectiveFreshness = successfulRefreshAt.Value;
+            if (currentSnapshot.UpdatedAt.HasValue &&
+                currentSnapshot.UpdatedAt.Value <= now.AddMinutes(5) &&
+                currentSnapshot.UpdatedAt.Value < effectiveFreshness)
+            {
+                effectiveFreshness = currentSnapshot.UpdatedAt.Value;
+            }
+
+            double staleAfterMilliseconds = Math.Max(180000,
+                Math.Max(1000, refreshMilliseconds) * 2.5);
+            return (now - effectiveFreshness).TotalMilliseconds > staleAfterMilliseconds;
         }
 
         private string StatusText

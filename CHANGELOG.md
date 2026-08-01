@@ -14,6 +14,9 @@
 - Rounds long reset countdowns up, shows minutes below one day, and exposes the exact local reset time on hover.
 - Aligns weekly and Spark reset countdowns to one fixed column and moves the latest update time into the status-pill tooltip.
 - Replaces the Windows system tooltip for update time with a rounded in-card prompt that reuses the active allowance-bar palette.
+- Treats an old provider timestamp as stale even when the local CLI invocation succeeds, preventing cached data from being shown as live.
+- Stops Windows upgrades with a clear instruction when the installed app is still running.
+- Extends Windows CI with status/budget hover rendering and portable-package validation.
 
 ## v0.1.0
 
