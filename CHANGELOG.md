@@ -13,6 +13,7 @@
 - Uses the same compact `xd xh` reset countdown for weekly and Spark allowances.
 - Rounds long reset countdowns up, shows minutes below one day, and exposes the exact local reset time on hover.
 - Aligns weekly and Spark reset countdowns to one fixed column and moves the latest update time into the status-pill tooltip.
+- Replaces the Windows system tooltip for update time with a rounded in-card prompt that reuses the active allowance-bar palette.
 
 ## v0.1.0
 

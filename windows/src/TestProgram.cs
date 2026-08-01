@@ -20,9 +20,11 @@ namespace CodexMeter
             {
                 NativeMethods.EnableDpiAwareness();
                 if (args.Length > 1 && String.Equals(args[0], "--preview-hover", StringComparison.OrdinalIgnoreCase))
-                    return RenderPreview(args[1], true);
+                    return RenderPreview(args[1], true, false);
+                if (args.Length > 1 && String.Equals(args[0], "--preview-status-hover", StringComparison.OrdinalIgnoreCase))
+                    return RenderPreview(args[1], false, true);
                 if (args.Length > 1 && String.Equals(args[0], "--preview", StringComparison.OrdinalIgnoreCase))
-                    return RenderPreview(args[1], false);
+                    return RenderPreview(args[1], false, false);
                 if (args.Length > 0 && String.Equals(args[0], "--live", StringComparison.OrdinalIgnoreCase))
                     return RunLiveProbe();
 
@@ -240,7 +242,7 @@ namespace CodexMeter
             }
         }
 
-        private static int RenderPreview(string outputPath, bool showBudgetToolTip)
+        private static int RenderPreview(string outputPath, bool showBudgetToolTip, bool showStatusToolTip)
         {
             BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
             CodexMeterFormV2 form = null;
@@ -293,15 +295,20 @@ namespace CodexMeter
                 formType.GetMethod("ResizeForContent", flags).Invoke(form, null);
 
                 form.CreateControl();
-                if (showBudgetToolTip)
+                if (showBudgetToolTip || showStatusToolTip)
                 {
                     using (Bitmap warmup = new Bitmap(form.ClientSize.Width, form.ClientSize.Height))
                         form.DrawToBitmap(warmup, new Rectangle(Point.Empty, form.ClientSize));
+                }
+                if (showBudgetToolTip)
+                {
                     Rectangle markerBounds = (Rectangle)formType.GetField("budgetMarkerBounds", flags).GetValue(form);
                     if (markerBounds.IsEmpty)
                         throw new InvalidOperationException("Budget marker hover bounds were not created.");
                     formType.GetField("budgetMarkerHovered", flags).SetValue(form, true);
                 }
+                if (showStatusToolTip)
+                    formType.GetField("syncButtonHovered", flags).SetValue(form, true);
                 using (Bitmap previewImage = new Bitmap(form.ClientSize.Width, form.ClientSize.Height))
                 {
                     previewImage.SetResolution(96f, 96f);

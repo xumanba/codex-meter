@@ -71,7 +71,7 @@ namespace CodexMeter
         private bool budgetMarkerHovered;
         private float budgetMarkerDesignX;
         private string budgetToolTipText = String.Empty;
-        private string activeContextToolTipText = String.Empty;
+        private string activeResetToolTipText = String.Empty;
         private int designHeight = 122;
         private int scheduledRefreshMilliseconds = NormalRefreshMilliseconds;
         private int consecutiveFailures;
@@ -128,11 +128,11 @@ namespace CodexMeter
                     syncButtonHovered = false;
                     bool wasBudgetHovered = budgetMarkerHovered;
                     budgetMarkerHovered = false;
-                    activeContextToolTipText = String.Empty;
+                    activeResetToolTipText = String.Empty;
                     contextualToolTip.Hide(this);
                     Cursor = Cursors.Default;
                     if (wasHovered)
-                        Invalidate(syncButtonBounds);
+                        Invalidate();
                     if (wasBudgetHovered)
                         Invalidate();
                 }
@@ -533,6 +533,8 @@ namespace CodexMeter
             if (snapshot == null)
             {
                 DrawEmptyState(graphics);
+                if (syncButtonHovered)
+                    DrawStatusToolTip(graphics);
                 return;
             }
 
@@ -555,6 +557,8 @@ namespace CodexMeter
 
             if (budgetMarkerHovered && !String.IsNullOrEmpty(budgetToolTipText))
                 DrawBudgetToolTip(graphics);
+            if (syncButtonHovered)
+                DrawStatusToolTip(graphics);
         }
 
         private void DrawGlassCard(Graphics graphics)
@@ -908,6 +912,54 @@ namespace CodexMeter
                     StringAlignment.Center, StringAlignment.Center);
         }
 
+        private void DrawStatusToolTip(Graphics graphics)
+        {
+            string text = StatusToolTipText();
+            if (String.IsNullOrWhiteSpace(text))
+                return;
+
+            const float width = 124f;
+            const float height = 24f;
+            const float anchorX = 278f;
+            RectangleF bounds = new RectangleF(DesignWidth - width - 14f, 50f, width, height);
+
+            UsageWindow main = snapshot == null ? null : snapshot.Weekly ?? snapshot.Session;
+            Color start;
+            Color end;
+            BarColors(main == null ? 100 : main.RemainingPercent, true, out start, out end);
+            Color fillStart = Color.FromArgb(IsDark ? 238 : 226, start);
+            Color fillEnd = Color.FromArgb(IsDark ? 238 : 226, end);
+
+            PointF[] pointer = new PointF[]
+            {
+                new PointF(anchorX, bounds.Y - 5f),
+                new PointF(anchorX - 4.5f, bounds.Y + 0.8f),
+                new PointF(anchorX + 4.5f, bounds.Y + 0.8f)
+            };
+            using (Brush pointerBrush = new SolidBrush(fillEnd))
+                graphics.FillPolygon(pointerBrush, pointer);
+
+            using (GraphicsPath shadowPath = RoundedRectangle(
+                new RectangleF(bounds.X, bounds.Y + 1.8f, bounds.Width, bounds.Height), 10f))
+            using (Brush shadow = new SolidBrush(Color.FromArgb(IsDark ? 72 : 42, 12, 28, 50)))
+                graphics.FillPath(shadow, shadowPath);
+
+            using (GraphicsPath path = RoundedRectangle(bounds, 10f))
+            using (LinearGradientBrush background = new LinearGradientBrush(
+                bounds, fillStart, fillEnd, 0f))
+            using (Pen border = new Pen(Color.FromArgb(150, 255, 255, 255), 0.8f))
+            {
+                graphics.FillPath(background, path);
+                graphics.DrawPath(border, path);
+            }
+
+            RectangleF textBounds = new RectangleF(bounds.X + 6f, bounds.Y, bounds.Width - 12f, bounds.Height);
+            using (Font font = FittedPixelFont(graphics, text, textBounds, 11.5f, 9.5f, FontStyle.Bold))
+            using (Brush textBrush = new SolidBrush(Color.White))
+                DrawText(graphics, text, font, textBrush, textBounds,
+                    StringAlignment.Center, StringAlignment.Center);
+        }
+
         private void DrawPace(Graphics graphics, PaceInfo pace, int y)
         {
             string left = pace.DeltaPercent > 0.5
@@ -992,14 +1044,13 @@ namespace CodexMeter
                     .Where(delegate(ResetHoverTarget target) { return target.Bounds.Contains(eventArgs.Location); })
                     .Select(delegate(ResetHoverTarget target) { return target.Text; })
                     .FirstOrDefault() ?? String.Empty;
-                string contextToolTipText = hovered ? StatusToolTipText() : resetToolTipText;
-                if (!String.Equals(contextToolTipText, activeContextToolTipText, StringComparison.Ordinal))
+                if (!String.Equals(resetToolTipText, activeResetToolTipText, StringComparison.Ordinal))
                 {
                     contextualToolTip.Hide(this);
-                    activeContextToolTipText = contextToolTipText;
-                    if (!String.IsNullOrEmpty(activeContextToolTipText))
+                    activeResetToolTipText = resetToolTipText;
+                    if (!String.IsNullOrEmpty(activeResetToolTipText))
                     {
-                        contextualToolTip.Show(activeContextToolTipText, this,
+                        contextualToolTip.Show(activeResetToolTipText, this,
                             eventArgs.X, eventArgs.Y + S(18), 8000);
                     }
                 }
@@ -1015,7 +1066,7 @@ namespace CodexMeter
                         ? Cursors.Hand
                         : (budgetHovered || !String.IsNullOrEmpty(resetToolTipText)
                             ? Cursors.Help : Cursors.Default);
-                    Invalidate(syncButtonBounds);
+                    Invalidate();
                 }
                 else
                 {

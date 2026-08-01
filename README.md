@@ -87,7 +87,7 @@ selection is restored automatically on both systems.
   restore it from the tray menu.
 - **Instant manual sync** — click the status pill or choose the menu action to
   refresh allowance, reset and pacing data immediately; hover the pill to see
-  the latest data-update time.
+  the latest data-update time in a progress-bar-matched prompt.
 - **Live network speed on Windows** — shows aggregate download and upload speed
   from active network adapters once per second, without inspecting packet data.
 - **Private by design** — never displays or stores account credentials.

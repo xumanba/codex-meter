@@ -15,7 +15,8 @@ Codex Meter for Windows v0.1.1
 7. 网速是整台电脑所有活动网卡的总流量，并非 Codex 专属流量。
 8. 每周额度和 Spark 额度统一显示“xd xh 后重置”，悬停可查看准确
    的本机日期和时间。
-9. 鼠标悬停在“实时”状态上可查看最近的数据更新时间。
+9. 鼠标悬停在“实时”状态上，可通过与额度进度条同色系的圆角提示
+   查看最近的数据更新时间。
 
 可选安装（当前用户）：在本目录运行 `powershell -ExecutionPolicy Bypass
 -File .\install.ps1 -Launch`。仅在需要开机启动时再加
@@ -39,7 +40,8 @@ English installation
 7. Network speed is aggregate system traffic, not Codex-only traffic.
 8. Weekly and Spark allowances use the same "xd xh until reset" format. Hover
    either countdown to see the exact local date and time.
-9. Hover the status pill to see the latest data-update time.
+9. Hover the status pill to see the latest data-update time in a rounded prompt
+   that uses the same color palette as the allowance progress bar.
 
 Optional per-user install: run `powershell -ExecutionPolicy Bypass -File
 .\install.ps1 -Launch`. Add `-StartWithWindows` only to opt in. Exit the app
