@@ -4,6 +4,7 @@ struct TokenUsageTotals: Equatable, Sendable {
     let totalTokens: Int64
     let inputTokens: Int64
     let cachedInputTokens: Int64
+    let cacheWriteInputTokens: Int64
     let outputTokens: Int64
     let reasoningTokens: Int64
 
@@ -11,12 +12,14 @@ struct TokenUsageTotals: Equatable, Sendable {
         totalTokens: 0,
         inputTokens: 0,
         cachedInputTokens: 0,
+        cacheWriteInputTokens: 0,
         outputTokens: 0,
         reasoningTokens: 0
     )
 
     var isZero: Bool {
         totalTokens == 0 && inputTokens == 0 && cachedInputTokens == 0
+            && cacheWriteInputTokens == 0
             && outputTokens == 0 && reasoningTokens == 0
     }
 
@@ -25,6 +28,7 @@ struct TokenUsageTotals: Equatable, Sendable {
             totalTokens: totalTokens + other.totalTokens,
             inputTokens: inputTokens + other.inputTokens,
             cachedInputTokens: cachedInputTokens + other.cachedInputTokens,
+            cacheWriteInputTokens: cacheWriteInputTokens + other.cacheWriteInputTokens,
             outputTokens: outputTokens + other.outputTokens,
             reasoningTokens: reasoningTokens + other.reasoningTokens
         )
@@ -41,6 +45,10 @@ struct TokenUsageTotals: Equatable, Sendable {
             totalTokens: component(totalTokens, previous.totalTokens),
             inputTokens: component(inputTokens, previous.inputTokens),
             cachedInputTokens: component(cachedInputTokens, previous.cachedInputTokens),
+            cacheWriteInputTokens: component(
+                cacheWriteInputTokens,
+                previous.cacheWriteInputTokens
+            ),
             outputTokens: component(outputTokens, previous.outputTokens),
             reasoningTokens: component(reasoningTokens, previous.reasoningTokens)
         )
@@ -85,6 +93,18 @@ struct TokenUsagePeriod: Codable, Equatable, Sendable {
     }
 }
 
+struct QuotaSample: Equatable {
+    let capturedAt: Date
+    let resetsAt: Date?
+    let usedPercent: Double
+}
+
+struct QuotaBreakdownKey: Hashable {
+    let model: String
+    let effort: String
+    let isFast: Bool
+}
+
 struct TokenUsageSnapshot: Equatable, Sendable {
     struct Daily: Equatable, Identifiable, Sendable {
         let date: Date
@@ -99,6 +119,7 @@ struct TokenUsageSnapshot: Equatable, Sendable {
         let effort: String
         let isFast: Bool
         let totals: TokenUsageTotals
+        let estimatedQuotaPercent: Double?
 
         var id: String {
             "\(model)|\(effort)|\(isFast)"
@@ -220,12 +241,8 @@ enum TokenUsageScanner {
         let model: String
         let effort: String
         let isFast: Bool
-    }
-
-    private struct QuotaSample {
-        let capturedAt: Date
-        let resetsAt: Date?
-        let usedPercent: Double
+        let quotaUsedPercent: Double?
+        let quotaResetsAt: Date?
     }
 
     private struct QuotaHistory: Decodable {
@@ -253,12 +270,6 @@ enum TokenUsageScanner {
         let usedPercent: Double
     }
 
-    private struct BreakdownKey: Hashable {
-        let model: String
-        let effort: String
-        let isFast: Bool
-    }
-
     static func scan(
         now: Date,
         weeklyUsedPercent: Double?,
@@ -284,8 +295,6 @@ enum TokenUsageScanner {
             persistQuotaSample(currentSample, now: now)
             quotaSamples = mergedSamples(quotaSamples + [currentSample])
         }
-        let currentWeeklyPercent = weeklyUsedPercent ?? quotaSamples.last?.usedPercent
-
         let dailyDates = (0..<7).compactMap {
             calendar.date(byAdding: .day, value: $0, to: firstDay)
         }
@@ -295,16 +304,18 @@ enum TokenUsageScanner {
 
         var dailyTotals = Array(repeating: TokenUsageTotals.zero, count: dailyDates.count)
         var weeklyTotals = TokenUsageTotals.zero
-        var grouped: [BreakdownKey: TokenUsageTotals] = [:]
+        var grouped: [QuotaBreakdownKey: TokenUsageTotals] = [:]
 
-        for event in events where event.date >= quotaStart && event.date <= now {
+        for event in events where event.date >= quotaStart
+            && event.date <= now
+            && belongsToQuotaWindow(event.quotaResetsAt, weeklyReset: weeklyResetsAt) {
             let day = calendar.startOfDay(for: event.date)
             if let index = dailyIndex[day] {
                 dailyTotals[index] = dailyTotals[index].adding(event.totals)
             }
 
             weeklyTotals = weeklyTotals.adding(event.totals)
-            let key = BreakdownKey(
+            let key = QuotaBreakdownKey(
                 model: event.model,
                 effort: event.effort,
                 isFast: event.isFast
@@ -312,15 +323,41 @@ enum TokenUsageScanner {
             grouped[key] = (grouped[key] ?? .zero).adding(event.totals)
         }
 
+        let eventQuotaSamples = events.compactMap { event -> QuotaSample? in
+            guard let usedPercent = event.quotaUsedPercent,
+                  belongsToQuotaWindow(event.quotaResetsAt, weeklyReset: weeklyResetsAt) else {
+                return nil
+            }
+            return QuotaSample(
+                capturedAt: event.date,
+                resetsAt: event.quotaResetsAt,
+                usedPercent: usedPercent
+            )
+        }
+        let dailyQuotaPercents = dailyQuotaPercentages(
+            dates: dailyDates,
+            samples: mergedSamples(quotaSamples + eventQuotaSamples),
+            periodStart: quotaStart,
+            now: now,
+            calendar: calendar
+        )
+        let currentWeeklyUsedPercent = weeklyUsedPercent
+            ?? mergedSamples(quotaSamples + eventQuotaSamples)
+                .filter {
+                    $0.capturedAt <= now
+                        && belongsToQuotaWindow($0.resetsAt, weeklyReset: weeklyResetsAt)
+                }
+                .last?
+                .usedPercent
+        let estimatedQuotaPercentByBreakdown = estimatedQuotaPercentages(
+            grouped: grouped,
+            weeklyUsedPercent: currentWeeklyUsedPercent
+        )
+
         let daily = dailyDates.enumerated().map { index, date in
-            let dailyPercent = weeklyTotals.totalTokens > 0
-                ? Double(dailyTotals[index].totalTokens)
-                    / Double(weeklyTotals.totalTokens)
-                    * max(0, currentWeeklyPercent ?? 0)
-                : 0
             return TokenUsageSnapshot.Daily(
                 date: date,
-                quotaPercent: dailyPercent,
+                quotaPercent: dailyQuotaPercents[index],
                 totals: dailyTotals[index]
             )
         }
@@ -330,7 +367,8 @@ enum TokenUsageScanner {
                 model: key.model,
                 effort: key.effort,
                 isFast: key.isFast,
-                totals: totals
+                totals: totals,
+                estimatedQuotaPercent: estimatedQuotaPercentByBreakdown?[key]
             )
         }
         .sorted {
@@ -346,6 +384,122 @@ enum TokenUsageScanner {
             breakdowns: breakdowns,
             scannedAt: now
         )
+    }
+
+    static func dailyQuotaPercentages(
+        dates: [Date],
+        samples: [QuotaSample],
+        periodStart: Date,
+        now: Date,
+        calendar: Calendar
+    ) -> [Double] {
+        let eligibleSamples = samples
+            .filter { $0.capturedAt >= periodStart && $0.capturedAt <= now }
+            .sorted { $0.capturedAt < $1.capturedAt }
+
+        return dates.map { dayStart in
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart)
+                ?? dayStart.addingTimeInterval(24 * 60 * 60)
+            guard let endSample = eligibleSamples.last(where: {
+                $0.capturedAt < nextDay
+            }) else {
+                return 0
+            }
+
+            let startPercent: Double
+            if periodStart > dayStart {
+                startPercent = eligibleSamples.last(where: {
+                    $0.capturedAt <= periodStart
+                })?.usedPercent ?? 0
+            } else {
+                startPercent = eligibleSamples.last(where: {
+                    $0.capturedAt < dayStart
+                })?.usedPercent ?? 0
+            }
+            return max(0, min(100, endSample.usedPercent - startPercent))
+        }
+    }
+
+    static func estimatedQuotaPercentages(
+        grouped: [QuotaBreakdownKey: TokenUsageTotals],
+        weeklyUsedPercent: Double?
+    ) -> [QuotaBreakdownKey: Double]? {
+        guard let weeklyUsedPercent else { return nil }
+
+        let weightedCosts = grouped.reduce(into: [QuotaBreakdownKey: Double]()) { result, entry in
+            result[entry.key] = estimatedQuotaCost(for: entry.key, totals: entry.value)
+        }
+        let totalWeightedCost = weightedCosts.values.reduce(0, +)
+        let clampedWeeklyPercent = max(0, min(100, weeklyUsedPercent))
+
+        guard totalWeightedCost > 0 else {
+            return grouped.mapValues { _ in 0 }
+        }
+
+        return weightedCosts.mapValues { cost in
+            clampedWeeklyPercent * cost / totalWeightedCost
+        }
+    }
+
+    private struct QuotaCostWeights {
+        let input: Double
+        let cachedInput: Double
+        let cacheWriteInput: Double
+        let output: Double
+
+        func cost(for totals: TokenUsageTotals) -> Double {
+            let uncachedInput = max(
+                0,
+                totals.inputTokens - totals.cachedInputTokens
+            )
+            return Double(uncachedInput) * input
+                + Double(max(0, totals.cachedInputTokens)) * cachedInput
+                + Double(max(0, totals.cacheWriteInputTokens)) * cacheWriteInput
+                + Double(max(0, totals.outputTokens)) * output
+        }
+    }
+
+    private static func estimatedQuotaCost(
+        for key: QuotaBreakdownKey,
+        totals: TokenUsageTotals
+    ) -> Double {
+        let baseCost: Double
+        if let weights = quotaCostWeights(for: key.model) {
+            baseCost = weights.cost(for: totals)
+        } else {
+            baseCost = Double(max(0, totals.totalTokens))
+                + Double(max(0, totals.cacheWriteInputTokens))
+        }
+
+        return key.isFast ? baseCost * 2.5 : baseCost
+    }
+
+    private static func quotaCostWeights(for model: String) -> QuotaCostWeights? {
+        switch model.lowercased() {
+        case "gpt-5.6-sol":
+            return QuotaCostWeights(
+                input: 5.0,
+                cachedInput: 0.5,
+                cacheWriteInput: 6.25,
+                output: 30.0
+            )
+        case "gpt-5.6-terra":
+            return QuotaCostWeights(
+                input: 2.0,
+                cachedInput: 0.2,
+                cacheWriteInput: 2.5,
+                output: 12.0
+            )
+        case "gpt-5.6-luna", "codex-auto-review":
+            return QuotaCostWeights(
+                input: 0.2,
+                cachedInput: 0.02,
+                cacheWriteInput: 0.25,
+                output: 1.2
+            )
+        default:
+            return nil
+        }
     }
 
     private static func scanFiles(cutoff: Date) -> [UsageEvent] {
@@ -410,6 +564,7 @@ enum TokenUsageScanner {
             }
 
             context.update(from: payload)
+            let quota = quotaUsage(in: payload)
             let dateString = (dictionary["timestamp"] as? String)
                 ?? (payload["timestamp"] as? String)
             guard let dateString,
@@ -432,7 +587,9 @@ enum TokenUsageScanner {
                             totals: delta,
                             model: context.model,
                             effort: context.effort,
-                            isFast: context.isFast
+                            isFast: context.isFast,
+                            quotaUsedPercent: quota?.usedPercent,
+                            quotaResetsAt: quota?.resetsAt
                         )
                     )
                 }
@@ -449,7 +606,9 @@ enum TokenUsageScanner {
                         totals: last,
                         model: context.model,
                         effort: context.effort,
-                        isFast: context.isFast
+                        isFast: context.isFast,
+                        quotaUsedPercent: quota?.usedPercent,
+                        quotaResetsAt: quota?.resetsAt
                     )
                 )
             }
@@ -475,6 +634,7 @@ enum TokenUsageScanner {
             totalTokens: totalTokens,
             inputTokens: integer(dictionary["input_tokens"]) ?? 0,
             cachedInputTokens: integer(dictionary["cached_input_tokens"]) ?? 0,
+            cacheWriteInputTokens: integer(dictionary["cache_write_input_tokens"]) ?? 0,
             outputTokens: integer(dictionary["output_tokens"]) ?? 0,
             reasoningTokens: integer(dictionary["reasoning_output_tokens"])
                 ?? integer(dictionary["reasoning_tokens"])
@@ -490,6 +650,30 @@ enum TokenUsageScanner {
             return Int64(string)
         }
         return nil
+    }
+
+    private static func double(_ value: Any?) -> Double? {
+        if let number = value as? NSNumber {
+            return number.doubleValue
+        }
+        if let string = value as? String {
+            return Double(string)
+        }
+        return nil
+    }
+
+    private static func quotaUsage(
+        in payload: [String: Any]
+    ) -> (usedPercent: Double, resetsAt: Date?)? {
+        guard let rateLimits = payload["rate_limits"] as? [String: Any],
+              let primary = rateLimits["primary"] as? [String: Any],
+              let usedPercent = double(primary["used_percent"]) else {
+            return nil
+        }
+
+        let resetsAt = double(primary["resets_at"])
+            .map(Date.init(timeIntervalSince1970:))
+        return (usedPercent, resetsAt)
     }
 
     private static func value(at path: [String], in object: [String: Any]) -> Any? {
@@ -648,6 +832,28 @@ enum TokenUsageScanner {
             return .greatestFiniteMagnitude
         }
         return abs(sampleReset.timeIntervalSince(reset))
+    }
+
+    private static func matchesReset(
+        _ eventReset: Date?,
+        _ weeklyReset: Date?
+    ) -> Bool {
+        switch (eventReset, weeklyReset) {
+        case let (.some(eventReset), .some(weeklyReset)):
+            return abs(eventReset.timeIntervalSince(weeklyReset)) <= 10 * 60
+        case (.none, .none):
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func belongsToQuotaWindow(
+        _ eventReset: Date?,
+        weeklyReset: Date?
+    ) -> Bool {
+        guard weeklyReset != nil else { return true }
+        return matchesReset(eventReset, weeklyReset)
     }
 
 }

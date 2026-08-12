@@ -61,9 +61,22 @@ count the raw tokens used by each individual prompt.
 - Remaining weekly Codex allowance and reset time
 - On macOS v0.2.0, current-quota daily token usage for the latest seven days
 - On macOS v0.2.0, model preference split by model, reasoning effort and Fast mode
+- macOS daily quota percentages use day-to-day deltas from Codex's official
+  cumulative weekly usage percentage; token amounts remain a separate display
+- macOS model rows show an estimated weekly-quota share from weighted input,
+  cached-input, cache-write and output tokens, displayed to two decimal places
+- The estimate is normalized to Codex's official account-level weekly used
+  percentage instead of assigning an integer snapshot jump to one model
+- Auto Review currently uses Luna's pricing weights as an explicit fallback
+  because Codex does not expose a per-model quota price for that hidden variant
+- Fast mode uses a 2.5x quota weight; the 1.5x value in the model catalog refers
+  to speed improvement, not quota consumption
+- Model rows only include sessions from the current weekly quota window, so stale
+  pre-refresh tokens do not appear as a misleading `0%` row
 - Reasoning effort labels use the UI spelling `None`, `Low`, `Medium`, `High`, `xHigh` and `Max`
 - On macOS v0.2.0, weekly pace compares actual usage with time-based expected usage,
   marks normal/fast/slow pacing and shows an estimated depletion time when available
+- The pace information row is spaced below the quota bar for clearer alignment
 - Additional Codex Spark rate windows when available
 - Optional always-on-top visualization with optional Codex app following
 - QQ-style left/right edge auto-hide with native hover reveal

@@ -12,6 +12,22 @@
 - Corrects the displayed casing of the `xHigh` reasoning level.
 - Restores the macOS weekly pace status, expected-budget marker and depletion
   forecast in the weekly quota card.
+- Uses official cumulative weekly usage deltas for macOS daily quota percentages
+  instead of deriving allowance usage from raw token totals.
+- Estimates model preference quota shares from weighted input, cached-input,
+  cache-write and output tokens, normalized to the official account-level weekly
+  used percentage; model, reasoning effort and Fast mode remain separate.
+- Uses Luna's pricing weights as the explicit estimate fallback for the hidden
+  Auto Review variant; model percentages are shown to two decimal places under
+  the UI's quota-estimate section.
+- Corrects Fast-mode quota weighting to 2.5x; the model catalog's 1.5x value is
+  treated as a speed improvement, not a quota multiplier.
+- Filters model totals by the active weekly quota reset, preventing stale-window
+  tokens from appearing as a `0%` model row.
+- Changes the weekly pace reference marker to orange for clearer contrast with
+  the green remaining-quota bar.
+- Moves the weekly pace information row slightly lower, with clearer spacing below
+  the quota bar.
 - Keeps the Chinese README as the primary documentation and links the English
   README.
 
