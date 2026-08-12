@@ -103,8 +103,8 @@ selection is restored automatically on both systems.
   weekly bar and compares actual versus expected usage as normal, fast or slow.
 - **Native app branding** — the floating card header uses the CodexMeter app
   icon bundled with the macOS application.
-- **Pace awareness** — displays over-pace percentage, expected depletion time
-  and a red pacing marker.
+- **Pace awareness** — displays actual versus expected usage, an estimated
+  depletion time when available and a color-coded pacing marker.
 - **Clear reset timing on Windows** — uses the same `xd xh` countdown for
   weekly and Spark allowances, prevents early hour truncation and exposes exact
   reset times on hover.
