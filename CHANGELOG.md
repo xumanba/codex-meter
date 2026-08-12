@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.0 (unified main)
+
+- Brings the complete macOS v0.2.0 source, edge docking and Windows v0.1.1
+  implementation onto the `main` branch.
+- Adds current-quota daily token usage and separate model, reasoning-effort and
+  Fast-mode preference statistics.
+- Resets model preference totals when the weekly quota reset is detected and
+  recounts from the refresh point instead of carrying totals across periods.
+- Keeps the Chinese README as the primary documentation and links the English
+  README.
+
 ## v0.1.1 (Windows quality update)
 
 - Preserves the macOS v0.1.0 source, application behavior and package unchanged.
