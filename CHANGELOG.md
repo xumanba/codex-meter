@@ -9,6 +9,7 @@
 - Resets model preference totals when the weekly quota reset is detected and
   recounts from the refresh point instead of carrying totals across periods.
 - Uses the CodexMeter app icon in the floating card header.
+- Corrects the displayed casing of the `xHigh` reasoning level.
 - Keeps the Chinese README as the primary documentation and links the English
   README.
 

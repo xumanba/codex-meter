@@ -61,6 +61,7 @@ count the raw tokens used by each individual prompt.
 - Remaining weekly Codex allowance and reset time
 - On macOS v0.2.0, current-quota daily token usage for the latest seven days
 - On macOS v0.2.0, model preference split by model, reasoning effort and Fast mode
+- Reasoning effort labels use the UI spelling `None`, `Low`, `Medium`, `High`, `xHigh` and `Max`
 - Usage pace, overage percentage and estimated depletion time
 - Additional Codex Spark rate windows when available
 - Optional always-on-top visualization with optional Codex app following
