@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -47,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: NSPanel?
     private var positioner: PanelPositioner?
     private var moveObserver: NSObjectProtocol?
+    private var tokenUsageObserver: AnyCancellable?
     private var mode: PanelMode = .fixed
     private var theme = MeterTheme(
         rawValue: UserDefaults.standard.string(forKey: "meterTheme") ?? ""
@@ -59,7 +61,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 292, height: 160),
+            contentRect: NSRect(
+                x: 0,
+                y: 0,
+                width: MeterLayout.width,
+                height: MeterLayout.height(
+                    for: 0,
+                    maximum: maximumPanelHeight(for: NSScreen.main)
+                )
+            ),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -92,6 +102,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         positioner?.start()
+        tokenUsageObserver = client.$tokenUsage
+            .receive(on: RunLoop.main)
+            .sink { [weak self] usage in
+                self?.resizePanel(modelCount: usage?.breakdowns.count ?? 0)
+            }
         client.start()
     }
 
@@ -100,6 +115,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.removeObserver(moveObserver)
         }
         positioner?.stop()
+        tokenUsageObserver = nil
         client.stop()
     }
 
@@ -123,10 +139,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func makeContentView() -> NSView {
+        let panelHeight = MeterLayout.height(
+            for: client.tokenUsage?.breakdowns.count ?? 0,
+            maximum: maximumPanelHeight(for: panel?.screen ?? NSScreen.main)
+        )
         let view = MeterTrackingHostingView(rootView: MeterView(
             client: client,
             mode: mode,
             theme: theme,
+            panelHeight: panelHeight,
             setMode: { [weak self] mode in self?.setMode(mode) },
             setTheme: { [weak self] theme in self?.setTheme(theme) },
             quit: { NSApp.terminate(nil) }
@@ -138,6 +159,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.positioner?.pointerExitedPanel()
         }
         return view
+    }
+
+    private func resizePanel(modelCount: Int) {
+        guard let panel else { return }
+
+        let targetHeight = MeterLayout.height(
+            for: modelCount,
+            maximum: maximumPanelHeight(for: panel.screen ?? NSScreen.main)
+        )
+        guard abs(panel.frame.height - targetHeight) > 0.5 else { return }
+
+        panel.setContentSize(NSSize(width: MeterLayout.width, height: targetHeight))
+        panel.contentView = makeContentView()
+        positioner?.update()
+    }
+
+    private func maximumPanelHeight(for screen: NSScreen?) -> CGFloat? {
+        guard let screen else { return nil }
+        return max(MeterLayout.minimumHeight, screen.visibleFrame.height - 24)
     }
 
     private func appearance(for theme: MeterTheme) -> NSAppearance? {

@@ -4,7 +4,7 @@ set -euo pipefail
 project_dir="${0:A:h:h}"
 release_dir="$project_dir/.build/release"
 app_path="$project_dir/.build/Codex Meter.app"
-archive_name="Codex-Meter-macos-universal-0.1.0.zip"
+archive_name="Codex-Meter-macos-universal-0.2.0.zip"
 archive_path="$release_dir/$archive_name"
 
 cd "$project_dir"

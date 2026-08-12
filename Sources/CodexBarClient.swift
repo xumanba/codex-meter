@@ -3,6 +3,7 @@ import Foundation
 @MainActor
 final class CodexBarClient: ObservableObject {
     @Published private(set) var snapshot: UsageSnapshot?
+    @Published private(set) var tokenUsage: TokenUsageSnapshot?
     @Published private(set) var isConnected = false
     @Published private(set) var lastError: String?
 
@@ -33,8 +34,14 @@ final class CodexBarClient: ObservableObject {
     }
 
     private func refresh(startServerIfNeeded: Bool) async {
+        let refreshDate = Date()
         do {
-            snapshot = try await fetch()
+            let usageSnapshot = try await fetch()
+            snapshot = usageSnapshot
+            tokenUsage = await scanTokenUsage(
+                at: refreshDate,
+                weekly: usageSnapshot.weekly
+            )
             isConnected = true
             lastError = nil
         } catch {
@@ -44,9 +51,28 @@ final class CodexBarClient: ObservableObject {
                 await refresh(startServerIfNeeded: false)
                 return
             }
+            tokenUsage = await scanTokenUsage(
+                at: refreshDate,
+                weekly: snapshot?.weekly
+            )
             isConnected = false
             lastError = error.localizedDescription
         }
+    }
+
+    private func scanTokenUsage(
+        at date: Date,
+        weekly: UsageSnapshot.Window?
+    ) async -> TokenUsageSnapshot {
+        let weeklyUsedPercent = weekly?.usedPercent
+        let weeklyResetsAt = weekly?.resetsAt
+        return await Task.detached(priority: .utility) {
+            TokenUsageScanner.scan(
+                now: date,
+                weeklyUsedPercent: weeklyUsedPercent,
+                weeklyResetsAt: weeklyResetsAt
+            )
+        }.value
     }
 
     private func fetch() async throws -> UsageSnapshot {

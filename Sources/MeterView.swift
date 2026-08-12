@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 enum MeterTheme: String {
@@ -5,51 +6,79 @@ enum MeterTheme: String {
     case light
 }
 
+enum MeterLayout {
+    static let width: CGFloat = 344
+    static let minimumHeight: CGFloat = 240
+    private static let modelRowHeight: CGFloat = 32
+    private static let modelRowSpacing: CGFloat = 9
+
+    static func height(for modelCount: Int, maximum: CGFloat? = nil) -> CGFloat {
+        let modelHeight: CGFloat
+        if modelCount > 0 {
+            modelHeight = CGFloat(modelCount) * modelRowHeight
+                + CGFloat(max(0, modelCount - 1)) * modelRowSpacing
+        } else {
+            modelHeight = 28
+        }
+
+        let intrinsicHeight = 28 + 26 + (3 * 13) + 103 + 117 + 14 + 9 + modelHeight
+        guard let maximum else { return intrinsicHeight }
+        return min(intrinsicHeight, max(minimumHeight, maximum))
+    }
+}
+
 struct MeterView: View {
     @ObservedObject var client: CodexBarClient
     let mode: PanelMode
     let theme: MeterTheme
+    let panelHeight: CGFloat
     let setMode: (PanelMode) -> Void
     let setTheme: (MeterTheme) -> Void
     let quit: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
-            header
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 13) {
+                header
 
-            if let snapshot = client.snapshot {
-                meter(
-                    snapshot.weekly,
-                    prominent: true,
-                    expectedRemaining: snapshot.pace.map { 100 - $0.expectedUsedPercent }
-                )
-                if let pace = snapshot.pace {
-                    paceRow(pace)
+                if let snapshot = client.snapshot {
+                    weeklySection(
+                        snapshot.weekly,
+                        weeklyTotals: client.tokenUsage?.weeklyTotals
+                    )
+
+                    if let tokenUsage = client.tokenUsage {
+                        dailyUsage(tokenUsage)
+                        modelUsage(tokenUsage)
+                    } else {
+                        tokenUsageLoading
+                    }
+                } else {
+                    loading
                 }
-                ForEach(Array(snapshot.extras.enumerated()), id: \.offset) { _, window in
-                    meter(window, prominent: false)
-                }
-            } else {
-                loading
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .frame(width: 292)
+        .frame(width: MeterLayout.width, height: panelHeight)
         .background {
-            ZStack {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(glassTint)
-            }
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(glassTint)
+                }
+                .shadow(color: .black.opacity(theme == .dark ? 0.45 : 0.20), radius: 24, y: 12)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(glassStroke, lineWidth: 0.75)
         }
-        .shadow(color: .black.opacity(theme == .dark ? 0.45 : 0.20), radius: 24, y: 12)
-        .environment(\.colorScheme, theme == .dark ? .dark : .light)
+        .environment(
+            \.colorScheme,
+            theme == .dark ? .dark : .light
+        )
     }
 
     private var header: some View {
@@ -125,73 +154,242 @@ struct MeterView: View {
         }
     }
 
-    private func meter(
+    private func weeklySection(
         _ window: UsageSnapshot.Window,
-        prominent: Bool,
-        expectedRemaining: Double? = nil
+        weeklyTotals: TokenUsageTotals?
     ) -> some View {
-        let remainingPercent = max(0, min(100, 100 - window.usedPercent))
+        let usedPercent = max(0, min(100, window.usedPercent))
+        let remainingPercent = max(0, 100 - usedPercent)
 
-        return VStack(spacing: 7) {
+        return VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .firstTextBaseline) {
-                Text(window.title == "Weekly" ? "每周额度" : window.title)
-                    .font(.system(size: prominent ? 11.5 : 10.5, weight: .semibold))
-                    .foregroundStyle(prominent ? primaryText : secondaryText)
+                Text("每周额度")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(primaryText)
                 Spacer()
                 if let reset = window.resetsAt {
                     Text("\(duration(reset.timeIntervalSinceNow)) 后重置")
                         .font(.system(size: 9.5))
                         .foregroundStyle(tertiaryText)
                 }
-                Text("剩余 \(Int(remainingPercent.rounded()))%")
-                    .font(.system(size: prominent ? 15.5 : 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(primaryText)
+            }
+
+            HStack(alignment: .lastTextBaseline) {
+                Text("剩余")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(secondaryText)
+                Text(formatPercent(remainingPercent))
+                    .font(.system(size: 29, weight: .bold, design: .rounded))
+                    .foregroundStyle(remainingColor(for: remainingPercent))
+                    .monospacedDigit()
+                Spacer()
+                Text(weeklyTotals.map { "本周 \(tokenAmount($0.totalTokens)) token" } ?? "本周 —")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(secondaryText)
                     .monospacedDigit()
             }
 
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(trackColor)
-                    Capsule()
-                        .fill(barGradient(forRemaining: remainingPercent, prominent: prominent))
-                        .frame(width: max(4, geometry.size.width * remainingPercent / 100))
-                        .shadow(color: barGlow(forRemaining: remainingPercent), radius: 4)
-                    if let expectedRemaining {
-                        Rectangle()
-                            .fill(Color(red: 1, green: 0.27, blue: 0.23))
-                            .frame(width: 3, height: prominent ? 12 : 9)
-                            .shadow(color: .red.opacity(0.65), radius: 3)
-                            .position(
-                                x: geometry.size.width * min(max(expectedRemaining, 0), 100) / 100,
-                                y: geometry.size.height / 2
-                            )
-                    }
+            quotaProgressBar(remainingPercent: remainingPercent)
+        }
+        .padding(13)
+        .background(weeklySurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(weeklyStroke, lineWidth: 0.65)
+        }
+    }
+
+    private func quotaProgressBar(remainingPercent: Double) -> some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(trackColor)
+
+                Capsule()
+                    .fill(remainingGradient(for: remainingPercent))
+                    .frame(width: geometry.size.width * remainingPercent / 100)
+                    .shadow(color: remainingColor(for: remainingPercent).opacity(0.45), radius: 5)
+            }
+        }
+        .frame(height: 12)
+    }
+
+    private func dailyUsage(_ usage: TokenUsageSnapshot) -> some View {
+        let quotaMaximum = max(0.1, usage.daily.map(\.quotaPercent).max() ?? 0)
+
+        return VStack(alignment: .leading, spacing: 9) {
+            Text("近7天每日")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(primaryText)
+
+            HStack(alignment: .bottom, spacing: 6) {
+                ForEach(usage.daily) { day in
+                    dailyBar(
+                        day,
+                        quotaMaximum: quotaMaximum
+                    )
                 }
             }
-            .frame(height: prominent ? 8 : 6)
+            .frame(height: 94)
         }
     }
 
-    private func paceRow(_ pace: UsageSnapshot.Pace) -> some View {
-        HStack {
-            Text(pace.deltaPercent > 0 ? "超额 \(Int(pace.deltaPercent.rounded()))%" : "节奏正常")
-                .foregroundStyle(pace.deltaPercent > 0 ? appleOrange : secondaryText)
-            Spacer()
-            if pace.willLastToReset {
-                Text("预计可用至重置")
-            } else if let etaSeconds = pace.etaSeconds {
-                Text("预计 \(duration(etaSeconds)) 后耗尽")
+    private func dailyBar(
+        _ day: TokenUsageSnapshot.Daily,
+        quotaMaximum: Double
+    ) -> some View {
+        let normalized = day.quotaPercent / quotaMaximum
+
+        return VStack(spacing: 4) {
+            Text(formatPercent(day.quotaPercent))
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(primaryText)
+                .monospacedDigit()
+                .frame(height: 12)
+
+            ZStack(alignment: .bottom) {
+                Capsule()
+                    .fill(trackColor)
+                Capsule()
+                    .fill(dailyBarGradient)
+                    .frame(height: max(4, 54 * min(1, normalized)))
+            }
+            .frame(height: 54)
+
+            Text(dayLabel(day.date))
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(secondaryText)
+            Text(tokenAmount(day.totals.totalTokens))
+                .font(.system(size: 9.5, weight: .medium))
+                .foregroundStyle(tertiaryText)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func modelUsage(_ usage: TokenUsageSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text("模型偏好")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(primaryText)
+
+            if usage.breakdowns.isEmpty {
+                Text("当前周额度窗口暂无 token 记录")
+                    .font(.system(size: 10))
+                    .foregroundStyle(tertiaryText)
+            } else {
+                ForEach(usage.breakdowns) { breakdown in
+                    modelRow(breakdown, weeklyTotal: usage.weeklyTotals.totalTokens)
+                }
             }
         }
-        .font(.system(size: 9.5, weight: .semibold))
-        .foregroundStyle(secondaryText)
     }
 
-    private func duration(_ seconds: Double) -> String {
-        let totalHours = max(0, Int(seconds) / 3600)
-        let days = totalHours / 24
-        let hours = totalHours % 24
-        return days > 0 ? "\(days)d \(hours)h" : "\(hours)h"
+    private func modelRow(
+        _ breakdown: TokenUsageSnapshot.Breakdown,
+        weeklyTotal: Int64
+    ) -> some View {
+        let share = weeklyTotal > 0
+            ? Double(breakdown.totals.totalTokens) / Double(weeklyTotal) * 100
+            : 0
+        let accent = modelAccentColor(breakdown.model)
+
+        return HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Text(modelDisplayName(breakdown.model))
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text("· \(effortDisplayName(breakdown.effort))")
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            if breakdown.isFast {
+                Text("· Fast")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.orange)
+            }
+            Spacer(minLength: 3)
+            Text(formatPercent(share))
+                .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                .foregroundStyle(accent)
+                .monospacedDigit()
+            Text("·")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(tertiaryText)
+            Text(tokenAmount(breakdown.totals.totalTokens))
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(accent.opacity(0.78))
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(statusBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private func modelAccentColor(_ model: String) -> Color {
+        switch model.lowercased() {
+        case "gpt-5.6-sol":
+            return Color(red: 0.30, green: 0.78, blue: 1.0)
+        case "gpt-5.6-terra":
+            return Color(red: 0.32, green: 0.86, blue: 0.56)
+        case "gpt-5.6-luna":
+            return Color(red: 0.76, green: 0.54, blue: 1.0)
+        case "codex-auto-review":
+            return Color(red: 1.0, green: 0.62, blue: 0.28)
+        default:
+            return appleBlue
+        }
+    }
+
+    private func modelDisplayName(_ model: String) -> String {
+        switch model.lowercased() {
+        case "gpt-5.6-sol":
+            return "5.6 Sol"
+        case "gpt-5.6-terra":
+            return "5.6 Terra"
+        case "gpt-5.6-luna":
+            return "5.6 Luna"
+        case "codex-auto-review":
+            return "5.6 Luna · Auto Review"
+        default:
+            return model
+        }
+    }
+
+    private func effortDisplayName(_ effort: String) -> String {
+        switch effort.lowercased() {
+        case "none":
+            return "None"
+        case "low":
+            return "Low"
+        case "medium":
+            return "Medium"
+        case "high":
+            return "High"
+        case "xhigh":
+            return "XHigh"
+        case "max":
+            return "Max"
+        case "ultra":
+            return "Ultra"
+        default:
+            return effort
+        }
+    }
+
+    private var tokenUsageLoading: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text("正在扫描本地 token 记录…")
+                .font(.system(size: 10.5))
+                .foregroundStyle(secondaryText)
+            Spacer()
+        }
+        .frame(height: 28)
     }
 
     private var loading: some View {
@@ -206,32 +404,83 @@ struct MeterView: View {
         .frame(height: 28)
     }
 
-    private func barGradient(forRemaining percent: Double, prominent: Bool) -> LinearGradient {
-        let colors: [Color]
-        if percent < 15 {
-            colors = [.red, Color(red: 1, green: 0.27, blue: 0.23)]
-        } else if percent < 35 {
-            colors = [appleOrange, .yellow]
-        } else if prominent {
-            colors = [Color(red: 0.25, green: 0.79, blue: 1), appleBlue]
-        } else {
-            colors = [Color(red: 0.38, green: 0.82, blue: 0.94), Color(red: 0.36, green: 0.48, blue: 1)]
-        }
-        return LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
+    private func duration(_ seconds: Double) -> String {
+        let totalHours = max(0, Int(seconds) / 3600)
+        let days = totalHours / 24
+        let hours = totalHours % 24
+        return days > 0 ? "\(days)d \(hours)h" : "\(hours)h"
     }
 
-    private func barGlow(forRemaining percent: Double) -> Color {
-        percent < 15 ? .red.opacity(0.45) : percent < 35 ? appleOrange.opacity(0.4) : appleBlue.opacity(0.38)
+    private func dayLabel(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) {
+            return "今"
+        }
+        let weekday = Calendar.current.component(.weekday, from: date)
+        return ["日", "一", "二", "三", "四", "五", "六"][max(1, min(7, weekday)) - 1]
+    }
+
+    private func formatPercent(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return String(format: "%.1f%%", max(0, value))
+    }
+
+    private func tokenAmount(_ tokens: Int64) -> String {
+        let value = Double(max(0, tokens))
+        if value >= 1_000_000_000 {
+            return String(format: "%.2fB", value / 1_000_000_000)
+        }
+        if value >= 1_000_000 {
+            return String(format: "%.1fM", value / 1_000_000)
+        }
+        if value >= 1_000 {
+            return String(format: "%.1fK", value / 1_000)
+        }
+        return "\(Int64(value.rounded()))"
+    }
+
+    private func remainingColor(for percent: Double) -> Color {
+        if percent >= 50 {
+            return Color(red: 0.25, green: 0.82, blue: 0.42)
+        }
+        if percent >= 20 {
+            return Color(red: 1, green: 0.68, blue: 0.12)
+        }
+        return Color(red: 1, green: 0.28, blue: 0.24)
+    }
+
+    private func remainingGradient(for percent: Double) -> LinearGradient {
+        let color = remainingColor(for: percent)
+        return LinearGradient(
+            colors: [color.opacity(0.72), color],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    private var dailyBarGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(red: 0.38, green: 0.82, blue: 0.94), Color(red: 0.36, green: 0.48, blue: 1)],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
     }
 
     private var glassTint: Color {
         theme == .dark
-            ? Color(red: 0.035, green: 0.045, blue: 0.065).opacity(0.82)
-            : Color(red: 0.94, green: 0.96, blue: 0.99).opacity(0.78)
+            ? Color(red: 0.035, green: 0.045, blue: 0.065).opacity(0.84)
+            : Color(red: 0.94, green: 0.96, blue: 0.99).opacity(0.80)
     }
 
     private var glassStroke: Color {
         theme == .dark ? .white.opacity(0.14) : .white.opacity(0.82)
+    }
+
+    private var weeklySurface: Color {
+        theme == .dark ? Color.white.opacity(0.065) : Color.black.opacity(0.045)
+    }
+
+    private var weeklyStroke: Color {
+        theme == .dark ? .white.opacity(0.12) : .black.opacity(0.08)
     }
 
     private var primaryText: Color {
@@ -255,5 +504,4 @@ struct MeterView: View {
     }
 
     private let appleBlue = Color(red: 0.04, green: 0.52, blue: 1)
-    private let appleOrange = Color(red: 1, green: 0.62, blue: 0.04)
 }

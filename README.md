@@ -8,10 +8,10 @@
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org/)
 [![CodexBar](https://img.shields.io/badge/Powered%20by-CodexBar-0A84FF?style=flat-square)](https://github.com/steipete/CodexBar)
 [![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](LICENSE)
-[![Download v0.1.0](https://img.shields.io/badge/Download-v0.1.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0)
+[![Download v0.2.0](https://img.shields.io/badge/Download-v0.2.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0)
 
-Visualize your remaining Codex allowance, rate-limit windows, pacing and reset
-time without leaving your workspace.
+Visualize your remaining Codex allowance, current-quota token usage, daily
+usage and model preference without leaving your workspace.
 
 </div>
 
@@ -19,6 +19,10 @@ time without leaving your workspace.
 > **One download, no separate CodexBar installation.** The universal Release
 > package includes the verified CodexBar CLI for both Apple silicon and Intel
 > Macs. It uses your existing local Codex login and never bundles credentials.
+
+> [!NOTE]
+> **v0.2.0 is macOS-only.** This release targets macOS 14 Sonoma or newer and
+> does not include or support the Windows build.
 
 > [!TIP]
 > **Signature feature — instant left/right edge docking.** Drag Codex Meter to
@@ -30,13 +34,14 @@ time without leaving your workspace.
 
 Codex Meter is a native macOS floating widget for people searching for a
 **Codex usage monitor**, **Codex quota visualization**, **Codex rate-limit
-tracker** or a visual view of **Codex token usage capacity**. It shows the
-allowance and rate-window data available through CodexBar; it does not claim to
-count the raw tokens used by each individual prompt.
+tracker** or a visual view of **Codex token usage capacity**. It combines the
+allowance data available through CodexBar with local Codex session usage records
+to present a compact current-quota view.
 
 - Remaining weekly Codex allowance and reset time
-- Usage pace, overage percentage and estimated depletion time
-- Additional Codex Spark rate windows when available
+- Current-quota daily usage for the latest seven calendar days
+- Token totals and quota percentages for each active day
+- Model preference split by model, reasoning effort and Fast mode
 - Always-on-top visualization with optional Codex app following
 - QQ-style left/right edge auto-hide with native hover reveal
 
@@ -63,9 +68,10 @@ selection is restored automatically.
   reveal it with a near-instant native hover animation.
 - **Always visible** — floats above normal windows and follows every Space.
 - **Remaining allowance** — shows what is left, rather than what has been used.
-- **Pace awareness** — displays over-pace percentage, expected depletion time
-  and a red pacing marker.
-- **Codex Spark support** — automatically shows extra Codex rate windows.
+- **Daily token view** — shows the current quota window's daily percentage and
+  token amount across the latest seven calendar days.
+- **Model preference** — keeps each model, reasoning effort and Fast mode as a
+  separate usage row and emphasizes percentage before token amount.
 - **Two native glass themes** — switch between dark and light from the menu.
 - **Position memory** — drag the card anywhere; its fixed position is restored.
 - **Optional Codex following** — show only while Codex is the foreground app.
@@ -74,10 +80,30 @@ selection is restored automatically.
 - **One-minute refresh** — updates every 60 seconds, with an instant manual
   refresh action.
 
+## What's new in v0.2.0
+
+- Reworked the floating card around weekly remaining percentage, a color-coded
+  quota bar and compact current-period token totals.
+- Added a latest-seven-days view with both token amounts and each day's share of
+  the current weekly quota.
+- Daily usage follows the current quota window: dates before the latest quota
+  refresh are shown as `0 token / 0%`; on a day that refreshes mid-day, only
+  usage after the refresh is counted.
+- Added model preference rows separated by model, reasoning effort and Fast
+  mode, with percentage-first display and model-specific colors.
+- Model rows now determine the panel height. The card grows as models appear
+  and becomes internally scrollable only after reaching the available screen
+  height.
+- Tightened the glass surface clipping so the rounded card no longer leaves a
+  rectangular shadow or translucent corner artifacts.
+- This release is for macOS users only; Windows support remains outside v0.2.0.
+
 ## Requirements
 
 - macOS 14 Sonoma or newer
 - A Codex account already signed in on this Mac
+
+The v0.2.0 release is macOS-only. Windows is not supported by this version.
 
 Codex Meter reads the same local OAuth session used by Codex. If you have not
 signed in yet, open the Codex app or run:
@@ -90,8 +116,8 @@ You do **not** need to install CodexBar separately.
 
 ## Download and install
 
-1. Download `Codex-Meter-macos-universal-0.1.0.zip` from
-   [GitHub Releases](https://github.com/xumanba/codex-meter/releases/tag/v0.1.0).
+1. Download `Codex-Meter-macos-universal-0.2.0.zip` from
+   [GitHub Releases](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0).
 2. Open the ZIP and move **Codex Meter.app** to Applications.
 3. Because this free preview is not Apple-notarized, Control-click the app and
    choose **Open** the first time. If macOS still blocks it, go to **System
@@ -168,14 +194,16 @@ Codex / OpenAI account
   Codex Meter (SwiftUI + AppKit)
           │
           ├── remaining weekly allowance
-          ├── pacing and depletion estimate
-          ├── additional rate windows
+          ├── current-quota daily token scan
+          ├── model / effort / Fast breakdown
           └── native floating NSPanel
 ```
 
 Codex Meter starts its bundled `codexbar serve` helper on `127.0.0.1:18747`
-when needed and polls the local endpoint every 60 seconds. The server is not
-exposed to your network.
+when needed and polls the local endpoint every 60 seconds. The v0.2.0 token
+scanner also reads local Codex session records to group token usage by the
+current quota window, day, model, reasoning effort and Fast mode. It does not
+send those local records anywhere. The server is not exposed to your network.
 
 ## Build manually
 
@@ -234,7 +262,7 @@ by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 - Codex Meter does not copy, display or bundle passwords, OAuth tokens, cookies
   or account emails.
 - Screenshots in this repository contain usage percentages only.
-- The free `v0.1.0` preview is ad-hoc signed but not Apple-notarized, so macOS
+- The free `v0.2.0` preview is ad-hoc signed but not Apple-notarized, so macOS
   requires explicit approval on first launch. Review the source before
   installation if you require additional assurance.
 
