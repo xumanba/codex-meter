@@ -2,7 +2,9 @@
 
 # ✦ CodexMeter
 
-### Native macOS Codex usage visualization, quota monitor and edge-docking widget
+### 原生 macOS Codex 用量可视化、额度监控与边缘吸附浮窗
+
+[English](README.en.md) · 简体中文
 
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org/)
@@ -10,206 +12,73 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](LICENSE)
 [![Download v0.2.0](https://img.shields.io/badge/Download-v0.2.0-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0)
 
-Visualize your remaining Codex allowance, current-quota token usage, daily
-usage and model preference without leaving your workspace.
+在不离开工作区的情况下，查看 Codex 周额度剩余、当前额度周期内的 token 使用、近 7 天每日使用情况和模型偏好。
+
+<p>
+  <img src="assets/CodexMeter-icon.png" alt="CodexMeter 应用图标" width="128">
+</p>
 
 </div>
 
-<p align="center">
-  <img src="assets/CodexMeter-icon.png" alt="CodexMeter app icon" width="128">
-</p>
-
 > [!IMPORTANT]
-> **One download, no separate CodexBar installation.** The universal Release
-> package includes the verified CodexBar CLI for both Apple silicon and Intel
-> Macs. It uses your existing local Codex login and never bundles credentials.
+> **一个安装包即可使用，不需要单独安装 CodexBar。** 通用安装包内置了已经验证过的 CodexBar CLI，同时支持 Apple 芯片和 Intel Mac。应用使用你本机已有的 Codex 登录状态，不会打包账号凭证。
 
 > [!NOTE]
-> **v0.2.0 is macOS-only.** This release targets macOS 14 Sonoma or newer and
-> does not include or support the Windows build.
+> **v0.2.0 仅支持 macOS。** 需要 macOS 14 Sonoma 或更高版本；Windows 暂不支持此版本。
 
-> [!TIP]
-> **Signature feature — instant left/right edge docking.** Drag CodexMeter to
-> either side of any display and it tucks itself away as a subtle 5-point glass
-> strip. Touch the edge to reveal the full usage meter in about 0.02 seconds;
-> move away and it smoothly hides again.
+## 当前浮窗界面
 
-## Codex usage and quota visualization
+| 深色界面 | 浅色界面 |
+|:---:|:---:|
+| <img src="assets/codexmeter-dark.png" alt="CodexMeter 深色界面" width="344"> | <img src="assets/codexmeter-light.png" alt="CodexMeter 浅色界面" width="344"> |
 
-CodexMeter is a native macOS floating widget for people searching for a
-**Codex usage monitor**, **Codex quota visualization**, **Codex rate-limit
-tracker** or a visual view of **Codex token usage capacity**. It combines the
-allowance data available through CodexBar with local Codex session usage records
-to present a compact current-quota view.
+## 功能概览
 
-- Remaining weekly Codex allowance and reset time
-- Current-quota daily usage for the latest seven calendar days
-- Token totals and quota percentages for each active day
-- Model preference split by model, reasoning effort and Fast mode
-- Always-on-top visualization with optional Codex app following
-- QQ-style left/right edge auto-hide with native hover reveal
+- **每周额度**：显示剩余百分比、重置时间、当前额度周期 token 总量和颜色对应的进度条。
+- **整数精度**：每周额度剩余百分比按 Codex 可提供的整数精度显示，例如 `90%`，不伪造小数位。
+- **近 7 天每日用量**：按当前周额度周期展示每日 token 数量和当天占周额度的百分比。
+- **模型偏好**：模型、思考强度和 Fast 模式分别统计，每一行优先显示百分比，再显示 token 数量。
+- **动态高度**：使用过的新模型会自动增加一行；内容超过屏幕可用高度后，浮窗内部滚动。
+- **边缘吸附**：拖到屏幕左侧或右侧后收起为窄条，鼠标靠近边缘即可展开。
+- **双主题**：支持深色玻璃和浅色玻璃，记住上次选择。
+- **窗口跟随**：可固定在桌面，也可以跟随 Codex 窗口显示。
+- **本地优先**：通过本机 `127.0.0.1` helper 获取额度，不上传本地会话记录。
 
-## Glass themes
+## v0.2.0 更新内容
 
-<table>
-  <tr>
-    <th align="center">Dark glass</th>
-    <th align="center">Light glass</th>
-  </tr>
-  <tr>
-    <td><img src="assets/dark-glass.jpg" alt="CodexMeter dark glass theme"></td>
-    <td><img src="assets/light-glass.jpg" alt="CodexMeter light glass theme"></td>
-  </tr>
-</table>
+- 重做浮窗信息层级，重点突出每周额度剩余，而不是已使用比例。
+- 每周额度剩余百分比改为整数显示；Codex 没有提供可靠的小数额度，因此不进行估算。
+- 增加当前额度周期内的近 7 天每日 token 使用量和百分比。
+- 刷新额度后，刷新前的记录不混入当前额度周期；当天中途刷新时只统计刷新之后的 token。
+- 增加模型、思考强度和 Fast 模式的独立偏好统计。
+- 模型行根据实际使用数量动态增高，超过屏幕高度后才启用内部滚动。
+- 优化圆角玻璃裁剪，修复浮窗外侧残留矩形阴影和半透明角落。
+- 应用名称统一为 `CodexMeter`，并加入新的 macOS 应用图标。
+- 更新 README 展示图、中文主文档和英文版互链。
 
-Both themes are designed for legibility and use native macOS materials,
-typography, rounded geometry and system-inspired colors. Your last theme
-selection is restored automatically.
+后续每次功能、统计逻辑或界面修改，都会同步补充本节和对应的界面说明，保持 README 与实际版本一致。
 
-## Highlights
+## 安装
 
-- **Instant edge shelf** — tuck the card into either side of any display, then
-  reveal it with a near-instant native hover animation.
-- **Always visible** — floats above normal windows and follows every Space.
-- **Remaining allowance** — shows what is left, rather than what has been used.
-- **Daily token view** — shows the current quota window's daily percentage and
-  token amount across the latest seven calendar days.
-- **Model preference** — keeps each model, reasoning effort and Fast mode as a
-  separate usage row and emphasizes percentage before token amount.
-- **Two native glass themes** — switch between dark and light from the menu.
-- **Position memory** — drag the card anywhere; its fixed position is restored.
-- **Optional Codex following** — show only while Codex is the foreground app.
-- **Private by design** — reads only a localhost endpoint and never displays or
-  stores account credentials.
-- **One-minute refresh** — updates every 60 seconds, with an instant manual
-  refresh action.
+### 直接下载安装包
 
-## What's new in v0.2.0
+1. 从 [GitHub Releases](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载 `CodexMeter-macos-universal-0.2.0.zip`。
+2. 解压后将 **CodexMeter.app** 拖到“应用程序”。
+3. 由于当前版本是 ad-hoc 签名、没有 Apple notarization，第一次打开时请右键应用并选择“打开”。如果仍被拦截，请到“系统设置 → 隐私与安全性”中选择“仍要打开”。
+4. 打开 CodexMeter；本机 Codex 登录有效时，浮窗会自动出现。
 
-- Reworked the floating card around weekly remaining percentage, a color-coded
-  quota bar and compact current-period token totals.
-- Added a latest-seven-days view with both token amounts and each day's share of
-  the current weekly quota.
-- Daily usage follows the current quota window: dates before the latest quota
-  refresh are shown as `0 token / 0%`; on a day that refreshes mid-day, only
-  usage after the refresh is counted.
-- Added model preference rows separated by model, reasoning effort and Fast
-  mode, with percentage-first display and model-specific colors.
-- Model rows now determine the panel height. The card grows as models appear
-  and becomes internally scrollable only after reaching the available screen
-  height.
-- Tightened the glass surface clipping so the rounded card no longer leaves a
-  rectangular shadow or translucent corner artifacts.
-- This release is for macOS users only; Windows support remains outside v0.2.0.
+不需要单独安装 CodexBar，也不需要管理员密码。
 
-## Requirements
-
-- macOS 14 Sonoma or newer
-- A Codex account already signed in on this Mac
-
-The v0.2.0 release is macOS-only. Windows is not supported by this version.
-
-CodexMeter reads the same local OAuth session used by Codex. If you have not
-signed in yet, open the Codex app or run:
+### 从源码安装
 
 ```bash
-codex login
-```
-
-You do **not** need to install CodexBar separately.
-
-## Download and install
-
-1. Download `CodexMeter-macos-universal-0.2.0.zip` from
-   [GitHub Releases](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0).
-2. Open the ZIP and move **CodexMeter.app** to Applications.
-3. Because this free preview is not Apple-notarized, Control-click the app and
-   choose **Open** the first time. If macOS still blocks it, go to **System
-   Settings → Privacy & Security** and choose **Open Anyway**.
-4. Open CodexMeter. Your floating usage card appears immediately when your
-   local Codex login is valid.
-
-The Release is ad-hoc signed and includes both `arm64` and `x86_64` slices. No
-administrator password or separate CodexBar installation is required.
-
-### Install from source
-
-Building from source requires the Apple Swift 6 toolchain and network access to
-download the pinned, checksum-verified CodexBar CLI release:
-
-```bash
-git clone https://github.com/xumanba/codex-meter.git
-cd codex-meter
-chmod +x install.sh uninstall.sh build-app.sh
+chmod +x install.sh
 ./install.sh
 ```
 
-The installer:
+安装脚本会构建应用、安装到 `/Applications/CodexMeter.app`、配置当前用户的 LaunchAgent 并启动浮窗。旧版带空格的 `Codex Meter.app` 如存在，会被移动到废纸篓以避免两个实例互相抢占。
 
-1. builds an ad-hoc signed native macOS application;
-2. bundles the verified CodexBar CLI;
-3. installs it as `/Applications/CodexMeter.app`;
-4. creates a per-user LaunchAgent;
-5. launches the meter in the background without hiding its window.
-
-No administrator password is normally required when your user can write to
-`/Applications`.
-
-## Using the meter
-
-Drag the card to place it anywhere. Open the `•••` menu to:
-
-- choose **固定在桌面** to keep it pinned above normal windows;
-- choose **跟随 Codex** to show it only when Codex is active;
-- switch between **深色玻璃** and **浅色玻璃**;
-- refresh immediately;
-- quit the application.
-
-The selected theme and fixed position are saved with macOS `UserDefaults`.
-
-### Edge shelf
-
-Drag the card close to the left or right edge and release it. The meter slides
-out of the way while leaving a subtle 5-point glass strip:
-
-```text
-drag to edge → tucked strip → hover ~0.02s → reveal
-move away   → wait ~0.18s  → smooth re-hide
-```
-
-- **Fast by design** — the slide animation completes in about 0.12 seconds.
-- **Native and reliable** — AppKit mouse-enter/exit tracking replaces global
-  cursor polling, including on multi-display setups.
-- **Position memory** — the selected display, edge and vertical position are
-  restored after relaunch.
-- **Easy to release** — drag the revealed card away from the edge to return to
-  normal floating mode.
-- **No extra permission** — edge reveal does not require Accessibility access.
-
-## How it works
-
-```text
-Codex / OpenAI account
-          │
-          ▼
-  Bundled CodexBar CLI
-          │  localhost JSON, port 18747
-          ▼
-  CodexMeter (SwiftUI + AppKit)
-          │
-          ├── remaining weekly allowance
-          ├── current-quota daily token scan
-          ├── model / effort / Fast breakdown
-          └── native floating NSPanel
-```
-
-CodexMeter starts its bundled `codexbar serve` helper on `127.0.0.1:18747`
-when needed and polls the local endpoint every 60 seconds. The v0.2.0 token
-scanner also reads local Codex session records to group token usage by the
-current quota window, day, model, reasoning effort and Fast mode. It does not
-send those local records anywhere. The server is not exposed to your network.
-
-## Build manually
+## 手动构建
 
 ```bash
 chmod +x build-app.sh
@@ -217,65 +86,39 @@ chmod +x build-app.sh
 open ".build/CodexMeter.app"
 ```
 
-The project intentionally uses Swift Package Manager and AppKit/SwiftUI only.
-The build downloads the pinned CodexBar CLI `v0.45.2` assets from the official
-release, verifies their published SHA-256 values, and bundles the requested
-architecture. Create the same universal package published on GitHub with:
+构建通用 macOS 包：
 
 ```bash
 ./Scripts/package-release.sh
 ```
 
-The edge interaction uses AppKit's native mouse tracking and does not need
-Accessibility permission. The compact edge-reveal approach was informed by
-[SideTerminal](https://github.com/bunnysayzz/sideterminal), an MIT-licensed
-open-source macOS project. CodexMeter implements its own compact-card geometry
-and multi-display position memory.
+输出文件位于：
 
-## Uninstall
+- `.build/release/CodexMeter-macos-universal-0.2.0.zip`
+- `.build/release/CodexMeter-macos-universal-0.2.0.zip.sha256`
 
-For the downloaded Release, quit CodexMeter and move it from Applications to
-Trash.
+构建脚本会验证 arm64 和 x86_64 架构、深度签名、内置 CodexBar 许可证和应用图标资源。
 
-For an installation made with `install.sh`, run:
+## 数据与隐私
+
+CodexMeter 启动内置的 `codexbar serve` helper，并通过 `127.0.0.1:18747` 获取 Codex 额度。token 统计扫描本机 Codex session 记录，只在本机按当前额度周期、日期、模型、思考强度和 Fast 模式聚合，不会上传这些记录。
+
+应用不会复制、显示或打包密码、OAuth token、Cookie 或账号邮箱。浮窗不会把账号凭证写入仓库或安装包。
+
+## 卸载
+
+如果是手动拖入“应用程序”的安装包，请退出 CodexMeter 后将 `/Applications/CodexMeter.app` 移到废纸篓。
+
+如果使用过安装脚本：
 
 ```bash
 ./uninstall.sh
 ```
 
-The application and LaunchAgent are moved to Trash. Your Codex login and
-settings are left untouched.
+卸载脚本会停止 helper、移除 LaunchAgent，并将应用移动到废纸篓；历史统计数据不会被主动清除。
 
-## Relationship to CodexBar
+## 第三方组件与许可证
 
-This project is an **independent, unofficial application** powered by
-[steipete/CodexBar](https://github.com/steipete/CodexBar). Release packages
-redistribute the official CodexBar CLI `v0.45.2` binary under its
-[MIT License](ThirdPartyLicenses/CodexBar-LICENSE.txt), including the complete
-copyright and permission notice inside the app bundle.
+CodexMeter 是基于 CodexBar 的独立、非官方 macOS 应用。内置 CodexBar CLI 按 MIT License 发布，完整许可文件位于 `ThirdPartyLicenses/` 和应用包内的 `Contents/Resources/ThirdPartyLicenses/`。
 
-CodexMeter does not redistribute CodexBar icons or present itself as an
-official CodexBar product. This repository is not affiliated with or endorsed
-by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
-
-## Security and privacy
-
-- The floating interface talks only to its helper on `127.0.0.1`.
-- The bundled CodexBar helper reads the existing Codex OAuth session from the
-  user's local Codex configuration and requests that account's usage data.
-- CodexMeter does not copy, display or bundle passwords, OAuth tokens, cookies
-  or account emails.
-- Screenshots in this repository contain usage percentages only.
-- The free `v0.2.0` preview is ad-hoc signed but not Apple-notarized, so macOS
-  requires explicit approval on first launch. Review the source before
-  installation if you require additional assurance.
-
-## License
-
-CodexMeter is available under the [MIT License](LICENSE).
-
----
-
-<div align="center">
-Built for people who want their remaining context visible at a glance.
-</div>
+本项目使用 [MIT License](LICENSE)。本项目与 CodexBar、OpenAI 或 Apple 没有隶属或官方背书关系。
