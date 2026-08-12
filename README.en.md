@@ -97,6 +97,8 @@ selection is restored automatically on both systems.
   is detected, then counts only usage after that refresh.
 - **macOS whole-number quota** — weekly remaining percentage follows Codex's
   integer precision and does not invent decimal values.
+- **Native app branding** — the floating card header uses the CodexMeter app
+  icon bundled with the macOS application.
 - **Pace awareness** — displays over-pace percentage, expected depletion time
   and a red pacing marker.
 - **Clear reset timing on Windows** — uses the same `xd xh` countdown for
