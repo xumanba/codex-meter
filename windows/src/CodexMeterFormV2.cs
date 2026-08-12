@@ -14,15 +14,18 @@ namespace CodexMeter
 {
     internal sealed class CodexMeterFormV2 : Form
     {
-        private const int DesignWidth = 344;
+        private const int DesignWidth = 328;
         private const int HeaderHeight = 58;
-        private const int MeterHeight = 50;
+        private const int MeterHeight = 72;
         private const int PaceHeight = 30;
+        private const int DailyUsageHeight = 116;
+        private const int ModelHeaderHeight = 26;
+        private const int ModelRowHeight = 36;
+        private const int MaximumModelRows = 4;
         private const int BottomPadding = 10;
         private const int DockStrip = 7;
         private const float SectionTitleFontSize = 14f;
         private const float SupportingTextFontSize = 12.5f;
-        private const int ActiveRefreshMilliseconds = 30000;
         private const int NormalRefreshMilliseconds = 60000;
         private const int HiddenRefreshMilliseconds = 120000;
         private const int MaximumBackoffMilliseconds = 600000;
@@ -32,28 +35,30 @@ namespace CodexMeter
         private readonly SettingsStore settingsStore = new SettingsStore();
         private readonly AppSettings settings;
         private readonly WinFormsTimer refreshTimer = new WinFormsTimer();
-        private readonly WinFormsTimer visibilityTimer = new WinFormsTimer();
+        private readonly WinFormsTimer foregroundTimer = new WinFormsTimer();
         private readonly WinFormsTimer dockTimer = new WinFormsTimer();
         private readonly WinFormsTimer statusTimer = new WinFormsTimer();
         private readonly WinFormsTimer networkTimer = new WinFormsTimer();
         private readonly NetworkSpeedMonitor networkSpeedMonitor = new NetworkSpeedMonitor();
+        private readonly WeeklyUsageReader weeklyUsageReader = new WeeklyUsageReader();
         private readonly ContextMenuStrip menu = new ContextMenuStrip();
         private readonly NotifyIcon trayIcon = new NotifyIcon();
         private readonly ToolTip contextualToolTip = new ToolTip();
         private readonly List<ResetHoverTarget> resetHoverTargets = new List<ResetHoverTarget>();
         private readonly EventWaitHandle showExistingEvent;
 
-        private ToolStripMenuItem fixedItem;
-        private ToolStripMenuItem followItem;
         private ToolStripMenuItem lightItem;
         private ToolStripMenuItem darkItem;
         private ToolStripMenuItem edgeItem;
         private ToolStripMenuItem topMostItem;
+        private ToolStripMenuItem startupItem;
         private ToolStripMenuItem visibilityItem;
         private UsageSnapshot snapshot;
+        private WeeklyTokenReport weeklyUsage;
         private string lastError;
         private bool isConnected;
         private bool isRefreshing;
+        private bool isWeeklyUsageRefreshing;
         private bool isExiting;
         private bool manuallyHidden;
         private bool dockRevealed;
@@ -66,32 +71,43 @@ namespace CodexMeter
         private Screen activeDockScreen;
         private Rectangle menuButtonBounds;
         private Rectangle syncButtonBounds;
+        private Rectangle paceToggleBounds;
         private Rectangle budgetMarkerBounds;
         private bool syncButtonHovered;
+        private bool paceToggleHovered;
         private bool budgetMarkerHovered;
+        private bool detailsExpanded;
         private float budgetMarkerDesignX;
         private string budgetToolTipText = String.Empty;
         private string activeResetToolTipText = String.Empty;
-        private int designHeight = 122;
+        private int designHeight = 126;
         private int scheduledRefreshMilliseconds = NormalRefreshMilliseconds;
         private int consecutiveFailures;
         private DateTimeOffset? lastSuccessfulRefreshAt;
         private CancellationTokenSource refreshCancellation;
         private RegisteredWaitHandle showExistingWait;
         private NetworkSpeedSnapshot networkSpeed;
+        private readonly bool startedWithWindows;
+        private readonly Bitmap appIconBitmap;
 
-        public CodexMeterFormV2() : this(null)
+        public CodexMeterFormV2() : this(null, false)
         {
         }
 
-        internal CodexMeterFormV2(EventWaitHandle showExistingEvent)
+        internal CodexMeterFormV2(EventWaitHandle showExistingEvent) : this(showExistingEvent, false)
+        {
+        }
+
+        internal CodexMeterFormV2(EventWaitHandle showExistingEvent, bool startedWithWindows)
         {
             this.showExistingEvent = showExistingEvent;
+            this.startedWithWindows = startedWithWindows;
             uiScale = Math.Max(1f, Math.Min(3f, NativeMethods.SystemScale()));
             settings = settingsStore.Load();
 
-            Text = "Codex Meter";
+            Text = "CodexMeter";
             Icon = NativeMethods.CreateAppIcon();
+            appIconBitmap = Icon.ToBitmap();
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.Manual;
             ShowInTaskbar = false;
@@ -126,6 +142,8 @@ namespace CodexMeter
                 {
                     bool wasHovered = syncButtonHovered;
                     syncButtonHovered = false;
+                    bool wasPaceHovered = paceToggleHovered;
+                    paceToggleHovered = false;
                     bool wasBudgetHovered = budgetMarkerHovered;
                     budgetMarkerHovered = false;
                     activeResetToolTipText = String.Empty;
@@ -133,12 +151,18 @@ namespace CodexMeter
                     Cursor = Cursors.Default;
                     if (wasHovered)
                         Invalidate();
+                    if (wasPaceHovered)
+                        Invalidate();
                     if (wasBudgetHovered)
                         Invalidate();
                 }
             };
             Resize += delegate { UpdateRoundedRegion(); };
-            Disposed += delegate { contextualToolTip.Dispose(); };
+            Disposed += delegate
+            {
+                contextualToolTip.Dispose();
+                appIconBitmap.Dispose();
+            };
         }
 
         protected override CreateParams CreateParams
@@ -157,11 +181,6 @@ namespace CodexMeter
             get { return String.Equals(settings.Theme, "dark", StringComparison.OrdinalIgnoreCase); }
         }
 
-        private bool IsFollowMode
-        {
-            get { return String.Equals(settings.Mode, "follow", StringComparison.OrdinalIgnoreCase); }
-        }
-
         private int S(float value)
         {
             return Math.Max(1, Convert.ToInt32(Math.Round(value * uiScale)));
@@ -172,20 +191,18 @@ namespace CodexMeter
             visibilityItem = new ToolStripMenuItem("最小化到托盘");
             visibilityItem.Click += delegate { ToggleTrayVisibility(); };
 
-            fixedItem = new ToolStripMenuItem("固定在桌面");
-            fixedItem.Click += delegate { SetMode("fixed"); };
-            followItem = new ToolStripMenuItem("跟随 Codex");
-            followItem.Click += delegate { SetMode("follow"); };
-
             topMostItem = new ToolStripMenuItem("始终置顶");
             topMostItem.CheckOnClick = true;
             topMostItem.Checked = settings.AlwaysOnTop;
             topMostItem.CheckedChanged += delegate
             {
                 settings.AlwaysOnTop = topMostItem.Checked;
-                TopMost = settings.AlwaysOnTop;
+                TopMost = ShouldBeTopMost(settings.AlwaysOnTop, IsCodexForegroundOnSameScreen());
                 SaveSettings();
             };
+
+            startupItem = new ToolStripMenuItem("开机自启动");
+            startupItem.Click += delegate { ToggleStartWithWindows(); };
 
             ToolStripMenuItem appearance = new ToolStripMenuItem("外观");
             lightItem = new ToolStripMenuItem("浅色玻璃");
@@ -203,15 +220,13 @@ namespace CodexMeter
                 settings.EdgeAutoHide = edgeItem.Checked;
                 if (!settings.EdgeAutoHide)
                     ClearDock(true);
-                ConfigureModeTimers();
+                ConfigureWindowTimers();
                 ScheduleNextRefresh();
                 SaveSettings();
             };
 
             ToolStripMenuItem refresh = new ToolStripMenuItem("立即同步");
-            refresh.Click += delegate { RefreshNow(); };
-            ToolStripMenuItem networkInfo = new ToolStripMenuItem("网速为系统总流量（非 Codex 专属）");
-            networkInfo.Enabled = false;
+            refresh.Click += delegate { RequestManualRefresh(); };
             ToolStripMenuItem openFolder = new ToolStripMenuItem("打开 CodexBar 目录");
             openFolder.Click += delegate { OpenCodexBarFolder(); };
             ToolStripMenuItem quit = new ToolStripMenuItem("退出");
@@ -223,22 +238,20 @@ namespace CodexMeter
 
             menu.Items.Add(visibilityItem);
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(fixedItem);
-            menu.Items.Add(followItem);
             menu.Items.Add(topMostItem);
+            menu.Items.Add(startupItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(appearance);
             menu.Items.Add(edgeItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(refresh);
-            menu.Items.Add(networkInfo);
             menu.Items.Add(openFolder);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(quit);
             menu.Opening += delegate { SyncMenuChecks(); };
 
             trayIcon.Icon = NativeMethods.CreateAppIcon();
-            trayIcon.Text = "Codex Meter";
+            trayIcon.Text = "CodexMeter";
             trayIcon.Visible = true;
             trayIcon.ContextMenuStrip = menu;
             trayIcon.DoubleClick += delegate
@@ -260,8 +273,8 @@ namespace CodexMeter
                 refreshTimer.Stop();
                 RefreshNow();
             };
-            visibilityTimer.Interval = 500;
-            visibilityTimer.Tick += delegate { UpdateFollowVisibility(); };
+            foregroundTimer.Interval = 500;
+            foregroundTimer.Tick += delegate { UpdateForegroundTopMost(); };
             dockTimer.Interval = 50;
             dockTimer.Tick += delegate { UpdateDockPosition(); };
             statusTimer.Interval = 60000;
@@ -280,9 +293,30 @@ namespace CodexMeter
             ApplyUiScale(NativeMethods.WindowScale(Handle));
             NativeMethods.ApplyWindowStyle(Handle, IsDark);
             RestoreDockIfNeeded();
-            ConfigureModeTimers();
+            ConfigureWindowTimers();
+            RevealDockForStartupIfNeeded();
             statusTimer.Start();
+            SaveSettings();
             RefreshNow();
+        }
+
+        private void RevealDockForStartupIfNeeded()
+        {
+            if (!ShouldRevealDockAtStartup(
+                    startedWithWindows, settings.DockEdge, settings.EdgeAutoHide))
+                return;
+
+            manuallyHidden = false;
+            dockRevealed = true;
+            pointerLeftAt = null;
+            suppressHideUntil = DateTime.UtcNow.AddSeconds(30);
+            UpdateDockPosition();
+        }
+
+        internal static bool ShouldRevealDockAtStartup(
+            bool startupLaunch, string dockEdge, bool edgeAutoHide)
+        {
+            return startupLaunch && !String.IsNullOrEmpty(dockEdge) && edgeAutoHide;
         }
 
         private void OnFormClosing(object sender, FormClosingEventArgs eventArgs)
@@ -295,7 +329,7 @@ namespace CodexMeter
             }
 
             refreshTimer.Stop();
-            visibilityTimer.Stop();
+            foregroundTimer.Stop();
             dockTimer.Stop();
             statusTimer.Stop();
             networkTimer.Stop();
@@ -324,6 +358,7 @@ namespace CodexMeter
 
             refreshTimer.Stop();
             isRefreshing = true;
+            RefreshWeeklyUsage();
             Invalidate();
             CancellationTokenSource requestCancellation = new CancellationTokenSource();
             refreshCancellation = requestCancellation;
@@ -382,6 +417,61 @@ namespace CodexMeter
                 });
         }
 
+        private void RefreshWeeklyUsage()
+        {
+            if (isWeeklyUsageRefreshing)
+                return;
+
+            isWeeklyUsageRefreshing = true;
+            Task.Factory.StartNew(
+                delegate { return weeklyUsageReader.Read(DateTimeOffset.Now); },
+                CancellationToken.None,
+                TaskCreationOptions.None,
+                TaskScheduler.Default)
+                .ContinueWith(delegate(Task<WeeklyTokenReport> task)
+                {
+                    if (IsDisposed)
+                        return;
+                    try
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            isWeeklyUsageRefreshing = false;
+                            if (!task.IsFaulted && !task.IsCanceled && task.Result != null)
+                                weeklyUsage = task.Result;
+                            ResizeForContent();
+                            UpdateAccessibleSummary();
+                            Invalidate();
+                        });
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // The application is already closing.
+                    }
+                });
+        }
+
+        private void RequestManualRefresh()
+        {
+            if (!ShouldStartManualRefresh(isRefreshing))
+            {
+                Invalidate();
+                return;
+            }
+
+            RefreshNow();
+        }
+
+        internal static bool ShouldStartManualRefresh(bool refreshRunning)
+        {
+            return !refreshRunning;
+        }
+
+        internal static int CardDesignWidth
+        {
+            get { return DesignWidth; }
+        }
+
         private void ScheduleNextRefresh()
         {
             if (isExiting || IsDisposed)
@@ -390,8 +480,6 @@ namespace CodexMeter
             int interval;
             if (!Visible || manuallyHidden || (!String.IsNullOrEmpty(settings.DockEdge) && !dockRevealed))
                 interval = HiddenRefreshMilliseconds;
-            else if (IsFollowMode && NativeMethods.IsCodexForeground())
-                interval = ActiveRefreshMilliseconds;
             else
                 interval = NormalRefreshMilliseconds;
 
@@ -407,15 +495,14 @@ namespace CodexMeter
                 refreshTimer.Start();
         }
 
-        private void ConfigureModeTimers()
+        private void ConfigureWindowTimers()
         {
-            if (IsFollowMode)
-                visibilityTimer.Start();
-            else
-                visibilityTimer.Stop();
+            // This timer also monitors whether Codex/ChatGPT is foreground on
+            // the card's screen, so it remains above that window when needed.
+            foregroundTimer.Start();
 
-            bool needsDockPolling = settings.EdgeAutoHide &&
-                !String.IsNullOrEmpty(settings.DockEdge) && !IsFollowMode && Visible;
+            bool needsDockPolling = ShouldPollDock(
+                settings.EdgeAutoHide, settings.DockEdge, Visible);
             if (needsDockPolling)
             {
                 dockTimer.Interval = 50;
@@ -482,18 +569,12 @@ namespace CodexMeter
 
         private void ResizeForContent()
         {
-            int target;
-            if (snapshot == null)
-            {
-                target = 122;
-            }
-            else
-            {
-                int meterCount = 1 + snapshot.Extras.Count;
-                target = HeaderHeight + meterCount * MeterHeight + BottomPadding;
-                if (snapshot.WeeklyPace != null)
-                    target += PaceHeight;
-            }
+            bool hasSnapshot = snapshot != null;
+            bool hasWeeklyPace = hasSnapshot && snapshot.WeeklyPace != null;
+            if (!hasWeeklyPace)
+                detailsExpanded = false;
+
+            int target = ContentHeight(hasSnapshot, hasWeeklyPace, detailsExpanded);
 
             if (designHeight == target)
                 return;
@@ -501,11 +582,31 @@ namespace CodexMeter
             designHeight = target;
             ClientSize = new Size(S(DesignWidth), S(designHeight));
             UpdateRoundedRegion();
-            if (activeDockScreen != null)
-                settings.DockTop = Math.Max(activeDockScreen.WorkingArea.Top,
-                    Math.Min(Top, activeDockScreen.WorkingArea.Bottom - Height));
+            if (!String.IsNullOrEmpty(settings.DockEdge))
+            {
+                activeDockScreen = activeDockScreen ?? FindDockScreen();
+                if (activeDockScreen != null)
+                    settings.DockTop = Math.Max(activeDockScreen.WorkingArea.Top,
+                        Math.Min(Top, activeDockScreen.WorkingArea.Bottom - Height));
+                UpdateDockPosition();
+            }
             else
                 ClampToWorkingArea();
+        }
+
+        internal static int ContentHeight(bool hasSnapshot, bool hasWeeklyPace,
+            bool detailsExpanded)
+        {
+            if (!hasSnapshot)
+                return 126;
+
+            int compactHeight = HeaderHeight + MeterHeight + BottomPadding +
+                (hasWeeklyPace ? PaceHeight : 0);
+            if (!detailsExpanded)
+                return compactHeight;
+
+            return compactHeight + DailyUsageHeight + ModelHeaderHeight +
+                (MaximumModelRows * ModelRowHeight);
         }
 
         protected override void OnPaint(PaintEventArgs eventArgs)
@@ -527,6 +628,7 @@ namespace CodexMeter
             }
             DrawHeader(graphics);
             budgetMarkerBounds = Rectangle.Empty;
+            paceToggleBounds = Rectangle.Empty;
             budgetToolTipText = String.Empty;
             resetHoverTargets.Clear();
 
@@ -549,10 +651,11 @@ namespace CodexMeter
                 y += PaceHeight;
             }
 
-            foreach (UsageWindow extra in snapshot.Extras)
+            if (detailsExpanded)
             {
-                DrawMeter(graphics, extra, y, false, null);
-                y += MeterHeight;
+                DrawDailyUsage(graphics, y);
+                y += DailyUsageHeight;
+                DrawModelUsage(graphics, y);
             }
 
             if (budgetMarkerHovered && !String.IsNullOrEmpty(budgetToolTipText))
@@ -582,7 +685,7 @@ namespace CodexMeter
                 DrawTechGrid(graphics);
 
                 using (LinearGradientBrush highlight = new LinearGradientBrush(
-                    new RectangleF(0, 0, DesignWidth, Math.Max(80, designHeight * 0.72f)),
+                    new RectangleF(0, 0, DesignWidth, Math.Max(80, designHeight)),
                     IsDark ? Color.FromArgb(25, 255, 255, 255) : Color.FromArgb(188, 255, 255, 255),
                     Color.FromArgb(0, 255, 255, 255), 90f))
                 {
@@ -607,6 +710,11 @@ namespace CodexMeter
                     Color.FromArgb(0, 24, 193, 255), Color.FromArgb(190, 103, 82, 255), 0f))
                     graphics.FillRectangle(accent, 20, 1, DesignWidth - 40, 1.4f);
             }
+        }
+
+        internal static bool ShouldPollDock(bool edgeAutoHide, string dockEdge, bool visible)
+        {
+            return edgeAutoHide && !String.IsNullOrEmpty(dockEdge) && visible;
         }
 
         private void DrawAmbientGlow(Graphics graphics, RectangleF bounds, Color centerColor)
@@ -642,19 +750,18 @@ namespace CodexMeter
                 IsDark ? Color.FromArgb(72, 31, 185, 255) : Color.FromArgb(62, 0, 157, 255));
 
             RectangleF icon = new RectangleF(17, 11, 36, 36);
-            using (GraphicsPath iconPath = RoundedRectangle(icon, 11f))
-            using (LinearGradientBrush iconBrush = new LinearGradientBrush(
-                icon, Color.FromArgb(38, 211, 239), Color.FromArgb(77, 91, 255), 55f))
+            GraphicsState iconState = graphics.Save();
+            using (GraphicsPath iconPath = RoundedRectangle(icon, 10f))
             {
-                graphics.FillPath(iconBrush, iconPath);
-                using (Pen iconBorder = new Pen(Color.FromArgb(118, 255, 255, 255), 0.8f))
-                    graphics.DrawPath(iconBorder, iconPath);
+                graphics.SetClip(iconPath);
+                graphics.DrawImage(appIconBitmap, icon);
             }
-            DrawSparkle(graphics, 34.5f, 29f, 5.7f);
-            DrawSparkle(graphics, 43f, 19.5f, 2.2f);
-            DrawSparkle(graphics, 25.8f, 20.7f, 1.6f);
+            graphics.Restore(iconState);
+            using (GraphicsPath iconBorderPath = RoundedRectangle(icon, 10f))
+            using (Pen iconBorder = new Pen(Color.FromArgb(118, 255, 255, 255), 0.8f))
+                graphics.DrawPath(iconBorder, iconBorderPath);
 
-            RectangleF titleBounds = new RectangleF(62, 14, 106, 28);
+            RectangleF titleBounds = new RectangleF(62, 14, 94, 28);
             using (Font titleFont = FittedPixelFont(graphics, "Codex 用量", titleBounds, 18f, 15.5f, FontStyle.Bold))
             using (Brush primary = new SolidBrush(PrimaryText))
             {
@@ -662,7 +769,7 @@ namespace CodexMeter
                     StringAlignment.Near, StringAlignment.Center);
             }
 
-            RectangleF networkTile = new RectangleF(171, 8, 73, 41);
+            RectangleF networkTile = new RectangleF(160, 8, 70, 41);
             using (GraphicsPath tile = RoundedRectangle(networkTile, 10f))
             using (Brush tileBrush = new SolidBrush(IsDark
                 ? Color.FromArgb(28, 255, 255, 255)
@@ -676,7 +783,7 @@ namespace CodexMeter
             }
             DrawNetworkSpeed(graphics);
 
-            RectangleF status = new RectangleF(249, 15, 58, 26);
+            RectangleF status = new RectangleF(234, 15, 58, 26);
             syncButtonBounds = new Rectangle(S(status.X), S(status.Y), S(status.Width), S(status.Height));
             using (GraphicsPath pill = RoundedRectangle(status, 13f))
             using (Brush pillBrush = new SolidBrush(syncButtonHovered
@@ -692,10 +799,10 @@ namespace CodexMeter
 
             Color dotColor = StatusDotColor;
             using (Brush dotGlow = new SolidBrush(Color.FromArgb(45, dotColor)))
-                graphics.FillEllipse(dotGlow, 254, 20, 12, 12);
+                graphics.FillEllipse(dotGlow, 239, 20, 12, 12);
             using (Brush dot = new SolidBrush(dotColor))
-                graphics.FillEllipse(dot, 257, 23, 6, 6);
-            RectangleF statusTextBounds = new RectangleF(265, 17, 38, 21);
+                graphics.FillEllipse(dot, 242, 23, 6, 6);
+            RectangleF statusTextBounds = new RectangleF(250, 17, 38, 21);
             using (Font statusFont = FittedPixelFont(
                 graphics, StatusText, statusTextBounds, SectionTitleFontSize,
                 SupportingTextFontSize, FontStyle.Bold))
@@ -703,7 +810,7 @@ namespace CodexMeter
                 DrawText(graphics, StatusText, statusFont, secondary, statusTextBounds,
                     StringAlignment.Center, StringAlignment.Center);
 
-            RectangleF menuSurface = new RectangleF(313, 15, 24, 26);
+            RectangleF menuSurface = new RectangleF(297, 15, 24, 26);
             menuButtonBounds = new Rectangle(S(menuSurface.X), S(menuSurface.Y), S(menuSurface.Width), S(menuSurface.Height));
             using (GraphicsPath menuPath = RoundedRectangle(menuSurface, 9f))
             using (Brush menuBrush = new SolidBrush(IsDark
@@ -712,9 +819,9 @@ namespace CodexMeter
                 graphics.FillPath(menuBrush, menuPath);
             using (Brush dots = new SolidBrush(PrimaryText))
             {
-                graphics.FillEllipse(dots, 318, 27, 2.2f, 2.2f);
-                graphics.FillEllipse(dots, 324, 27, 2.2f, 2.2f);
-                graphics.FillEllipse(dots, 330, 27, 2.2f, 2.2f);
+                graphics.FillEllipse(dots, 302, 27, 2.2f, 2.2f);
+                graphics.FillEllipse(dots, 308, 27, 2.2f, 2.2f);
+                graphics.FillEllipse(dots, 314, 27, 2.2f, 2.2f);
             }
 
             using (Pen divider = new Pen(IsDark
@@ -725,7 +832,7 @@ namespace CodexMeter
 
         private Rectangle NetworkSpeedBounds
         {
-            get { return new Rectangle(S(171), S(8), S(73), S(41)); }
+            get { return new Rectangle(S(160), S(8), S(70), S(41)); }
         }
 
         private void DrawNetworkSpeed(Graphics graphics)
@@ -735,8 +842,8 @@ namespace CodexMeter
             Color downloadColor = IsDark ? Color.FromArgb(92, 211, 255) : Color.FromArgb(0, 125, 204);
             Color uploadColor = IsDark ? Color.FromArgb(179, 157, 255) : Color.FromArgb(102, 74, 207);
 
-            RectangleF downloadBounds = new RectangleF(177, 9, 64, 18);
-            RectangleF uploadBounds = new RectangleF(177, 29, 64, 18);
+            RectangleF downloadBounds = new RectangleF(165, 9, 62, 18);
+            RectangleF uploadBounds = new RectangleF(165, 29, 62, 18);
             float speedSize = Math.Min(
                 FittedPixelFontSize(graphics, download, downloadBounds, 11f, 7.8f, FontStyle.Bold),
                 FittedPixelFontSize(graphics, upload, uploadBounds, 11f, 7.8f, FontStyle.Bold));
@@ -785,6 +892,9 @@ namespace CodexMeter
                     : window.Title);
             string reset = ResetText(window);
             string remaining = "剩余 " + Math.Round(window.RemainingPercent).ToString("0") + "%";
+            string weeklyTokens = weeklyUsage != null && weeklyUsage.TotalTokens > 0
+                ? "本周 " + WeeklyUsageReader.FormatTokenCount(weeklyUsage.TotalTokens) + " token"
+                : (isWeeklyUsageRefreshing ? "正在统计本周 token…" : "本周暂无本机记录");
 
             RectangleF panel = new RectangleF(10, y + 1, DesignWidth - 20, MeterHeight - 3);
             using (GraphicsPath panelPath = RoundedRectangle(panel, 14f))
@@ -799,11 +909,10 @@ namespace CodexMeter
                 graphics.DrawPath(panelBorder, panelPath);
             }
 
-            RectangleF titleBounds = new RectangleF(20, y + 2, 94, 24);
-            RectangleF remainingBounds = new RectangleF(226, y + 2, 98, 24);
-            // Use one fixed, left-aligned reset column so the weekly and Spark
-            // countdowns start at exactly the same horizontal position.
-            RectangleF resetBounds = new RectangleF(120, y + 3, 106, 22);
+            RectangleF titleBounds = new RectangleF(20, y + 4, 112, 22);
+            RectangleF resetBounds = new RectangleF(160, y + 4, 148, 22);
+            RectangleF remainingBounds = new RectangleF(20, y + 27, 124, 25);
+            RectangleF tokenBounds = new RectangleF(139, y + 29, 169, 22);
             if (!String.IsNullOrEmpty(reset))
             {
                 resetHoverTargets.Add(new ResetHoverTarget(
@@ -813,21 +922,27 @@ namespace CodexMeter
             }
             using (Font titleFont = PixelFont(SectionTitleFontSize, FontStyle.Bold))
             using (Font resetFont = PixelFont(SupportingTextFontSize, FontStyle.Regular))
+            using (Font remainingFont = FittedPixelFont(
+                graphics, remaining, remainingBounds, 19f, 15f, FontStyle.Bold))
+            using (Font tokenFont = FittedPixelFont(
+                graphics, weeklyTokens, tokenBounds, 11.5f, 8.5f, FontStyle.Bold))
             using (Brush primary = new SolidBrush(PrimaryText))
             using (Brush secondary = new SolidBrush(prominent ? TertiaryText : SecondaryText))
             {
                 DrawText(graphics, title, titleFont, prominent ? primary : secondary, titleBounds,
                     StringAlignment.Near, StringAlignment.Center);
-                DrawText(graphics, remaining, titleFont, primary, remainingBounds,
+                DrawText(graphics, remaining, remainingFont, primary, remainingBounds,
+                    StringAlignment.Near, StringAlignment.Center);
+                DrawText(graphics, weeklyTokens, tokenFont, secondary, tokenBounds,
                     StringAlignment.Far, StringAlignment.Center);
                 if (!String.IsNullOrEmpty(reset))
                 {
                     DrawText(graphics, reset, resetFont, secondary, resetBounds,
-                        StringAlignment.Near, StringAlignment.Center);
+                        StringAlignment.Far, StringAlignment.Center);
                 }
             }
 
-            RectangleF track = new RectangleF(20, y + 34, DesignWidth - 40, prominent ? 9f : 7f);
+            RectangleF track = new RectangleF(20, y + 57, DesignWidth - 40, prominent ? 9f : 7f);
             using (GraphicsPath path = RoundedRectangle(track, track.Height / 2f))
             using (Brush trackBrush = new SolidBrush(IsDark
                 ? Color.FromArgb(38, 255, 255, 255)
@@ -877,6 +992,284 @@ namespace CodexMeter
 
         }
 
+        private void DrawDailyUsage(Graphics graphics, int y)
+        {
+            RectangleF titleBounds = new RectangleF(20, y + 2, 170, 22);
+            using (Font titleFont = PixelFont(SectionTitleFontSize, FontStyle.Bold))
+            using (Brush titleBrush = new SolidBrush(PrimaryText))
+                DrawText(graphics, "近7天每日", titleFont, titleBrush, titleBounds,
+                    StringAlignment.Near, StringAlignment.Center);
+
+            string stateText = null;
+            if (weeklyUsage == null && isWeeklyUsageRefreshing)
+                stateText = "正在读取本机会话统计…";
+            else if (weeklyUsage != null && !String.IsNullOrWhiteSpace(weeklyUsage.Error))
+                stateText = "统计暂不可用";
+
+            if (!String.IsNullOrEmpty(stateText))
+            {
+                RectangleF stateBounds = new RectangleF(176, y + 3, 132, 20);
+                using (Font stateFont = FittedPixelFont(
+                    graphics, stateText, stateBounds, 10f, 8f, FontStyle.Regular))
+                using (Brush stateBrush = new SolidBrush(TertiaryText))
+                    DrawText(graphics, stateText, stateFont, stateBrush, stateBounds,
+                        StringAlignment.Far, StringAlignment.Center);
+            }
+
+            List<DailyTokenUsage> days = DisplayDays();
+            long maximum = days.Count == 0 ? 0 : days.Max(item => item.Tokens);
+            double usedPercent = snapshot == null || snapshot.Weekly == null
+                ? 0
+                : snapshot.Weekly.UsedPercent;
+            long total = weeklyUsage == null ? 0 : weeklyUsage.TotalTokens;
+
+            for (int index = 0; index < 7; index++)
+            {
+                DailyTokenUsage day = days[index];
+                float x = 20f + (index * 42f);
+                RectangleF percentBounds = new RectangleF(x - 3f, y + 23, 38f, 17f);
+                string percent = DailyQuotaPercent(day.Tokens, total, usedPercent)
+                    .ToString("0.0") + "%";
+                using (Font percentFont = FittedPixelFont(
+                    graphics, percent, percentBounds, 10.5f, 8f, FontStyle.Bold))
+                using (Brush percentBrush = new SolidBrush(PrimaryText))
+                    DrawText(graphics, percent, percentFont, percentBrush, percentBounds,
+                        StringAlignment.Center, StringAlignment.Center);
+
+                RectangleF track = new RectangleF(x, y + 42, 32, 43);
+                using (GraphicsPath trackPath = RoundedRectangle(track, 15f))
+                using (Brush trackBrush = new SolidBrush(IsDark
+                    ? Color.FromArgb(30, 255, 255, 255)
+                    : Color.FromArgb(24, 26, 58, 83)))
+                    graphics.FillPath(trackBrush, trackPath);
+
+                if (day.Tokens > 0 && maximum > 0)
+                {
+                    float fillHeight = Math.Max(3f, (float)(track.Height * day.Tokens / (double)maximum));
+                    RectangleF fill = new RectangleF(track.X, track.Bottom - fillHeight,
+                        track.Width, fillHeight);
+                    using (GraphicsPath fillPath = RoundedRectangle(fill,
+                        Math.Min(15f, Math.Max(1.5f, fillHeight / 2f))))
+                    using (LinearGradientBrush fillBrush = new LinearGradientBrush(
+                        fill, Color.FromArgb(65, 211, 239), Color.FromArgb(86, 102, 255), 90f))
+                    {
+                        graphics.FillPath(fillBrush, fillPath);
+                    }
+                }
+
+                RectangleF accent = new RectangleF(track.X, track.Bottom - 2.5f, track.Width, 2.5f);
+                using (LinearGradientBrush accentBrush = new LinearGradientBrush(
+                    accent, Color.FromArgb(53, 207, 235), Color.FromArgb(91, 86, 255), 0f))
+                    graphics.FillRectangle(accentBrush, accent);
+
+                string dayLabel = day.Day.Date == DateTime.Now.Date
+                    ? "今"
+                    : ChineseWeekday(day.Day.DayOfWeek);
+                RectangleF dayBounds = new RectangleF(x - 2f, y + 87, 36f, 16f);
+                RectangleF tokenBounds = new RectangleF(x - 4f, y + 101, 40f, 14f);
+                using (Font dayFont = PixelFont(10.5f, FontStyle.Bold))
+                using (Font tokenFont = FittedPixelFont(
+                    graphics, WeeklyUsageReader.FormatTokenCount(day.Tokens), tokenBounds,
+                    8.5f, 7f, FontStyle.Regular))
+                using (Brush dayBrush = new SolidBrush(SecondaryText))
+                using (Brush tokenBrush = new SolidBrush(TertiaryText))
+                {
+                    DrawText(graphics, dayLabel, dayFont, dayBrush, dayBounds,
+                        StringAlignment.Center, StringAlignment.Center);
+                    DrawText(graphics, WeeklyUsageReader.FormatTokenCount(day.Tokens), tokenFont,
+                        tokenBrush, tokenBounds, StringAlignment.Center, StringAlignment.Center);
+                }
+            }
+        }
+
+        private void DrawModelUsage(Graphics graphics, int y)
+        {
+            RectangleF titleBounds = new RectangleF(20, y + 1, 150, 23);
+            using (Font titleFont = PixelFont(SectionTitleFontSize, FontStyle.Bold))
+            using (Brush titleBrush = new SolidBrush(PrimaryText))
+                DrawText(graphics, "模型偏好", titleFont, titleBrush, titleBounds,
+                    StringAlignment.Near, StringAlignment.Center);
+
+            List<ModelTokenUsage> rows = VisibleModelRows(
+                weeklyUsage == null ? null : weeklyUsage.Models, MaximumModelRows);
+            if (rows.Count == 0 || weeklyUsage == null || weeklyUsage.TotalTokens <= 0)
+            {
+                RectangleF empty = new RectangleF(14, y + ModelHeaderHeight,
+                    DesignWidth - 28, (MaximumModelRows * ModelRowHeight) - 8);
+                using (GraphicsPath path = RoundedRectangle(empty, 14f))
+                using (Brush fill = new SolidBrush(IsDark
+                    ? Color.FromArgb(24, 255, 255, 255)
+                    : Color.FromArgb(116, 255, 255, 255)))
+                using (Pen border = new Pen(IsDark
+                    ? Color.FromArgb(28, 91, 178, 236)
+                    : Color.FromArgb(32, 59, 136, 191), 0.7f))
+                {
+                    graphics.FillPath(fill, path);
+                    graphics.DrawPath(border, path);
+                }
+                string message = weeklyUsage != null && !String.IsNullOrWhiteSpace(weeklyUsage.Error)
+                    ? weeklyUsage.Error
+                    : (isWeeklyUsageRefreshing ? "正在统计模型与推理强度…" : "近 7 天暂无本机会话记录");
+                RectangleF messageBounds = new RectangleF(empty.X + 12, empty.Y,
+                    empty.Width - 24, empty.Height);
+                using (Font font = FittedPixelFont(
+                    graphics, message, messageBounds, 11f, 8.5f, FontStyle.Regular))
+                using (Brush brush = new SolidBrush(TertiaryText))
+                    DrawText(graphics, message, font, brush, messageBounds,
+                        StringAlignment.Center, StringAlignment.Center);
+                return;
+            }
+
+            for (int index = 0; index < rows.Count; index++)
+            {
+                ModelTokenUsage row = rows[index];
+                float rowY = y + ModelHeaderHeight + (index * ModelRowHeight) + 2;
+                RectangleF surface = new RectangleF(14, rowY, DesignWidth - 28, ModelRowHeight - 5);
+                using (GraphicsPath path = RoundedRectangle(surface, 13f))
+                using (Brush fill = new SolidBrush(IsDark
+                    ? Color.FromArgb(30, 255, 255, 255)
+                    : Color.FromArgb(128, 255, 255, 255)))
+                using (Pen border = new Pen(IsDark
+                    ? Color.FromArgb(24, 108, 184, 240)
+                    : Color.FromArgb(28, 59, 136, 191), 0.6f))
+                {
+                    graphics.FillPath(fill, path);
+                    graphics.DrawPath(border, path);
+                }
+
+                double sharePercent = row.Tokens * 100d / weeklyUsage.TotalTokens;
+                Color accent = UsageAccent(sharePercent, IsDark);
+                string label = ModelLabel(row);
+                string percentage = sharePercent.ToString("0.0") + "%";
+                string tokens = WeeklyUsageReader.FormatTokenCount(row.Tokens);
+                RectangleF labelBounds = new RectangleF(25, rowY + 1, 174, surface.Height - 2);
+                RectangleF percentBounds = new RectangleF(197, rowY + 1, 57, surface.Height - 2);
+                RectangleF tokenBounds = new RectangleF(258, rowY + 1, 47, surface.Height - 2);
+                using (Font labelFont = FittedPixelFont(
+                    graphics, label, labelBounds, 11.5f, 8.5f, FontStyle.Bold))
+                using (Font percentFont = FittedPixelFont(
+                    graphics, percentage, percentBounds, 15f, 11f, FontStyle.Bold))
+                using (Font tokenFont = FittedPixelFont(
+                    graphics, tokens, tokenBounds, 10.5f, 8f, FontStyle.Bold))
+                using (Brush labelBrush = new SolidBrush(accent))
+                using (Brush percentBrush = new SolidBrush(accent))
+                using (Brush tokenBrush = new SolidBrush(Color.FromArgb(210, accent)))
+                {
+                    DrawText(graphics, label, labelFont, labelBrush, labelBounds,
+                        StringAlignment.Near, StringAlignment.Center);
+                    DrawText(graphics, percentage, percentFont, percentBrush, percentBounds,
+                        StringAlignment.Far, StringAlignment.Center);
+                    DrawText(graphics, tokens, tokenFont, tokenBrush, tokenBounds,
+                        StringAlignment.Far, StringAlignment.Center);
+                }
+            }
+        }
+
+        private List<DailyTokenUsage> DisplayDays()
+        {
+            if (weeklyUsage != null && weeklyUsage.Days != null && weeklyUsage.Days.Count == 7)
+                return weeklyUsage.Days;
+
+            List<DailyTokenUsage> days = new List<DailyTokenUsage>();
+            DateTime firstDay = DateTime.Now.Date.AddDays(-6);
+            for (int offset = 0; offset < 7; offset++)
+                days.Add(new DailyTokenUsage { Day = firstDay.AddDays(offset), Tokens = 0 });
+            return days;
+        }
+
+        internal static double DailyQuotaPercent(long dailyTokens, long totalTokens, double usedPercent)
+        {
+            if (dailyTokens <= 0 || totalTokens <= 0 || usedPercent <= 0)
+                return 0;
+            return Math.Max(0, usedPercent * dailyTokens / totalTokens);
+        }
+
+        internal static List<ModelTokenUsage> VisibleModelRows(
+            IEnumerable<ModelTokenUsage> models, int maximumRows)
+        {
+            List<ModelTokenUsage> sorted = (models ?? new ModelTokenUsage[0])
+                .Where(item => item != null && item.Tokens > 0)
+                .OrderByDescending(item => item.Tokens)
+                .ToList();
+            if (maximumRows <= 0)
+                return new List<ModelTokenUsage>();
+            if (sorted.Count <= maximumRows)
+                return sorted;
+
+            List<ModelTokenUsage> visible = sorted.Take(maximumRows - 1).ToList();
+            visible.Add(new ModelTokenUsage
+            {
+                Model = "other",
+                Tokens = sorted.Skip(maximumRows - 1).Sum(item => item.Tokens)
+            });
+            return visible;
+        }
+
+        internal static string ModelLabel(ModelTokenUsage usage)
+        {
+            if (usage == null)
+                return String.Empty;
+            if (String.Equals(usage.Model, "other", StringComparison.OrdinalIgnoreCase))
+                return "其他";
+
+            List<string> parts = new List<string>();
+            parts.Add(WeeklyUsageReader.DisplayModelName(usage.Model));
+            string mode = DisplayCollaborationMode(usage.CollaborationMode);
+            if (!String.IsNullOrEmpty(mode) &&
+                !String.Equals(mode, "Default", StringComparison.OrdinalIgnoreCase))
+            {
+                parts.Add(mode);
+            }
+            string effort = WeeklyUsageReader.DisplayEffort(usage.Effort);
+            if (!String.IsNullOrEmpty(effort))
+                parts.Add(effort);
+            return String.Join(" · ", parts.ToArray());
+        }
+
+        private static string DisplayCollaborationMode(string mode)
+        {
+            if (String.IsNullOrWhiteSpace(mode))
+                return String.Empty;
+            string[] words = mode.Replace('-', ' ').Replace('_', ' ')
+                .Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int index = 0; index < words.Length; index++)
+                words[index] = Char.ToUpperInvariant(words[index][0]) + words[index].Substring(1);
+            return String.Join(" ", words);
+        }
+
+        private static string ChineseWeekday(DayOfWeek day)
+        {
+            string[] labels = new string[] { "日", "一", "二", "三", "四", "五", "六" };
+            return labels[(int)day];
+        }
+
+        internal static Color UsageAccent(double percentage, bool darkTheme)
+        {
+            double clamped = Math.Max(0d, Math.Min(100d, percentage));
+            Color low = darkTheme
+                ? Color.FromArgb(136, 150, 166)
+                : Color.FromArgb(100, 119, 139);
+            Color middle = darkTheme
+                ? Color.FromArgb(67, 177, 223)
+                : Color.FromArgb(39, 157, 210);
+            Color high = darkTheme
+                ? Color.FromArgb(67, 215, 255)
+                : Color.FromArgb(20, 92, 245);
+
+            if (clamped <= 40d)
+                return InterpolateColor(low, middle, clamped / 40d);
+            return InterpolateColor(middle, high, (clamped - 40d) / 60d);
+        }
+
+        private static Color InterpolateColor(Color start, Color end, double amount)
+        {
+            amount = Math.Max(0d, Math.Min(1d, amount));
+            return Color.FromArgb(
+                Convert.ToInt32(Math.Round(start.R + ((end.R - start.R) * amount))),
+                Convert.ToInt32(Math.Round(start.G + ((end.G - start.G) * amount))),
+                Convert.ToInt32(Math.Round(start.B + ((end.B - start.B) * amount))));
+        }
+
         private void DrawBudgetToolTip(Graphics graphics)
         {
             const float width = 88f;
@@ -920,7 +1313,7 @@ namespace CodexMeter
 
             const float width = 124f;
             const float height = 24f;
-            const float anchorX = 278f;
+            const float anchorX = 263f;
             RectangleF bounds = new RectangleF(DesignWidth - width - 14f, 50f, width, height);
 
             UsageWindow main = snapshot == null ? null : snapshot.Weekly ?? snapshot.Session;
@@ -978,10 +1371,12 @@ namespace CodexMeter
             bool overBudget = pace.DeltaPercent > 0.5;
             Color stateColor = overBudget ? Color.FromArgb(255, 132, 38) : Color.FromArgb(18, 183, 127);
             RectangleF surface = new RectangleF(14, y + 2, DesignWidth - 28, 25);
+            paceToggleBounds = new Rectangle(
+                S(surface.X), S(surface.Y), S(surface.Width), S(surface.Height));
             using (GraphicsPath surfacePath = RoundedRectangle(surface, 12.5f))
-            using (Brush surfaceBrush = new SolidBrush(IsDark
-                ? Color.FromArgb(23, 255, 255, 255)
-                : Color.FromArgb(116, 255, 255, 255)))
+            using (Brush surfaceBrush = new SolidBrush(paceToggleHovered
+                ? (IsDark ? Color.FromArgb(43, 80, 174, 235) : Color.FromArgb(178, 255, 255, 255))
+                : (IsDark ? Color.FromArgb(23, 255, 255, 255) : Color.FromArgb(116, 255, 255, 255))))
             using (Pen surfaceBorder = new Pen(IsDark
                 ? Color.FromArgb(30, 91, 178, 236)
                 : Color.FromArgb(35, 59, 136, 191), 0.7f))
@@ -995,10 +1390,11 @@ namespace CodexMeter
             using (Brush dot = new SolidBrush(stateColor))
                 graphics.FillEllipse(dot, 23, y + 11, 6, 6);
 
-            RectangleF stateBounds = new RectangleF(35, y + 3, 108, 23);
-            RectangleF forecastBounds = new RectangleF(140, y + 3, 183, 23);
+            RectangleF stateBounds = new RectangleF(35, y + 3, 96, 23);
+            RectangleF forecastBounds = PaceForecastBounds(y);
             using (Font font = PixelFont(SupportingTextFontSize, FontStyle.Bold))
-            using (Font forecastFont = PixelFont(SupportingTextFontSize, FontStyle.Regular))
+            using (Font forecastFont = FittedPixelFont(
+                graphics, right, forecastBounds, SupportingTextFontSize, 10.5f, FontStyle.Regular))
             using (Brush leftBrush = new SolidBrush(overBudget ? stateColor : PrimaryText))
             using (Brush rightBrush = new SolidBrush(SecondaryText))
             {
@@ -1007,22 +1403,57 @@ namespace CodexMeter
                 DrawText(graphics, right, forecastFont, rightBrush, forecastBounds,
                     StringAlignment.Far, StringAlignment.Center);
             }
+
+            float chevronY = y + 14.5f;
+            using (Pen chevron = new Pen(paceToggleHovered ? stateColor : SecondaryText, 1.6f))
+            {
+                chevron.StartCap = LineCap.Round;
+                chevron.EndCap = LineCap.Round;
+                if (detailsExpanded)
+                {
+                    graphics.DrawLine(chevron, 302f, chevronY + 2f, 306f, chevronY - 2f);
+                    graphics.DrawLine(chevron, 306f, chevronY - 2f, 310f, chevronY + 2f);
+                }
+                else
+                {
+                    graphics.DrawLine(chevron, 302f, chevronY - 2f, 306f, chevronY + 2f);
+                    graphics.DrawLine(chevron, 306f, chevronY + 2f, 310f, chevronY - 2f);
+                }
+            }
+        }
+
+        internal static RectangleF PaceForecastBounds(int y)
+        {
+            return new RectangleF(132, y + 3, DesignWidth - 166, 23);
         }
 
         private void OnCardMouseClick(object sender, MouseEventArgs eventArgs)
         {
             if (eventArgs.Button == MouseButtons.Left && syncButtonBounds.Contains(eventArgs.Location))
-                RefreshNow();
+                RequestManualRefresh();
             else if (eventArgs.Button == MouseButtons.Left && menuButtonBounds.Contains(eventArgs.Location))
                 menu.Show(this, new Point(menuButtonBounds.Right, menuButtonBounds.Bottom), ToolStripDropDownDirection.BelowLeft);
+            else if (eventArgs.Button == MouseButtons.Left && paceToggleBounds.Contains(eventArgs.Location))
+                ToggleDetails();
             else if (eventArgs.Button == MouseButtons.Right)
                 menu.Show(this, eventArgs.Location);
+        }
+
+        private void ToggleDetails()
+        {
+            if (snapshot == null || snapshot.WeeklyPace == null)
+                return;
+
+            detailsExpanded = !detailsExpanded;
+            ResizeForContent();
+            UpdateAccessibleSummary();
+            Invalidate();
         }
 
         private void OnCardMouseDown(object sender, MouseEventArgs eventArgs)
         {
             if (eventArgs.Button != MouseButtons.Left || menuButtonBounds.Contains(eventArgs.Location) ||
-                syncButtonBounds.Contains(eventArgs.Location))
+                syncButtonBounds.Contains(eventArgs.Location) || paceToggleBounds.Contains(eventArgs.Location))
                 return;
 
             if (!String.IsNullOrEmpty(settings.DockEdge))
@@ -1038,12 +1469,17 @@ namespace CodexMeter
             if (!isDragging)
             {
                 bool hovered = syncButtonBounds.Contains(eventArgs.Location);
+                bool paceHovered = paceToggleBounds.Contains(eventArgs.Location);
                 bool budgetHovered = budgetMarkerBounds.Contains(eventArgs.Location) &&
                     !String.IsNullOrEmpty(budgetToolTipText);
                 string resetToolTipText = resetHoverTargets
                     .Where(delegate(ResetHoverTarget target) { return target.Bounds.Contains(eventArgs.Location); })
                     .Select(delegate(ResetHoverTarget target) { return target.Text; })
                     .FirstOrDefault() ?? String.Empty;
+                if (String.IsNullOrEmpty(resetToolTipText) && paceHovered)
+                    resetToolTipText = detailsExpanded
+                        ? "收起近 7 天用量和模型偏好"
+                        : "展开近 7 天用量和模型偏好";
                 if (!String.Equals(resetToolTipText, activeResetToolTipText, StringComparison.Ordinal))
                 {
                     contextualToolTip.Hide(this);
@@ -1062,19 +1498,17 @@ namespace CodexMeter
                 if (hovered != syncButtonHovered)
                 {
                     syncButtonHovered = hovered;
-                    Cursor = hovered || menuButtonBounds.Contains(eventArgs.Location)
-                        ? Cursors.Hand
-                        : (budgetHovered || !String.IsNullOrEmpty(resetToolTipText)
-                            ? Cursors.Help : Cursors.Default);
                     Invalidate();
                 }
-                else
+                if (paceHovered != paceToggleHovered)
                 {
-                    Cursor = hovered || menuButtonBounds.Contains(eventArgs.Location)
-                        ? Cursors.Hand
-                        : (budgetHovered || !String.IsNullOrEmpty(resetToolTipText)
-                            ? Cursors.Help : Cursors.Default);
+                    paceToggleHovered = paceHovered;
+                    Invalidate(paceToggleBounds);
                 }
+                Cursor = hovered || paceHovered || menuButtonBounds.Contains(eventArgs.Location)
+                    ? Cursors.Hand
+                    : (budgetHovered || !String.IsNullOrEmpty(resetToolTipText)
+                        ? Cursors.Help : Cursors.Default);
             }
 
             if (!isDragging || (Control.MouseButtons & MouseButtons.Left) == 0)
@@ -1121,7 +1555,7 @@ namespace CodexMeter
 
         private void EvaluateDockAfterMove()
         {
-            if (!settings.EdgeAutoHide || IsFollowMode)
+            if (!settings.EdgeAutoHide)
                 return;
 
             Screen screen = Screen.FromPoint(Cursor.Position);
@@ -1140,14 +1574,14 @@ namespace CodexMeter
             suppressRevealUntil = DateTime.UtcNow.AddMilliseconds(550);
             pointerLeftAt = null;
             SaveSettings();
-            ConfigureModeTimers();
+            ConfigureWindowTimers();
             ScheduleNextRefresh();
             UpdateDockPosition();
         }
 
         private void UpdateDockPosition()
         {
-            if (String.IsNullOrEmpty(settings.DockEdge) || !settings.EdgeAutoHide || IsFollowMode || !Visible)
+            if (String.IsNullOrEmpty(settings.DockEdge) || !settings.EdgeAutoHide || !Visible)
                 return;
 
             Screen screen = activeDockScreen ?? FindDockScreen();
@@ -1207,7 +1641,7 @@ namespace CodexMeter
 
         private void RestoreDockIfNeeded()
         {
-            if (String.IsNullOrEmpty(settings.DockEdge) || !settings.EdgeAutoHide || IsFollowMode)
+            if (String.IsNullOrEmpty(settings.DockEdge) || !settings.EdgeAutoHide)
                 return;
 
             activeDockScreen = FindDockScreen();
@@ -1224,7 +1658,7 @@ namespace CodexMeter
             Top = top;
             dockRevealed = false;
             suppressRevealUntil = DateTime.UtcNow.AddMilliseconds(450);
-            ConfigureModeTimers();
+            ConfigureWindowTimers();
         }
 
         private Screen FindDockScreen()
@@ -1255,7 +1689,7 @@ namespace CodexMeter
             dockRevealed = false;
             isDockAnimating = false;
             pointerLeftAt = null;
-            ConfigureModeTimers();
+            ConfigureWindowTimers();
             ScheduleNextRefresh();
 
             if (moveOnScreen && screen != null)
@@ -1265,19 +1699,6 @@ namespace CodexMeter
                 int y = Math.Max(area.Top, Math.Min(Top, area.Bottom - Height));
                 Location = new Point(x, y);
             }
-        }
-
-        private void SetMode(string mode)
-        {
-            settings.Mode = mode;
-            if (IsFollowMode)
-                ClearDock(true);
-            else
-                ShowMeter();
-            SyncMenuChecks();
-            ConfigureModeTimers();
-            ScheduleNextRefresh();
-            SaveSettings();
         }
 
         private void SetTheme(string theme)
@@ -1290,36 +1711,21 @@ namespace CodexMeter
             Invalidate();
         }
 
-        private void UpdateFollowVisibility()
+        private void UpdateForegroundTopMost()
         {
-            if (!IsFollowMode)
-            {
-                if (!Visible && !manuallyHidden)
-                    ShowMeter();
-                return;
-            }
-
-            bool shouldShow = NativeMethods.IsCodexForeground() || menu.Visible || ContainsFocus;
-            if (shouldShow && !Visible)
-            {
-                ShowMeter();
-                ScheduleNextRefresh();
-            }
-            else if (!shouldShow && Visible)
-            {
-                Hide();
-                ConfigureModeTimers();
-                ScheduleNextRefresh();
-            }
+            bool codexOnSameScreen = IsCodexForegroundOnSameScreen();
+            bool effectiveTopMost = ShouldBeTopMost(settings.AlwaysOnTop, codexOnSameScreen);
+            if (TopMost != effectiveTopMost)
+                TopMost = effectiveTopMost;
         }
 
         private void ShowMeter()
         {
             manuallyHidden = false;
             Show();
-            TopMost = settings.AlwaysOnTop;
+            TopMost = ShouldBeTopMost(settings.AlwaysOnTop, IsCodexForegroundOnSameScreen());
             BringToFront();
-            ConfigureModeTimers();
+            ConfigureWindowTimers();
             ScheduleNextRefresh();
         }
 
@@ -1339,7 +1745,7 @@ namespace CodexMeter
             SaveCurrentPosition();
             manuallyHidden = true;
             Hide();
-            ConfigureModeTimers();
+            ConfigureWindowTimers();
             ScheduleNextRefresh();
             SyncMenuChecks();
         }
@@ -1347,7 +1753,7 @@ namespace CodexMeter
         private void RestoreFromTray()
         {
             manuallyHidden = false;
-            if (!String.IsNullOrEmpty(settings.DockEdge) && settings.EdgeAutoHide && !IsFollowMode)
+            if (!String.IsNullOrEmpty(settings.DockEdge) && settings.EdgeAutoHide)
             {
                 dockRevealed = true;
                 pointerLeftAt = null;
@@ -1401,7 +1807,7 @@ namespace CodexMeter
         {
             if (eventArgs.KeyCode == Keys.F5)
             {
-                RefreshNow();
+                RequestManualRefresh();
                 eventArgs.Handled = true;
                 eventArgs.SuppressKeyPress = true;
             }
@@ -1413,15 +1819,58 @@ namespace CodexMeter
             }
         }
 
+        private bool IsCodexForegroundOnSameScreen()
+        {
+            IntPtr codexWindow = NativeMethods.ForegroundCodexWindow();
+            if (codexWindow == IntPtr.Zero || !Visible)
+                return false;
+
+            Screen codexScreen = Screen.FromHandle(codexWindow);
+            Screen meterScreen = Screen.FromRectangle(Bounds);
+            return codexScreen != null && meterScreen != null &&
+                String.Equals(codexScreen.DeviceName, meterScreen.DeviceName,
+                    StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static bool ShouldBeTopMost(bool alwaysOnTop, bool codexForegroundOnSameScreen)
+        {
+            return alwaysOnTop || codexForegroundOnSameScreen;
+        }
+
         private void SyncMenuChecks()
         {
             visibilityItem.Text = Visible ? "最小化到托盘" : "显示悬浮卡片";
-            fixedItem.Checked = !IsFollowMode;
-            followItem.Checked = IsFollowMode;
             lightItem.Checked = !IsDark;
             darkItem.Checked = IsDark;
             edgeItem.Checked = settings.EdgeAutoHide;
             topMostItem.Checked = settings.AlwaysOnTop;
+            try
+            {
+                startupItem.Checked = StartupRegistration.IsEnabled();
+                startupItem.ToolTipText = "登录 Windows 后自动启动 CodexMeter";
+            }
+            catch (Exception ex)
+            {
+                startupItem.Checked = false;
+                startupItem.ToolTipText = "无法读取 Windows 启动项：" + Shorten(ex.Message, 120);
+            }
+        }
+
+        private void ToggleStartWithWindows()
+        {
+            try
+            {
+                bool enable = !StartupRegistration.IsEnabled();
+                StartupRegistration.SetEnabled(enable);
+                startupItem.Checked = StartupRegistration.IsEnabled();
+            }
+            catch (Exception ex)
+            {
+                SyncMenuChecks();
+                MessageBox.Show(this,
+                    "无法修改开机自启动：\r\n" + Shorten(ex.Message, 240),
+                    "CodexMeter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void UpdateAccessibleSummary()
@@ -1441,7 +1890,7 @@ namespace CodexMeter
             string path = client.ExecutablePath;
             if (String.IsNullOrEmpty(path) || !File.Exists(path))
             {
-                MessageBox.Show(this, "未找到 CodexBar CLI。", "Codex Meter",
+                MessageBox.Show(this, "未找到 CodexBar CLI。", "CodexMeter",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -1508,8 +1957,8 @@ namespace CodexMeter
 
         private string StatusToolTipText()
         {
-            if (isRefreshing && snapshot == null)
-                return "正在同步数据…";
+            if (isRefreshing || isWeeklyUsageRefreshing)
+                return "正在同步数据，请稍候…";
             if (snapshot != null)
             {
                 DateTimeOffset displayTime = snapshot.UpdatedAt ?? lastSuccessfulRefreshAt ?? DateTimeOffset.Now;
@@ -1526,9 +1975,9 @@ namespace CodexMeter
         {
             UsageWindow main = snapshot == null ? null : snapshot.Weekly ?? snapshot.Session;
             if (main == null)
-                return Shorten("Codex Meter - " + (lastError ?? "正在同步"), 63);
+                return Shorten("CodexMeter - " + (lastError ?? "正在同步"), 63);
             string stale = HasStaleData ? "[过期] " : String.Empty;
-            return Shorten("Codex Meter - " + stale + "每周剩余 " +
+            return Shorten("CodexMeter - " + stale + "每周剩余 " +
                 Math.Round(main.RemainingPercent).ToString("0") + "%", 63);
         }
 
@@ -1571,8 +2020,8 @@ namespace CodexMeter
         {
             get
             {
-                if (isRefreshing)
-                    return "同步";
+                if (isRefreshing || isWeeklyUsageRefreshing)
+                    return "实时";
                 if (HasStaleData)
                     return "过期";
                 if (isConnected)
@@ -1585,7 +2034,7 @@ namespace CodexMeter
         {
             get
             {
-                if (isRefreshing)
+                if (isRefreshing || isWeeklyUsageRefreshing)
                     return Color.FromArgb(0, 122, 255);
                 if (HasStaleData)
                     return Color.FromArgb(255, 159, 10);

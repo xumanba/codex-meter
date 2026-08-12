@@ -51,7 +51,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $testPath = Join-Path $outputDirectory "CodexMeter.Tests.exe"
-& $compiler $commonArguments "/target:exe" "/main:CodexMeter.TestProgram" "/out:$testPath" $sourceFiles
+& $compiler $commonArguments "/target:exe" "/main:CodexMeter.TestProgram" "/win32icon:$iconPath" "/out:$testPath" $sourceFiles
 if ($LASTEXITCODE -ne 0) {
     throw "CodexMeter.Tests.exe build failed with exit code $LASTEXITCODE"
 }

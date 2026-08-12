@@ -59,6 +59,8 @@ allowance and rate-window data available through CodexBar; it does not claim to
 count the raw tokens used by each individual prompt.
 
 - Remaining weekly Codex allowance and reset time
+- On the unreleased Windows main build, local seven-day activity and
+  model/reasoning-effort preference rows behind a compact pace-row disclosure
 - On macOS v0.2.0, current-quota daily token usage for the latest seven days
 - On macOS v0.2.0, model preference split by model, reasoning effort and Fast mode
 - macOS daily quota percentages use day-to-day deltas from Codex's official
@@ -121,6 +123,11 @@ selection is restored automatically on both systems.
 - **Clear reset timing on Windows** — uses the same `xd xh` countdown for
   weekly and Spark allowances, prevents early hour truncation and exposes exact
   reset times on hover.
+- **Compact Windows details** — the Windows main build focuses on the primary
+  weekly quota; click the pace row to expand or collapse local seven-day and
+  model/reasoning-effort details.
+- **Usage-weighted model color** — low-share rows use muted blue-gray and become
+  continuously more vivid blue as their share increases.
 - **Codex Spark support** — automatically shows extra Codex rate windows.
 - **Two native glass themes** — switch between dark and light from the menu.
 - **Position memory** — drag the card anywhere; its fixed position is restored.
@@ -259,6 +266,7 @@ Codex / OpenAI account
   CodexMeter (WinForms + DWM)
           ├── adaptive refresh and stale-data state
           ├── remaining allowance and reset time
+          ├── local seven-day token and model/effort aggregates
           ├── edge docking and tray mode
           └── no stored credentials
 ```
@@ -266,6 +274,10 @@ Codex / OpenAI account
 The Windows process launches the local CLI only for a refresh, applies a hard
 timeout and cancellation, sanitizes provider errors, and keeps the last valid
 snapshot when a later refresh fails.
+
+The Windows weekly activity reader scans only local Codex rollout timestamps,
+model/effort metadata and token-count aggregates. Its incremental cache under
+`%LOCALAPPDATA%\CodexMeter` contains no prompts, responses or credentials.
 
 The Windows network tile reports aggregate operating-system traffic across
 active non-loopback, non-tunnel adapters. It is a system-wide activity hint,

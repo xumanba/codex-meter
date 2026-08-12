@@ -23,6 +23,15 @@ macOS 当前使用 v0.2.0 安装包。Windows v0.1.1 与 macOS v0.2.0 的源码�
 The current macOS package is v0.2.0. Windows v0.1.1 and macOS v0.2.0 source
 lines are now unified on `main`, while their install packages remain separate.
 
+> 当前 `main` 中还有尚未发布的 Windows 后续改进：`CodexMeter` 统一命名、
+> 中等蓝灰新图标、默认简易卡片，以及可展开的近 7 天 token 和模型偏好。
+> 下载表仍只列出已经发布并可独立复核的安装包。
+
+> The current `main` source also contains unreleased follow-up Windows work:
+> unified `CodexMeter` naming, a medium blue-gray icon, compact-by-default UI,
+> and expandable local seven-day/model details. The table still lists only
+> published, independently verifiable packages.
+
 ## macOS v0.2.0
 
 - Shows weekly remaining percentage, reset time and current-period token total.
@@ -43,6 +52,8 @@ Windows v0.1.1 保留 v0.1.0 的额度卡片功能，并增加或改进：
 - 使用上游数据时间判断是否过期，避免把旧缓存错误显示为“实时”。
 - 提供可选的当前用户安装/卸载脚本；升级时检测仍在运行的已安装程序。
 - 增强错误信息脱敏、自测、界面截图回归和 Windows 安装包校验。
+- `main` 后续开发版增加本机近 7 天 token、模型/推理强度偏好、用量颜色梯度，
+  并以节奏行控制详情展开/收起；这些功能尚未对应新的 Windows Release。
 
 Windows v0.1.0 是首个跨平台正式版本，继续保留供回退和复现使用，但不包含
 上述 v0.1.1 Windows 改进。
@@ -59,6 +70,9 @@ Windows v0.1.1 keeps the v0.1.0 allowance card and adds or improves:
 - Provider timestamp freshness checks so old cached data is not shown as live.
 - Optional per-user install/uninstall scripts with a running-app upgrade guard.
 - Error sanitization, self-tests, visual regression previews, and package checks.
+- The unreleased main build adds local seven-day tokens, model/effort preference,
+  a usage-share color gradient, and pace-row detail expansion; no newer Windows
+  Release package has been published yet.
 
 Windows v0.1.0 remains available for rollback and reproduction, but does not
 contain the Windows v0.1.1 improvements above.

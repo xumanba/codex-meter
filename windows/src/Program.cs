@@ -10,7 +10,7 @@ namespace CodexMeter
         private const string ShowExistingEventName = "Local\\CodexMeter.Windows.ShowExisting";
 
         [STAThread]
-        private static void Main()
+        private static void Main(string[] args)
         {
             NativeMethods.EnableDpiAwareness();
             Application.EnableVisualStyles();
@@ -32,14 +32,27 @@ namespace CodexMeter
 
                 try
                 {
-                    Application.Run(new CodexMeterFormV2(showExistingEvent));
+                    Application.Run(new CodexMeterFormV2(showExistingEvent, IsStartupLaunch(args)));
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Codex Meter 发生未处理错误：\r\n" + ex.Message,
-                        "Codex Meter", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("CodexMeter 发生未处理错误：\r\n" + ex.Message,
+                        "CodexMeter", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
+        }
+
+        internal static bool IsStartupLaunch(string[] args)
+        {
+            if (args == null)
+                return false;
+
+            foreach (string argument in args)
+            {
+                if (String.Equals(argument, "--startup", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
     }
 }
