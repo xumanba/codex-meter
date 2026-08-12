@@ -1,4 +1,4 @@
-Codex Meter is an independent, unofficial application powered by CodexBar.
+CodexMeter is an independent, unofficial application powered by CodexBar.
 
 Release packages include the CodexBar CLI binary so users do not need to
 install CodexBar separately. The bundled binary is redistributed under the MIT
@@ -8,7 +8,7 @@ License. Its complete license text is included at:
 
 and inside the application bundle at:
 
-  Codex Meter.app/Contents/Resources/ThirdPartyLicenses/
+  CodexMeter.app/Contents/Resources/ThirdPartyLicenses/
 
 CodexBar:
   https://github.com/steipete/CodexBar
@@ -36,7 +36,7 @@ application bundle:
   https://github.com/apple/swift-asn1
 
 The edge docking interaction was informed by SideTerminal's compact
-edge-reveal approach. Codex Meter contains an independent AppKit implementation
+edge-reveal approach. CodexMeter contains an independent AppKit implementation
 and does not redistribute SideTerminal source code.
 
 SideTerminal:

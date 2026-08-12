@@ -3,8 +3,8 @@ set -euo pipefail
 
 project_dir="${0:A:h:h}"
 release_dir="$project_dir/.build/release"
-app_path="$project_dir/.build/Codex Meter.app"
-archive_name="Codex-Meter-macos-universal-0.2.0.zip"
+app_path="$project_dir/.build/CodexMeter.app"
+archive_name="CodexMeter-macos-universal-0.2.0.zip"
 archive_path="$release_dir/$archive_name"
 
 cd "$project_dir"
@@ -30,8 +30,10 @@ verify_dir="$(mktemp -d)"
 trap '/bin/rm -rf "$verify_dir"' EXIT
 /usr/bin/ditto -x -k "$archive_path" "$verify_dir"
 
-verified_app="$verify_dir/Codex Meter.app"
+verified_app="$verify_dir/CodexMeter.app"
 codesign --verify --deep --strict "$verified_app"
+
+test -f "$verified_app/Contents/Resources/CodexMeter.icns"
 
 for binary in \
     "$verified_app/Contents/MacOS/CodexBarFloatingMeter" \

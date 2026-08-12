@@ -178,7 +178,7 @@ struct MeterView: View {
                 Text("剩余")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(secondaryText)
-                Text(formatPercent(remainingPercent))
+                Text(formatWholePercent(remainingPercent))
                     .font(.system(size: 29, weight: .bold, design: .rounded))
                     .foregroundStyle(remainingColor(for: remainingPercent))
                     .monospacedDigit()
@@ -422,6 +422,11 @@ struct MeterView: View {
     private func formatPercent(_ value: Double?) -> String {
         guard let value else { return "—" }
         return String(format: "%.1f%%", max(0, value))
+    }
+
+    private func formatWholePercent(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return String(format: "%.0f%%", max(0, value))
     }
 
     private func tokenAmount(_ tokens: Int64) -> String {

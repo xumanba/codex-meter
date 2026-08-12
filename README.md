@@ -1,6 +1,6 @@
 <div align="center">
 
-# ✦ Codex Meter
+# ✦ CodexMeter
 
 ### Native macOS Codex usage visualization, quota monitor and edge-docking widget
 
@@ -15,6 +15,10 @@ usage and model preference without leaving your workspace.
 
 </div>
 
+<p align="center">
+  <img src="assets/CodexMeter-icon.png" alt="CodexMeter app icon" width="128">
+</p>
+
 > [!IMPORTANT]
 > **One download, no separate CodexBar installation.** The universal Release
 > package includes the verified CodexBar CLI for both Apple silicon and Intel
@@ -25,14 +29,14 @@ usage and model preference without leaving your workspace.
 > does not include or support the Windows build.
 
 > [!TIP]
-> **Signature feature — instant left/right edge docking.** Drag Codex Meter to
+> **Signature feature — instant left/right edge docking.** Drag CodexMeter to
 > either side of any display and it tucks itself away as a subtle 5-point glass
 > strip. Touch the edge to reveal the full usage meter in about 0.02 seconds;
 > move away and it smoothly hides again.
 
 ## Codex usage and quota visualization
 
-Codex Meter is a native macOS floating widget for people searching for a
+CodexMeter is a native macOS floating widget for people searching for a
 **Codex usage monitor**, **Codex quota visualization**, **Codex rate-limit
 tracker** or a visual view of **Codex token usage capacity**. It combines the
 allowance data available through CodexBar with local Codex session usage records
@@ -53,8 +57,8 @@ to present a compact current-quota view.
     <th align="center">Light glass</th>
   </tr>
   <tr>
-    <td><img src="assets/dark-glass.jpg" alt="Codex Meter dark glass theme"></td>
-    <td><img src="assets/light-glass.jpg" alt="Codex Meter light glass theme"></td>
+    <td><img src="assets/dark-glass.jpg" alt="CodexMeter dark glass theme"></td>
+    <td><img src="assets/light-glass.jpg" alt="CodexMeter light glass theme"></td>
   </tr>
 </table>
 
@@ -105,7 +109,7 @@ selection is restored automatically.
 
 The v0.2.0 release is macOS-only. Windows is not supported by this version.
 
-Codex Meter reads the same local OAuth session used by Codex. If you have not
+CodexMeter reads the same local OAuth session used by Codex. If you have not
 signed in yet, open the Codex app or run:
 
 ```bash
@@ -116,13 +120,13 @@ You do **not** need to install CodexBar separately.
 
 ## Download and install
 
-1. Download `Codex-Meter-macos-universal-0.2.0.zip` from
+1. Download `CodexMeter-macos-universal-0.2.0.zip` from
    [GitHub Releases](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0).
-2. Open the ZIP and move **Codex Meter.app** to Applications.
+2. Open the ZIP and move **CodexMeter.app** to Applications.
 3. Because this free preview is not Apple-notarized, Control-click the app and
    choose **Open** the first time. If macOS still blocks it, go to **System
    Settings → Privacy & Security** and choose **Open Anyway**.
-4. Open Codex Meter. Your floating usage card appears immediately when your
+4. Open CodexMeter. Your floating usage card appears immediately when your
    local Codex login is valid.
 
 The Release is ad-hoc signed and includes both `arm64` and `x86_64` slices. No
@@ -144,7 +148,7 @@ The installer:
 
 1. builds an ad-hoc signed native macOS application;
 2. bundles the verified CodexBar CLI;
-3. installs it as `/Applications/Codex Meter.app`;
+3. installs it as `/Applications/CodexMeter.app`;
 4. creates a per-user LaunchAgent;
 5. launches the meter in the background without hiding its window.
 
@@ -191,7 +195,7 @@ Codex / OpenAI account
   Bundled CodexBar CLI
           │  localhost JSON, port 18747
           ▼
-  Codex Meter (SwiftUI + AppKit)
+  CodexMeter (SwiftUI + AppKit)
           │
           ├── remaining weekly allowance
           ├── current-quota daily token scan
@@ -199,7 +203,7 @@ Codex / OpenAI account
           └── native floating NSPanel
 ```
 
-Codex Meter starts its bundled `codexbar serve` helper on `127.0.0.1:18747`
+CodexMeter starts its bundled `codexbar serve` helper on `127.0.0.1:18747`
 when needed and polls the local endpoint every 60 seconds. The v0.2.0 token
 scanner also reads local Codex session records to group token usage by the
 current quota window, day, model, reasoning effort and Fast mode. It does not
@@ -210,7 +214,7 @@ send those local records anywhere. The server is not exposed to your network.
 ```bash
 chmod +x build-app.sh
 ./build-app.sh
-open ".build/Codex Meter.app"
+open ".build/CodexMeter.app"
 ```
 
 The project intentionally uses Swift Package Manager and AppKit/SwiftUI only.
@@ -225,12 +229,12 @@ architecture. Create the same universal package published on GitHub with:
 The edge interaction uses AppKit's native mouse tracking and does not need
 Accessibility permission. The compact edge-reveal approach was informed by
 [SideTerminal](https://github.com/bunnysayzz/sideterminal), an MIT-licensed
-open-source macOS project. Codex Meter implements its own compact-card geometry
+open-source macOS project. CodexMeter implements its own compact-card geometry
 and multi-display position memory.
 
 ## Uninstall
 
-For the downloaded Release, quit Codex Meter and move it from Applications to
+For the downloaded Release, quit CodexMeter and move it from Applications to
 Trash.
 
 For an installation made with `install.sh`, run:
@@ -250,7 +254,7 @@ redistribute the official CodexBar CLI `v0.45.2` binary under its
 [MIT License](ThirdPartyLicenses/CodexBar-LICENSE.txt), including the complete
 copyright and permission notice inside the app bundle.
 
-Codex Meter does not redistribute CodexBar icons or present itself as an
+CodexMeter does not redistribute CodexBar icons or present itself as an
 official CodexBar product. This repository is not affiliated with or endorsed
 by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 
@@ -259,7 +263,7 @@ by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 - The floating interface talks only to its helper on `127.0.0.1`.
 - The bundled CodexBar helper reads the existing Codex OAuth session from the
   user's local Codex configuration and requests that account's usage data.
-- Codex Meter does not copy, display or bundle passwords, OAuth tokens, cookies
+- CodexMeter does not copy, display or bundle passwords, OAuth tokens, cookies
   or account emails.
 - Screenshots in this repository contain usage percentages only.
 - The free `v0.2.0` preview is ad-hoc signed but not Apple-notarized, so macOS
@@ -268,7 +272,7 @@ by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 
 ## License
 
-Codex Meter is available under the [MIT License](LICENSE).
+CodexMeter is available under the [MIT License](LICENSE).
 
 ---
 
