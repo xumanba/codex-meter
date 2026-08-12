@@ -67,7 +67,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 width: MeterLayout.width,
                 height: MeterLayout.height(
                     for: 0,
-                    maximum: maximumPanelHeight(for: NSScreen.main)
+                    maximum: maximumPanelHeight(for: NSScreen.main),
+                    hasPace: false
                 )
             ),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -141,7 +142,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func makeContentView() -> NSView {
         let panelHeight = MeterLayout.height(
             for: client.tokenUsage?.breakdowns.count ?? 0,
-            maximum: maximumPanelHeight(for: panel?.screen ?? NSScreen.main)
+            maximum: maximumPanelHeight(for: panel?.screen ?? NSScreen.main),
+            hasPace: client.snapshot?.pace != nil
         )
         let view = MeterTrackingHostingView(rootView: MeterView(
             client: client,
@@ -166,7 +168,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let targetHeight = MeterLayout.height(
             for: modelCount,
-            maximum: maximumPanelHeight(for: panel.screen ?? NSScreen.main)
+            maximum: maximumPanelHeight(for: panel.screen ?? NSScreen.main),
+            hasPace: client.snapshot?.pace != nil
         )
         guard abs(panel.frame.height - targetHeight) > 0.5 else { return }
 

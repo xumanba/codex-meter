@@ -62,7 +62,8 @@ count the raw tokens used by each individual prompt.
 - On macOS v0.2.0, current-quota daily token usage for the latest seven days
 - On macOS v0.2.0, model preference split by model, reasoning effort and Fast mode
 - Reasoning effort labels use the UI spelling `None`, `Low`, `Medium`, `High`, `xHigh` and `Max`
-- Usage pace, overage percentage and estimated depletion time
+- On macOS v0.2.0, weekly pace compares actual usage with time-based expected usage,
+  marks normal/fast/slow pacing and shows an estimated depletion time when available
 - Additional Codex Spark rate windows when available
 - Optional always-on-top visualization with optional Codex app following
 - QQ-style left/right edge auto-hide with native hover reveal
@@ -98,6 +99,8 @@ selection is restored automatically on both systems.
   is detected, then counts only usage after that refresh.
 - **macOS whole-number quota** — weekly remaining percentage follows Codex's
   integer precision and does not invent decimal values.
+- **macOS weekly pace** — marks the time-based expected usage position on the
+  weekly bar and compares actual versus expected usage as normal, fast or slow.
 - **Native app branding** — the floating card header uses the CodexMeter app
   icon bundled with the macOS application.
 - **Pace awareness** — displays over-pace percentage, expected depletion time

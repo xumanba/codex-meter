@@ -20,7 +20,14 @@ enum UsageSnapshotDecoderCheck {
                 "extraRateWindows": [],
                 "updatedAt": null
               },
-              "pace": null
+              "pace": {
+                "secondary": {
+                  "deltaPercent": 2.5,
+                  "expectedUsedPercent": 39.5,
+                  "etaSeconds": 3600,
+                  "willLastToReset": true
+                }
+              }
             }]
             """.utf8
         )
@@ -29,6 +36,10 @@ enum UsageSnapshotDecoderCheck {
 
         precondition(snapshot.weekly.usedPercent == 42)
         precondition(snapshot.extras.isEmpty)
+        precondition(snapshot.pace?.deltaPercent == 2.5)
+        precondition(snapshot.pace?.expectedUsedPercent == 39.5)
+        precondition(snapshot.pace?.etaSeconds == 3600)
+        precondition(snapshot.pace?.willLastToReset == true)
     }
 
     private static func checkMissingCodexLogin() {
