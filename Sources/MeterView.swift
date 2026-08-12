@@ -12,7 +12,7 @@ enum MeterLayout {
     static let minimumHeight: CGFloat = 240
     private static let modelRowHeight: CGFloat = 32
     private static let modelRowSpacing: CGFloat = 9
-    private static let paceSectionHeight: CGFloat = 25
+    private static let paceSectionHeight: CGFloat = 29
 
     static func height(
         for modelCount: Int,
@@ -219,11 +219,12 @@ struct MeterView: View {
                 expectedRemaining: pace.map {
                     max(0, min(100, 100 - $0.expectedUsedPercent))
                 },
-                markerColor: pace.map { paceColor(for: $0) }
+                markerColor: pace.map { paceMarkerColor(for: $0) }
             )
 
             if let pace {
                 paceRow(pace, usedPercent: usedPercent)
+                    .padding(.top, 4)
             }
         }
         .padding(13)
@@ -252,9 +253,9 @@ struct MeterView: View {
                 if let expectedRemaining, let markerColor {
                     Capsule()
                         .fill(markerColor)
-                        .frame(width: 2, height: 17)
+                        .frame(width: 4, height: 20)
                         .offset(
-                            x: geometry.size.width * expectedRemaining / 100 - 1,
+                            x: geometry.size.width * expectedRemaining / 100 - 2,
                             y: 0
                         )
                         .shadow(color: markerColor.opacity(0.45), radius: 3)
@@ -312,6 +313,10 @@ struct MeterView: View {
             return appleBlue
         }
         return Color(red: 0.25, green: 0.82, blue: 0.42)
+    }
+
+    private func paceMarkerColor(for _: UsageSnapshot.Pace) -> Color {
+        Color(red: 1.0, green: 0.62, blue: 0.22)
     }
 
     private func paceForecast(for pace: UsageSnapshot.Pace) -> String {
@@ -381,7 +386,7 @@ struct MeterView: View {
 
     private func modelUsage(_ usage: TokenUsageSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text("模型偏好")
+            Text("模型偏好 · 额度估算")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(primaryText)
 
@@ -391,19 +396,15 @@ struct MeterView: View {
                     .foregroundStyle(tertiaryText)
             } else {
                 ForEach(usage.breakdowns) { breakdown in
-                    modelRow(breakdown, weeklyTotal: usage.weeklyTotals.totalTokens)
+                    modelRow(breakdown)
                 }
             }
         }
     }
 
     private func modelRow(
-        _ breakdown: TokenUsageSnapshot.Breakdown,
-        weeklyTotal: Int64
+        _ breakdown: TokenUsageSnapshot.Breakdown
     ) -> some View {
-        let share = weeklyTotal > 0
-            ? Double(breakdown.totals.totalTokens) / Double(weeklyTotal) * 100
-            : 0
         let accent = modelAccentColor(breakdown.model)
 
         return HStack(alignment: .firstTextBaseline, spacing: 7) {
@@ -423,7 +424,7 @@ struct MeterView: View {
                     .foregroundStyle(.orange)
             }
             Spacer(minLength: 3)
-            Text(formatPercent(share))
+            Text(formatEstimatedPercent(breakdown.estimatedQuotaPercent))
                 .font(.system(size: 14.5, weight: .bold, design: .rounded))
                 .foregroundStyle(accent)
                 .monospacedDigit()
@@ -532,6 +533,11 @@ struct MeterView: View {
     private func formatPercent(_ value: Double?) -> String {
         guard let value else { return "—" }
         return String(format: "%.1f%%", max(0, value))
+    }
+
+    private func formatEstimatedPercent(_ value: Double?) -> String {
+        guard let value else { return "—" }
+        return String(format: "%.2f%%", max(0, value))
     }
 
     private func formatWholePercent(_ value: Double?) -> String {
