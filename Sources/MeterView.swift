@@ -12,8 +12,13 @@ enum MeterLayout {
     static let minimumHeight: CGFloat = 240
     private static let modelRowHeight: CGFloat = 32
     private static let modelRowSpacing: CGFloat = 9
+    private static let paceSectionHeight: CGFloat = 25
 
-    static func height(for modelCount: Int, maximum: CGFloat? = nil) -> CGFloat {
+    static func height(
+        for modelCount: Int,
+        maximum: CGFloat? = nil,
+        hasPace: Bool = false
+    ) -> CGFloat {
         let modelHeight: CGFloat
         if modelCount > 0 {
             modelHeight = CGFloat(modelCount) * modelRowHeight
@@ -22,7 +27,8 @@ enum MeterLayout {
             modelHeight = 28
         }
 
-        let intrinsicHeight = 28 + 26 + (3 * 13) + 103 + 117 + 14 + 9 + modelHeight
+        let paceHeight = hasPace ? paceSectionHeight : 0
+        let intrinsicHeight = 28 + 26 + (3 * 13) + 103 + paceHeight + 117 + 14 + 9 + modelHeight
         guard let maximum else { return intrinsicHeight }
         return min(intrinsicHeight, max(minimumHeight, maximum))
     }
@@ -45,6 +51,7 @@ struct MeterView: View {
                 if let snapshot = client.snapshot {
                     weeklySection(
                         snapshot.weekly,
+                        pace: snapshot.pace,
                         weeklyTotals: client.tokenUsage?.weeklyTotals
                     )
 
@@ -173,6 +180,7 @@ struct MeterView: View {
 
     private func weeklySection(
         _ window: UsageSnapshot.Window,
+        pace: UsageSnapshot.Pace?,
         weeklyTotals: TokenUsageTotals?
     ) -> some View {
         let usedPercent = max(0, min(100, window.usedPercent))
@@ -206,7 +214,17 @@ struct MeterView: View {
                     .monospacedDigit()
             }
 
-            quotaProgressBar(remainingPercent: remainingPercent)
+            quotaProgressBar(
+                remainingPercent: remainingPercent,
+                expectedRemaining: pace.map {
+                    max(0, min(100, 100 - $0.expectedUsedPercent))
+                },
+                markerColor: pace.map { paceColor(for: $0) }
+            )
+
+            if let pace {
+                paceRow(pace, usedPercent: usedPercent)
+            }
         }
         .padding(13)
         .background(weeklySurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -216,7 +234,11 @@ struct MeterView: View {
         }
     }
 
-    private func quotaProgressBar(remainingPercent: Double) -> some View {
+    private func quotaProgressBar(
+        remainingPercent: Double,
+        expectedRemaining: Double? = nil,
+        markerColor: Color? = nil
+    ) -> some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule()
@@ -226,9 +248,80 @@ struct MeterView: View {
                     .fill(remainingGradient(for: remainingPercent))
                     .frame(width: geometry.size.width * remainingPercent / 100)
                     .shadow(color: remainingColor(for: remainingPercent).opacity(0.45), radius: 5)
+
+                if let expectedRemaining, let markerColor {
+                    Capsule()
+                        .fill(markerColor)
+                        .frame(width: 2, height: 17)
+                        .offset(
+                            x: geometry.size.width * expectedRemaining / 100 - 1,
+                            y: 0
+                        )
+                        .shadow(color: markerColor.opacity(0.45), radius: 3)
+                }
             }
         }
         .frame(height: 12)
+    }
+
+    private func paceRow(
+        _ pace: UsageSnapshot.Pace,
+        usedPercent: Double
+    ) -> some View {
+        HStack(spacing: 5) {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(paceColor(for: pace))
+                    .frame(width: 5, height: 5)
+                Text(paceLabel(for: pace))
+                    .foregroundStyle(paceColor(for: pace))
+            }
+
+            Spacer(minLength: 3)
+
+            Text("已用 \(formatPercent(usedPercent)) · 应 \(formatPercent(pace.expectedUsedPercent))")
+                .foregroundStyle(secondaryText)
+                .monospacedDigit()
+
+            Text("·")
+                .foregroundStyle(tertiaryText)
+
+            Text(paceForecast(for: pace))
+                .foregroundStyle(tertiaryText)
+        }
+        .font(.system(size: 9, weight: .semibold))
+        .lineLimit(1)
+        .minimumScaleFactor(0.72)
+    }
+
+    private func paceLabel(for pace: UsageSnapshot.Pace) -> String {
+        if pace.deltaPercent > 0.5 {
+            return "节奏偏快"
+        }
+        if pace.deltaPercent < -0.5 {
+            return "节奏偏慢"
+        }
+        return "节奏正常"
+    }
+
+    private func paceColor(for pace: UsageSnapshot.Pace) -> Color {
+        if pace.deltaPercent > 0.5 {
+            return Color(red: 1, green: 0.62, blue: 0.22)
+        }
+        if pace.deltaPercent < -0.5 {
+            return appleBlue
+        }
+        return Color(red: 0.25, green: 0.82, blue: 0.42)
+    }
+
+    private func paceForecast(for pace: UsageSnapshot.Pace) -> String {
+        if pace.willLastToReset {
+            return "可用至重置"
+        }
+        if let etaSeconds = pace.etaSeconds {
+            return "约 \(duration(etaSeconds)) 后耗尽"
+        }
+        return "暂无预测"
     }
 
     private func dailyUsage(_ usage: TokenUsageSnapshot) -> some View {

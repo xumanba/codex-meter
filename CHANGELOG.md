@@ -10,6 +10,8 @@
   recounts from the refresh point instead of carrying totals across periods.
 - Uses the CodexMeter app icon in the floating card header.
 - Corrects the displayed casing of the `xHigh` reasoning level.
+- Restores the macOS weekly pace status, expected-budget marker and depletion
+  forecast in the weekly quota card.
 - Keeps the Chinese README as the primary documentation and links the English
   README.
 
