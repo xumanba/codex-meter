@@ -388,7 +388,7 @@ struct MeterView: View {
         case "high":
             return "High"
         case "xhigh":
-            return "XHigh"
+            return "xHigh"
         case "max":
             return "Max"
         case "ultra":
