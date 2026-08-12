@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import SwiftUI
 
 enum MeterTheme: String {
@@ -83,12 +84,7 @@ struct MeterView: View {
 
     private var header: some View {
         HStack(spacing: 9) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 26, height: 26)
-                .background(appleBlue.gradient, in: Circle())
-                .shadow(color: appleBlue.opacity(0.45), radius: 7)
+            headerLogo
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Codex 用量")
@@ -151,6 +147,27 @@ struct MeterView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+        }
+    }
+
+    @ViewBuilder
+    private var headerLogo: some View {
+        if let iconURL = Bundle.main.url(forResource: "CodexMeter", withExtension: "icns"),
+           let appIcon = NSImage(contentsOf: iconURL) {
+            Image(nsImage: appIcon)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .frame(width: 30, height: 30)
+                .shadow(color: appleBlue.opacity(0.35), radius: 7)
+        } else {
+            Image(systemName: "sparkles")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 26, height: 26)
+                .background(appleBlue.gradient, in: Circle())
+                .shadow(color: appleBlue.opacity(0.45), radius: 7)
         }
     }
 
