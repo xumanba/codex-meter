@@ -25,7 +25,7 @@
 > **Windows 和 macOS 都有对应版本。** Windows 当前是 v0.1.1，使用原生 WinForms 客户端和 Win-CodexBar CLI；macOS 当前是 v0.2.0，使用 SwiftUI/AppKit 客户端并内置已经验证的 CodexBar CLI。两端都不会保存账号凭证。
 
 > [!NOTE]
-> **两个平台的版本线独立维护。** 默认 `main` 保留 Windows v0.1.1 跨平台主线；macOS v0.2.0 的安装包和发布代码在 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 及 [`codex/bundled-release`](https://github.com/xumanba/codex-meter/tree/codex/bundled-release)。
+> **统一主线。** `main` 现在同时包含 Windows v0.1.1 和 macOS v0.2.0 的完整源码；macOS 安装包仍可从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载。
 
 ## 当前浮窗界面
 
@@ -57,6 +57,7 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 - 每周额度剩余百分比按 Codex 提供的整数精度显示，例如 `90%`，不估算小数。
 - 显示当前额度周期内近 7 天每天的 token 使用量和占周额度百分比。
 - 模型、思考强度和 Fast 模式分别统计，每行优先显示百分比，再显示 token 数量。
+- 检测到额度刷新后，模型偏好自动清零，从刷新时刻重新统计，不会跨额度周期累积。
 - 使用过的新模型自动增加一行，超过屏幕可用高度后浮窗内部滚动。
 - 支持深色/浅色玻璃、固定桌面、跟随 Codex 和左右边缘吸附。
 - 应用名称为 `CodexMeter`，安装包内包含新的 macOS 图标。
@@ -67,6 +68,7 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 - 增加当前额度周期的近 7 天每日 token 统计。
 - 刷新额度后，刷新前的记录不混入当前额度周期；当天中途刷新时只统计刷新之后的 token。
 - 增加模型、思考强度和 Fast 模式的独立偏好统计。
+- 模型偏好绑定当前额度周期；检测到重置时间变化或已用比例回落后自动清零重算。
 - 模型行按实际数量动态增高，超过屏幕高度后启用内部滚动。
 - 优化圆角玻璃裁剪，修复浮窗外侧残留矩形阴影和半透明角落。
 - 应用名称统一为 `CodexMeter`，并加入新图标和新的深色/浅色界面展示图。
@@ -101,10 +103,10 @@ macOS v0.2.0 安装包同时支持 Apple 芯片和 Intel Mac，不需要单独�
 .\windows\package-release.ps1 -Version 0.1.1
 ```
 
-### macOS v0.2.0 发布线
+### macOS v0.2.0
 
 ```bash
-git clone -b codex/bundled-release https://github.com/xumanba/codex-meter.git
+git clone https://github.com/xumanba/codex-meter.git
 cd codex-meter
 chmod +x install.sh uninstall.sh build-app.sh
 ./install.sh

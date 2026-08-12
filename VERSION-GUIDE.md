@@ -1,12 +1,13 @@
 # Codex Meter 版本选择 / Version guide
 
-Codex Meter 的 Windows 与 macOS 安装包彼此独立，不能跨系统使用。每个 ZIP
-都可以单独下载；无需再下载另一个 Codex Meter 版本。Windows 版本仍需本机
-已安装并登录 Win-CodexBar。
+CodexMeter 的 Windows 与 macOS 安装包彼此独立，不能跨系统使用。当前 `main`
+同时维护两端完整源码；每个 ZIP 都可以单独下载。Windows 版本仍需本机已安装
+并登录 Win-CodexBar，macOS 版本内置 CodexBar CLI。
 
-Codex Meter packages for Windows and macOS are separate and are not
-interchangeable. Each ZIP is an independent Codex Meter download. The Windows
-build still requires an installed, signed-in Win-CodexBar.
+CodexMeter packages for Windows and macOS are separate and are not
+interchangeable. The `main` branch contains both source lines. The Windows build
+still requires an installed, signed-in Win-CodexBar; the macOS build bundles
+CodexBar CLI.
 
 ## 下载选择 / Choose a download
 
@@ -14,13 +15,22 @@ build still requires an installed, signed-in Win-CodexBar.
 |---|---:|---|---|
 | Windows 10/11 | v0.1.1 | [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip) | Windows 用户推荐 / Recommended for Windows |
 | Windows 10/11 | v0.1.0 | [`Codex-Meter-Windows-portable-v0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-Windows-portable-v0.1.0.zip) | 保留的首发版本 / Preserved initial release |
-| macOS 14+ | v0.1.0 | [`Codex-Meter-macos-universal-0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-macos-universal-0.1.0.zip) | 当前 Mac 版本；Apple silicon 与 Intel 通用 / Current universal Mac build |
+| macOS 14+ | v0.2.0 | [`CodexMeter-macos-universal-0.2.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) | 当前 Mac 版本；Apple silicon 与 Intel 通用 / Current universal Mac build |
 
-macOS 没有 v0.1.1 安装包。Windows v0.1.1 的开发和发布没有修改 macOS
-v0.1.0 的程序、功能或安装包。
+macOS 当前使用 v0.2.0 安装包。Windows v0.1.1 与 macOS v0.2.0 的源码现已
+统一在 `main`，两端的安装包仍分别发布。
 
-There is no macOS v0.1.1 package. The Windows v0.1.1 work does not modify the
-macOS v0.1.0 application, features, or installation archive.
+The current macOS package is v0.2.0. Windows v0.1.1 and macOS v0.2.0 source
+lines are now unified on `main`, while their install packages remain separate.
+
+## macOS v0.2.0
+
+- Shows weekly remaining percentage, reset time and current-period token total.
+- Shows daily token usage for the latest seven days in the current quota window.
+- Separates model, reasoning effort and Fast mode preference rows.
+- Clears model preference totals when a quota reset is detected and recounts only
+  usage after the refresh point.
+- Includes edge docking, dark/light glass themes and a universal macOS package.
 
 ## Windows v0.1.1 与 v0.1.0 的区别
 
@@ -57,12 +67,12 @@ contain the Windows v0.1.1 improvements above.
 
 - Windows：解压所选 ZIP，运行 `CodexMeter.exe`。若使用 `install.ps1` 升级，
   请先从托盘退出旧程序。
-- macOS：解压 v0.1.0 ZIP，把 **Codex Meter.app** 移到“应用程序”。
+- macOS：解压 v0.2.0 ZIP，把 **CodexMeter.app** 移到“应用程序”。
 - 每个 Release 都提供对应的 SHA-256 文件。Windows 程序未进行
-  Authenticode 签名；macOS v0.1.0 为 ad-hoc 签名且未经过 Apple 公证。
+  Authenticode 签名；macOS v0.2.0 为 ad-hoc 签名且未经过 Apple 公证。
 
 - Windows: extract the selected ZIP and run `CodexMeter.exe`. Exit an installed
   copy from the tray before upgrading with `install.ps1`.
-- macOS: extract the v0.1.0 ZIP and move **Codex Meter.app** to Applications.
+- macOS: extract the v0.2.0 ZIP and move **CodexMeter.app** to Applications.
 - Each Release includes matching SHA-256 information. Windows is not
-  Authenticode-signed; macOS v0.1.0 is ad-hoc signed and not Apple-notarized.
+  Authenticode-signed; macOS v0.2.0 is ad-hoc signed and not Apple-notarized.

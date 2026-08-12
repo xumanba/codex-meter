@@ -3,7 +3,6 @@ set -euo pipefail
 
 project_dir="${0:A:h}"
 cd "$project_dir"
-
 if [[ -n "${ARCHES:-}" ]]; then
     build_arches=(${=ARCHES})
 else
@@ -25,7 +24,7 @@ for arch in "${build_arches[@]}"; do
     built_binaries+=("$scratch_path/$arch-apple-macosx/release/CodexBarFloatingMeter")
 done
 
-app_dir=".build/Codex Meter.app"
+app_dir=".build/CodexMeter.app"
 if [[ -e "$app_dir" ]]; then
     /bin/rm -rf "$app_dir"
 fi
@@ -45,6 +44,7 @@ fi
     "${build_arches[@]}"
 
 cp "Info.plist" "$app_dir/Contents/"
+cp "$project_dir/assets/CodexMeter.icns" "$app_dir/Contents/Resources/CodexMeter.icns"
 "$project_dir/Scripts/fetch-third-party-licenses.sh" \
     "$app_dir/Contents/Resources/ThirdPartyLicenses"
 

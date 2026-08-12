@@ -29,9 +29,9 @@ time on Windows, or use the detailed current-quota token view on macOS.
 > current-quota token usage. Neither client stores account credentials.
 
 > [!NOTE]
-> The default `main` branch remains the cross-platform Windows v0.1.1 source
-> line. The macOS v0.2.0 package and its release-line source are available from
-> the [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0).
+> The `main` branch now contains the complete Windows v0.1.1 and macOS v0.2.0
+> source lines. The packaged macOS application remains available from the
+> [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0).
 
 > [!TIP]
 > **Signature feature — left/right edge docking.** Drag CodexMeter to either
@@ -93,6 +93,8 @@ selection is restored automatically on both systems.
   token amounts across the latest seven calendar days.
 - **macOS model preference** — keeps each model, reasoning effort and Fast mode
   separate, with percentage first and token amount second.
+- **Refresh-bound model preference** — clears model totals when the quota reset
+  is detected, then counts only usage after that refresh.
 - **macOS whole-number quota** — weekly remaining percentage follows Codex's
   integer precision and does not invent decimal values.
 - **Pace awareness** — displays over-pace percentage, expected depletion time
@@ -172,7 +174,7 @@ Building from source requires the Apple Swift 6 toolchain and network access to
 download the pinned, checksum-verified CodexBar CLI release:
 
 ```bash
-git clone -b codex/bundled-release https://github.com/xumanba/codex-meter.git
+git clone https://github.com/xumanba/codex-meter.git
 cd codex-meter
 chmod +x install.sh uninstall.sh build-app.sh
 ./install.sh
@@ -182,8 +184,7 @@ The installer:
 
 1. builds an ad-hoc signed native macOS application;
 2. bundles the verified CodexBar CLI;
-3. installs it as `/Applications/CodexMeter.app` for the v0.2.0 release-line
-   source;
+3. installs it as `/Applications/CodexMeter.app` for the macOS v0.2.0 build;
 4. creates a per-user LaunchAgent;
 5. launches the meter in the background without hiding its window.
 
@@ -292,7 +293,7 @@ version, runs the test suite, checks ZIP contents and prints SHA-256 hashes.
 ### macOS v0.2.0 release line
 
 ```bash
-git clone -b codex/bundled-release https://github.com/xumanba/codex-meter.git
+git clone https://github.com/xumanba/codex-meter.git
 cd codex-meter
 chmod +x build-app.sh
 ./build-app.sh
@@ -302,8 +303,8 @@ open ".build/CodexMeter.app"
 The project intentionally uses Swift Package Manager and AppKit/SwiftUI only.
 The build downloads the pinned CodexBar CLI `v0.45.2` assets from the official
 release, verifies their published SHA-256 values, and bundles the requested
-architecture. The release-line source creates the same universal package
-published on GitHub with:
+architecture. The main source creates the same universal package published on
+GitHub with:
 
 ```bash
 ./Scripts/package-release.sh
