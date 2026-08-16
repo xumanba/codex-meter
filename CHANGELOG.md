@@ -12,6 +12,9 @@
 - Starts in compact mode and uses the pace row to expand or collapse the details.
 - Uses an incremental rollout cache that stores no prompts, responses or credentials.
 - Adds an in-app per-user startup toggle and preserves tray, edge-hide and manual-sync behavior.
+- Renames the menu action to `取消始终置顶`: unchecked keeps the default global
+  topmost behavior, while checked uses ordinary window ordering and still permits
+  temporary elevation above foreground Codex/ChatGPT on the same display.
 
 ## v0.2.0 (unified main)
 

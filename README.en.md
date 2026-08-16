@@ -223,7 +223,8 @@ Drag the card to place it anywhere. Open the `•••` menu to:
 
 - choose **固定在桌面** to keep it pinned above normal windows;
 - choose **跟随 Codex** to show it only when Codex is active;
-- toggle **始终置顶** independently from the display mode;
+- check **取消始终置顶** to use ordinary window ordering while retaining temporary
+  elevation above foreground Codex/ChatGPT on the same display;
 - switch between **深色玻璃** and **浅色玻璃**;
 - click the status pill or choose **立即同步** to refresh immediately;
 - choose **最小化到托盘** on Windows to keep only the notification icon;

@@ -50,7 +50,7 @@ namespace CodexMeter
         private ToolStripMenuItem lightItem;
         private ToolStripMenuItem darkItem;
         private ToolStripMenuItem edgeItem;
-        private ToolStripMenuItem topMostItem;
+        private ToolStripMenuItem cancelTopMostItem;
         private ToolStripMenuItem startupItem;
         private ToolStripMenuItem visibilityItem;
         private UsageSnapshot snapshot;
@@ -191,12 +191,12 @@ namespace CodexMeter
             visibilityItem = new ToolStripMenuItem("最小化到托盘");
             visibilityItem.Click += delegate { ToggleTrayVisibility(); };
 
-            topMostItem = new ToolStripMenuItem("始终置顶");
-            topMostItem.CheckOnClick = true;
-            topMostItem.Checked = settings.AlwaysOnTop;
-            topMostItem.CheckedChanged += delegate
+            cancelTopMostItem = new ToolStripMenuItem("取消始终置顶");
+            cancelTopMostItem.CheckOnClick = true;
+            cancelTopMostItem.Checked = CancelTopMostMenuChecked(settings.AlwaysOnTop);
+            cancelTopMostItem.CheckedChanged += delegate
             {
-                settings.AlwaysOnTop = topMostItem.Checked;
+                settings.AlwaysOnTop = AlwaysOnTopFromCancelMenu(cancelTopMostItem.Checked);
                 TopMost = ShouldBeTopMost(settings.AlwaysOnTop, IsCodexForegroundOnSameScreen());
                 SaveSettings();
             };
@@ -238,7 +238,7 @@ namespace CodexMeter
 
             menu.Items.Add(visibilityItem);
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(topMostItem);
+            menu.Items.Add(cancelTopMostItem);
             menu.Items.Add(startupItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(appearance);
@@ -1837,13 +1837,23 @@ namespace CodexMeter
             return alwaysOnTop || codexForegroundOnSameScreen;
         }
 
+        internal static bool CancelTopMostMenuChecked(bool alwaysOnTop)
+        {
+            return !alwaysOnTop;
+        }
+
+        internal static bool AlwaysOnTopFromCancelMenu(bool cancelTopMost)
+        {
+            return !cancelTopMost;
+        }
+
         private void SyncMenuChecks()
         {
             visibilityItem.Text = Visible ? "最小化到托盘" : "显示悬浮卡片";
             lightItem.Checked = !IsDark;
             darkItem.Checked = IsDark;
             edgeItem.Checked = settings.EdgeAutoHide;
-            topMostItem.Checked = settings.AlwaysOnTop;
+            cancelTopMostItem.Checked = CancelTopMostMenuChecked(settings.AlwaysOnTop);
             try
             {
                 startupItem.Checked = StartupRegistration.IsEnabled();

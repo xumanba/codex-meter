@@ -283,12 +283,16 @@ namespace CodexMeter
                 Type formType = typeof(CodexMeterFormV2);
                 ToolStripMenuItem startup = (ToolStripMenuItem)formType
                     .GetField("startupItem", flags).GetValue(form);
+                ToolStripMenuItem cancelTopMost = (ToolStripMenuItem)formType
+                    .GetField("cancelTopMostItem", flags).GetValue(form);
                 menu = (ContextMenuStrip)formType.GetField("menu", flags).GetValue(form);
                 trayIcon = (NotifyIcon)formType.GetField("trayIcon", flags).GetValue(form);
                 Expect(startup != null && String.Equals(startup.Text, "开机自启动", StringComparison.Ordinal),
                     "startup menu label");
+                Expect(cancelTopMost != null && String.Equals(cancelTopMost.Text, "取消始终置顶", StringComparison.Ordinal),
+                    "cancel always-on-top menu label");
                 Expect(menu.Items.IndexOf(startup) == 3,
-                    "startup menu follows always-on-top toggle");
+                    "startup menu follows cancel always-on-top toggle");
                 bool hasNetworkDisclaimer = false;
                 bool hasFixedMode = false;
                 bool hasFollowMode = false;
@@ -358,6 +362,14 @@ namespace CodexMeter
                 "pace forecast keeps enough width for fitted text");
             Expect(CodexMeterFormV2.ShouldBeTopMost(true, false),
                 "always-on-top setting remains authoritative");
+            Expect(!CodexMeterFormV2.CancelTopMostMenuChecked(true),
+                "default always-on-top appears unchecked in cancel menu");
+            Expect(CodexMeterFormV2.CancelTopMostMenuChecked(false),
+                "ordinary z-order appears checked in cancel menu");
+            Expect(CodexMeterFormV2.AlwaysOnTopFromCancelMenu(false),
+                "unchecked cancel menu enables always-on-top");
+            Expect(!CodexMeterFormV2.AlwaysOnTopFromCancelMenu(true),
+                "checked cancel menu enables ordinary z-order");
             Expect(CodexMeterFormV2.ShouldBeTopMost(false, true),
                 "same-screen foreground Codex temporarily raises the card");
             Expect(!CodexMeterFormV2.ShouldBeTopMost(false, false),

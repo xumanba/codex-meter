@@ -22,8 +22,9 @@ CodexMeter for Windows v0.1.1 (development build)
     正常贴边隐藏；再次点击即可关闭。
 11. 同步期间按钮名称仍保持“实时”，蓝色状态点表示查询中；重复点击会
     合并到当前查询，避免连续执行两次慢查询。
-12. Codex/ChatGPT 位于同一显示器并处于前台时，卡片会临时保持在其上方；
-    “始终置顶”仍可控制其他场景下是否全局置顶。
+12. 默认始终置顶；勾选“取消始终置顶”后，其他程序可以覆盖卡片。
+    Codex/ChatGPT 位于同一显示器并处于前台时仍会临时抬高卡片，离开后
+    恢复普通层级。
 13. 新增本机近 7 天 token、每日额度折算和模型/推理强度偏好。增量缓存
     不保存提示词、回复或凭据；缺少模型字段时显示“未标注模型”。
 14. 默认采用简易模式；点击“节奏正常/超额”整行可展开或收起近 7 天和
@@ -64,8 +65,10 @@ English installation
     at login before normal edge hiding resumes; toggle it again to disable startup.
 11. The status label remains live while its blue dot indicates an active query.
     Repeated clicks are coalesced instead of starting back-to-back CLI queries.
-12. The card temporarily stays above foreground Codex/ChatGPT on the same display;
-    the always-on-top option still controls all other situations.
+12. The card is always on top by default. Check “取消始终置顶” to use ordinary
+    window ordering so other applications can cover it. Foreground Codex/ChatGPT
+    on the same display still raises the card temporarily, then ordinary ordering
+    resumes when focus moves elsewhere.
 13. The card adds local seven-day tokens, daily quota shares and model/reasoning-
     effort preferences. Its incremental cache stores no prompts, responses or credentials;
     missing model metadata is shown explicitly instead of guessed.
