@@ -11,7 +11,6 @@ namespace CodexMeter
         public int? Left { get; set; }
         public int? Top { get; set; }
         public string Theme { get; set; }
-        public string Mode { get; set; }
         public string DockEdge { get; set; }
         public int? DockTop { get; set; }
         public bool EdgeAutoHide { get; set; }
@@ -22,7 +21,6 @@ namespace CodexMeter
         public AppSettings()
         {
             Theme = "light";
-            Mode = "fixed";
             EdgeAutoHide = true;
             AlwaysOnTop = true;
             UiVersion = 0;
@@ -96,11 +94,10 @@ namespace CodexMeter
                     Directory.CreateDirectory(folder);
 
                 List<string> lines = new List<string>();
-                lines.Add("# Codex Meter for Windows settings (no credentials are stored here)");
+                lines.Add("# CodexMeter for Windows settings (no credentials are stored here)");
                 Add(lines, "left", settings.Left);
                 Add(lines, "top", settings.Top);
                 lines.Add("theme=" + (settings.Theme ?? "dark"));
-                lines.Add("mode=" + (settings.Mode ?? "fixed"));
                 lines.Add("edge_auto_hide=" + (settings.EdgeAutoHide ? "true" : "false"));
                 lines.Add("always_on_top=" + (settings.AlwaysOnTop ? "true" : "false"));
                 lines.Add("ui_version=" + settings.UiVersion.ToString(CultureInfo.InvariantCulture));
@@ -138,8 +135,6 @@ namespace CodexMeter
                 settings.DockTop = parsed;
             else if (String.Equals(key, "theme", StringComparison.OrdinalIgnoreCase))
                 settings.Theme = String.Equals(value, "light", StringComparison.OrdinalIgnoreCase) ? "light" : "dark";
-            else if (String.Equals(key, "mode", StringComparison.OrdinalIgnoreCase))
-                settings.Mode = String.Equals(value, "follow", StringComparison.OrdinalIgnoreCase) ? "follow" : "fixed";
             else if (String.Equals(key, "dock_edge", StringComparison.OrdinalIgnoreCase))
                 settings.DockEdge = value == "left" || value == "right" ? value : null;
             else if (String.Equals(key, "edge_auto_hide", StringComparison.OrdinalIgnoreCase))

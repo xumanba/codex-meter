@@ -44,12 +44,15 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 
 ## 功能概览
 
-### Windows v0.1.1
+### Windows 主线开发版（正式下载仍为 v0.1.1）
 
-- 显示每周额度、Spark 额度、重置时间和使用节奏。
-- 支持左右边缘吸附、悬停展开、托盘模式和多显示器 DPI。
-- 支持手动立即同步、失败退避和网络速度提示。
+- 聚焦显示每周主额度、重置时间和使用节奏，不再绘制单独的 Spark 整栏。
+- 默认使用简易卡片；点击节奏行展开近 7 天 token 与模型/推理强度偏好。
+- 模型偏好颜色按使用占比从低饱和蓝灰连续增强为高饱和蓝色。
+- 支持左右边缘吸附、悬停展开、托盘模式、开机自启动和多显示器 DPI。
+- 支持点击“实时”立即同步、失败退避和系统总上传/下载速度提示。
 - 使用本机 Win-CodexBar CLI，不把账号凭证写入应用。
+- 本机 token 增量缓存不保存提示词、回复或凭据；缺少模型元数据时明确标为“未标注模型”。
 
 ### macOS v0.2.0
 
@@ -146,7 +149,7 @@ macOS 使用 AppKit 鼠标追踪，Windows 使用 Per-Monitor V2 DPI 感知的�
 
 ## 数据与隐私
 
-macOS v0.2.0 通过本机 `127.0.0.1:18747` helper 获取额度；token 统计只读取本机 Codex session 记录，并按当前额度周期、日期、模型、思考强度和 Fast 模式在本机聚合，不会上传这些记录。Windows 每次刷新直接调用本机 `codexbar-cli.exe`，不开放监听端口。
+macOS v0.2.0 通过本机 `127.0.0.1:18747` helper 获取额度；token 统计只读取本机 Codex session 记录，并按当前额度周期、日期、模型、思考强度和 Fast 模式在本机聚合，不会上传这些记录。Windows 每次额度刷新直接调用本机 `codexbar-cli.exe`，不开放监听端口；近 7 天统计只读取本机 Codex rollout 的时间、模型、推理强度和 token 汇总字段，并把不含对话正文的增量缓存保存在 `%LOCALAPPDATA%\CodexMeter`。
 
 CodexBar 读取你本机 Codex 配置中的 OAuth 会话并请求该账号的额度数据。CodexMeter 不复制、显示或打包密码、OAuth token、Cookie 或账号邮箱。
 

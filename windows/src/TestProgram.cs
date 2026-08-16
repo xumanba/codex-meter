@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,13 +21,19 @@ namespace CodexMeter
             {
                 NativeMethods.EnableDpiAwareness();
                 if (args.Length > 1 && String.Equals(args[0], "--preview-hover", StringComparison.OrdinalIgnoreCase))
-                    return RenderPreview(args[1], true, false);
+                    return RenderPreview(args[1], true, false, false, true);
                 if (args.Length > 1 && String.Equals(args[0], "--preview-status-hover", StringComparison.OrdinalIgnoreCase))
-                    return RenderPreview(args[1], false, true);
+                    return RenderPreview(args[1], false, true, false, true);
+                if (args.Length > 1 && String.Equals(args[0], "--preview-dark", StringComparison.OrdinalIgnoreCase))
+                    return RenderPreview(args[1], false, false, true, true);
+                if (args.Length > 1 && String.Equals(args[0], "--preview-compact", StringComparison.OrdinalIgnoreCase))
+                    return RenderPreview(args[1], false, false, false, false);
                 if (args.Length > 1 && String.Equals(args[0], "--preview", StringComparison.OrdinalIgnoreCase))
-                    return RenderPreview(args[1], false, false);
+                    return RenderPreview(args[1], false, false, false, true);
                 if (args.Length > 0 && String.Equals(args[0], "--live", StringComparison.OrdinalIgnoreCase))
                     return RunLiveProbe();
+                if (args.Length > 0 && String.Equals(args[0], "--weekly-live", StringComparison.OrdinalIgnoreCase))
+                    return RunWeeklyLiveProbe();
 
                 CheckSnakeCasePayload();
                 CheckCamelCasePayload();
@@ -39,10 +46,18 @@ namespace CodexMeter
                 CheckCancellation();
                 CheckDpiDiscovery();
                 CheckSingleInstanceMessage();
+                CheckStartupRegistrationFormatting();
+                CheckStartupLaunchBehavior();
+                CheckStartupMenuPresence();
+                CheckCompactSingleAllowanceLayout();
+                CheckPaceLayoutAndTopMostBehavior();
+                CheckManualRefreshBehavior();
                 CheckProviderError();
                 CheckProviderErrorSanitization();
                 CheckNetworkSpeedFormatting();
                 CheckNetworkSpeedSampling();
+                CheckWeeklyUsageParsing();
+                CheckWeeklyUsagePresentation();
                 Console.WriteLine(failures == 0 ? "SELF_TEST_OK" : "SELF_TEST_FAILED=" + failures);
                 return failures == 0 ? 0 : 1;
             }
@@ -64,6 +79,10 @@ namespace CodexMeter
                 PrintWindow(snapshot.Session);
                 foreach (UsageWindow extra in snapshot.Extras)
                     PrintWindow(extra);
+                WeeklyTokenReport report = new WeeklyUsageReader().Read(DateTimeOffset.Now);
+                Console.WriteLine("WEEKLY_TOKENS=" + report.TotalTokens +
+                    " MODEL_GROUPS=" + report.Models.Count +
+                    " UNATTRIBUTED=" + report.UnattributedTokens);
                 Console.WriteLine("LIVE_PROBE_OK");
                 return 0;
             }
@@ -203,10 +222,194 @@ namespace CodexMeter
             Expect(checkedScreens > 0, "DPI screen enumeration");
         }
 
+        private static int RunWeeklyLiveProbe()
+        {
+            WeeklyTokenReport report = new WeeklyUsageReader().Read(DateTimeOffset.Now);
+            Console.WriteLine("WEEKLY_TOKENS=" + report.TotalTokens +
+                " MODEL_GROUPS=" + report.Models.Count +
+                " UNATTRIBUTED=" + report.UnattributedTokens +
+                " ERROR=" + (report.Error ?? "<none>"));
+            return String.IsNullOrWhiteSpace(report.Error) ? 0 : 1;
+        }
+
         private static void CheckSingleInstanceMessage()
         {
             Expect(NativeMethods.ShowExistingInstanceMessage != 0,
                 "single-instance restore message registration");
+        }
+
+        private static void CheckStartupRegistrationFormatting()
+        {
+            string executable = @"C:\Program Files\Codex Meter\CodexMeter.exe";
+            string command = StartupRegistration.BuildCommand(executable);
+            Expect(String.Equals(command, "\"" + executable + "\" --startup", StringComparison.Ordinal),
+                "startup command quotes executable path and includes startup mode");
+            Expect(StartupRegistration.CommandTargetsExecutable(command, executable),
+                "startup command matches quoted executable");
+            Expect(StartupRegistration.CommandTargetsExecutable(executable, executable),
+                "startup command accepts legacy unquoted executable");
+            Expect(StartupRegistration.CommandTargetsExecutable(command + " --background", executable),
+                "startup command accepts quoted arguments");
+            Expect(!StartupRegistration.CommandTargetsExecutable(
+                    "\"C:\\Program Files\\Other App\\Other.exe\"", executable),
+                "startup command rejects another executable");
+        }
+
+        private static void CheckStartupLaunchBehavior()
+        {
+            Expect(Program.IsStartupLaunch(new[] { "--startup" }),
+                "startup argument is recognized");
+            Expect(Program.IsStartupLaunch(new[] { "--STARTUP" }),
+                "startup argument is case insensitive");
+            Expect(!Program.IsStartupLaunch(new string[0]),
+                "manual launch is not treated as startup");
+            Expect(CodexMeterFormV2.ShouldRevealDockAtStartup(true, "right", true),
+                "startup reveals an auto-hidden docked card");
+            Expect(!CodexMeterFormV2.ShouldRevealDockAtStartup(false, "right", true),
+                "manual launch preserves the docked state");
+            Expect(!CodexMeterFormV2.ShouldRevealDockAtStartup(true, "right", false),
+                "disabled edge hiding does not trigger startup reveal");
+        }
+
+        private static void CheckStartupMenuPresence()
+        {
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            CodexMeterFormV2 form = null;
+            NotifyIcon trayIcon = null;
+            ContextMenuStrip menu = null;
+            try
+            {
+                form = new CodexMeterFormV2();
+                Type formType = typeof(CodexMeterFormV2);
+                ToolStripMenuItem startup = (ToolStripMenuItem)formType
+                    .GetField("startupItem", flags).GetValue(form);
+                menu = (ContextMenuStrip)formType.GetField("menu", flags).GetValue(form);
+                trayIcon = (NotifyIcon)formType.GetField("trayIcon", flags).GetValue(form);
+                Expect(startup != null && String.Equals(startup.Text, "开机自启动", StringComparison.Ordinal),
+                    "startup menu label");
+                Expect(menu.Items.IndexOf(startup) == 3,
+                    "startup menu follows always-on-top toggle");
+                bool hasNetworkDisclaimer = false;
+                bool hasFixedMode = false;
+                bool hasFollowMode = false;
+                foreach (ToolStripItem item in menu.Items)
+                {
+                    if (String.Equals(item.Text, "网速为系统总流量（非 Codex 专属）",
+                        StringComparison.Ordinal))
+                    {
+                        hasNetworkDisclaimer = true;
+                    }
+                    if (String.Equals(item.Text, "固定在桌面", StringComparison.Ordinal))
+                        hasFixedMode = true;
+                    if (String.Equals(item.Text, "跟随 Codex", StringComparison.Ordinal))
+                        hasFollowMode = true;
+                }
+                Expect(!hasNetworkDisclaimer,
+                    "network disclaimer is removed from the menu");
+                Expect(!hasFixedMode,
+                    "redundant fixed display mode is removed from the menu");
+                Expect(!hasFollowMode,
+                    "follow Codex mode is removed from the menu");
+            Expect(typeof(AppSettings).GetProperty("Mode") == null,
+                "follow mode is removed from persisted settings");
+            Expect(CodexMeterFormV2.ShouldPollDock(true, "right", true),
+                "right-edge auto-hide remains active");
+            Expect(CodexMeterFormV2.ShouldPollDock(true, "left", true),
+                "left-edge auto-hide remains active");
+            Expect(!CodexMeterFormV2.ShouldPollDock(false, "right", true),
+                "disabled edge auto-hide does not poll");
+            }
+            finally
+            {
+                if (trayIcon != null)
+                {
+                    trayIcon.Visible = false;
+                    trayIcon.Dispose();
+                }
+                if (menu != null)
+                    menu.Dispose();
+                if (form != null)
+                    form.Dispose();
+            }
+        }
+
+        private static void CheckCompactSingleAllowanceLayout()
+        {
+            Expect(CodexMeterFormV2.CardDesignWidth == 328,
+                "single-allowance card uses compact width");
+            Expect(CodexMeterFormV2.ContentHeight(true, true, true) == 456,
+                "weekly card includes daily and model detail height");
+            Expect(CodexMeterFormV2.ContentHeight(true, false, true) == 426,
+                "weekly detail remains aligned without a pace row");
+            Expect(CodexMeterFormV2.ContentHeight(true, true, false) == 170,
+                "compact mode keeps header, allowance and pace toggle only");
+            Expect(CodexMeterFormV2.ContentHeight(true, false, false) == 140,
+                "compact mode remains balanced without a pace row");
+            Expect(CodexMeterFormV2.ContentHeight(false, false, false) == 126,
+                "loading card keeps a balanced minimum height");
+        }
+
+        private static void CheckPaceLayoutAndTopMostBehavior()
+        {
+            RectangleF forecast = CodexMeterFormV2.PaceForecastBounds(110);
+            Expect(forecast.Right <= CodexMeterFormV2.CardDesignWidth - 20,
+                "pace forecast stays inside its panel right edge");
+            Expect(forecast.Width >= 155,
+                "pace forecast keeps enough width for fitted text");
+            Expect(CodexMeterFormV2.ShouldBeTopMost(true, false),
+                "always-on-top setting remains authoritative");
+            Expect(CodexMeterFormV2.ShouldBeTopMost(false, true),
+                "same-screen foreground Codex temporarily raises the card");
+            Expect(!CodexMeterFormV2.ShouldBeTopMost(false, false),
+                "card returns to normal z-order outside same-screen Codex");
+            Expect(NativeMethods.IsCodexProcessName("Codex"),
+                "Codex foreground process is recognized");
+            Expect(NativeMethods.IsCodexProcessName("ChatGPT"),
+                "ChatGPT foreground process is recognized");
+            Expect(!NativeMethods.IsCodexProcessName("notepad"),
+                "unrelated foreground process is ignored");
+        }
+
+        private static void CheckManualRefreshBehavior()
+        {
+            BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            CodexMeterFormV2 form = null;
+            NotifyIcon trayIcon = null;
+            ContextMenuStrip menu = null;
+            try
+            {
+                form = new CodexMeterFormV2();
+                Type formType = typeof(CodexMeterFormV2);
+                menu = (ContextMenuStrip)formType.GetField("menu", flags).GetValue(form);
+                trayIcon = (NotifyIcon)formType.GetField("trayIcon", flags).GetValue(form);
+                formType.GetField("isRefreshing", flags).SetValue(form, true);
+                formType.GetField("isConnected", flags).SetValue(form, true);
+                formType.GetField("snapshot", flags).SetValue(form, new UsageSnapshot());
+                formType.GetMethod("RequestManualRefresh", flags).Invoke(form, null);
+
+                Expect(!CodexMeterFormV2.ShouldStartManualRefresh(true),
+                    "manual refresh is coalesced while a refresh is running");
+                Expect(CodexMeterFormV2.ShouldStartManualRefresh(false),
+                    "manual refresh starts while idle");
+                string statusLabel = (string)formType.GetProperty("StatusText", flags).GetValue(form, null);
+                Expect(String.Equals(statusLabel, "实时", StringComparison.Ordinal),
+                    "status button label remains stable while syncing");
+                string status = (string)formType.GetMethod("StatusToolTipText", flags).Invoke(form, null);
+                Expect(String.Equals(status, "正在同步数据，请稍候…", StringComparison.Ordinal),
+                    "sync progress remains visible when older data exists");
+            }
+            finally
+            {
+                if (trayIcon != null)
+                {
+                    trayIcon.Visible = false;
+                    trayIcon.Dispose();
+                }
+                if (menu != null)
+                    menu.Dispose();
+                if (form != null)
+                    form.Dispose();
+            }
         }
 
         private static void CheckProLiteWindowMapping()
@@ -243,7 +446,8 @@ namespace CodexMeter
             }
         }
 
-        private static int RenderPreview(string outputPath, bool showBudgetToolTip, bool showStatusToolTip)
+        private static int RenderPreview(string outputPath, bool showBudgetToolTip,
+            bool showStatusToolTip, bool darkTheme, bool detailsExpanded)
         {
             BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
             CodexMeterFormV2 form = null;
@@ -254,11 +458,12 @@ namespace CodexMeter
                 form = new CodexMeterFormV2();
                 Type formType = typeof(CodexMeterFormV2);
                 AppSettings settings = (AppSettings)formType.GetField("settings", flags).GetValue(form);
-                settings.Theme = "light";
-                settings.Mode = "fixed";
+                settings.Theme = darkTheme ? "dark" : "light";
                 settings.DockEdge = null;
                 settings.EdgeAutoHide = false;
-                form.BackColor = Color.FromArgb(232, 242, 248);
+                form.BackColor = darkTheme
+                    ? Color.FromArgb(23, 28, 39)
+                    : Color.FromArgb(232, 242, 248);
 
                 DateTimeOffset now = DateTimeOffset.Now;
                 UsageSnapshot preview = new UsageSnapshot
@@ -280,16 +485,41 @@ namespace CodexMeter
                     },
                     UpdatedAt = now
                 };
-                preview.Extras.Add(new UsageWindow
-                {
-                    Title = "Spark",
-                    UsedPercent = 0,
-                    ResetsAt = now.AddDays(6).AddHours(23),
-                    WindowMinutes = 7 * 24 * 60
-                });
-
                 formType.GetField("snapshot", flags).SetValue(form, preview);
+                WeeklyTokenReport tokenPreview = new WeeklyTokenReport();
+                tokenPreview.GeneratedAt = now;
+                long[] dailyTokens = new long[]
+                {
+                    0, 0, 0, 0, 475200000, 238300000, 5000000
+                };
+                for (int index = 0; index < dailyTokens.Length; index++)
+                {
+                    tokenPreview.Days.Add(new DailyTokenUsage
+                    {
+                        Day = now.LocalDateTime.Date.AddDays(index - 6),
+                        Tokens = dailyTokens[index]
+                    });
+                    tokenPreview.TotalTokens += dailyTokens[index];
+                }
+                tokenPreview.Models.Add(new ModelTokenUsage
+                {
+                    Model = "gpt-5.6-sol", Effort = "xhigh", Tokens = 592500000
+                });
+                tokenPreview.Models.Add(new ModelTokenUsage
+                {
+                    Model = "gpt-5.6-sol", Effort = "high", Tokens = 52700000
+                });
+                tokenPreview.Models.Add(new ModelTokenUsage
+                {
+                    Model = "codex-auto-review", Effort = "max", Tokens = 37800000
+                });
+                tokenPreview.Models.Add(new ModelTokenUsage
+                {
+                    Model = "gpt-5.6-luna", Effort = "max", Tokens = 35500000
+                });
+                formType.GetField("weeklyUsage", flags).SetValue(form, tokenPreview);
                 formType.GetField("isConnected", flags).SetValue(form, true);
+                formType.GetField("detailsExpanded", flags).SetValue(form, detailsExpanded);
                 formType.GetField("lastSuccessfulRefreshAt", flags).SetValue(form, (DateTimeOffset?)now);
                 formType.GetField("networkSpeed", flags).SetValue(form,
                     new NetworkSpeedSnapshot(8.3 * 1024, 2.6 * 1024 * 1024));
@@ -457,6 +687,100 @@ namespace CodexMeter
             Expect(sample.DownloadBytesPerSecond >= 0 && sample.UploadBytesPerSecond >= 0,
                 "network speed live counters");
             monitor.Reset();
+        }
+
+        private static void CheckWeeklyUsageParsing()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "CodexMeter-WeeklyUsage-" + Guid.NewGuid().ToString("N"));
+            string sessions = Path.Combine(root, "sessions");
+            string archived = Path.Combine(root, "archived");
+            string cache = Path.Combine(root, "cache", "weekly.json");
+            Directory.CreateDirectory(sessions);
+            Directory.CreateDirectory(archived);
+
+            try
+            {
+                string first = Path.Combine(sessions, "rollout-a.jsonl");
+                File.WriteAllText(first,
+                    "{\"timestamp\":\"2026-08-12T01:00:00Z\",\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5.6-sol\",\"effort\":\"xhigh\",\"collaboration_mode\":{\"mode\":\"default\"}}}\n" +
+                    "{\"timestamp\":\"2026-08-12T01:01:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"total_tokens\":1000}}}}\n" +
+                    "{\"timestamp\":\"2026-08-12T02:00:00Z\",\"type\":\"turn_context\",\"payload\":{\"model\":\"gpt-5.6-luna\",\"effort\":\"high\",\"collaboration_mode\":{\"mode\":\"default\"}}}\n" +
+                    "{\"timestamp\":\"2026-08-12T02:01:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"total_tokens\":3000}}}}\n" +
+                    "{\"timestamp\":\"2026-08-12T02:02:00Z\",\"type\":\"response_item\",\"payload\":{\"type\":\"message\",\"content\":\"secret prompt\",\"last_token_usage\":{\"total_tokens\":9000}}}\n",
+                    new System.Text.UTF8Encoding(false));
+                string second = Path.Combine(archived, "rollout-b.jsonl");
+                File.WriteAllText(second,
+                    "{\"timestamp\":\"2026-08-13T00:01:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"total_tokens\":2000}}}}\n",
+                    new System.Text.UTF8Encoding(false));
+
+                WeeklyUsageReader reader = new WeeklyUsageReader(sessions, archived, cache);
+                DateTimeOffset now = new DateTimeOffset(2026, 8, 13, 12, 0, 0, TimeSpan.FromHours(8));
+                WeeklyTokenReport report = reader.Read(now);
+                Expect(report.TotalTokens == 6000, "weekly logs count only token events");
+                Expect(report.Models.Count == 3, "weekly logs group model, effort and unknown records");
+                Expect(report.UnattributedTokens == 2000, "weekly logs preserve unattributed tokens honestly");
+                Expect(File.Exists(cache) &&
+                    File.ReadAllText(cache).IndexOf("secret prompt", StringComparison.Ordinal) < 0,
+                    "weekly cache stores no conversation content");
+
+                File.AppendAllText(first,
+                    "{\"timestamp\":\"2026-08-13T01:01:00Z\",\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"info\":{\"last_token_usage\":{\"total_tokens\":500}}}}\n",
+                    new System.Text.UTF8Encoding(false));
+                WeeklyTokenReport incremental = reader.Read(now);
+                Expect(incremental.TotalTokens == 6500, "weekly cache reads appended events once");
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, true);
+            }
+        }
+
+        private static void CheckWeeklyUsagePresentation()
+        {
+            Expect(WeeklyUsageReader.FormatTokenCount(718500000) == "718.5M",
+                "weekly token total uses compact units");
+            Expect(WeeklyUsageReader.DisplayModelName("gpt-5.6-sol") == "5.6 Sol",
+                "weekly model name is human readable");
+            Expect(Math.Abs(CodexMeterFormV2.DailyQuotaPercent(475200000, 718500000, 10) -
+                6.6137787) < 0.0001, "daily quota percent follows weekly usage share");
+
+            List<ModelTokenUsage> models = new List<ModelTokenUsage>();
+            for (int index = 0; index < 6; index++)
+            {
+                models.Add(new ModelTokenUsage
+                {
+                    Model = "model-" + index,
+                    Effort = "high",
+                    Tokens = 600 - (index * 50)
+                });
+            }
+            List<ModelTokenUsage> visible = CodexMeterFormV2.VisibleModelRows(models, 4);
+            Expect(visible.Count == 4 && visible[3].Model == "other" && visible[3].Tokens == 1200,
+                "model preference keeps three leaders and merges the remainder");
+            Expect(CodexMeterFormV2.ModelLabel(new ModelTokenUsage
+            {
+                Model = "gpt-5.6-luna", CollaborationMode = "auto-review", Effort = "max"
+            }) == "5.6 Luna · Auto Review · Max", "model preference label matches macOS hierarchy");
+
+            Color lowUsage = CodexMeterFormV2.UsageAccent(5, false);
+            Color mediumUsage = CodexMeterFormV2.UsageAccent(40, false);
+            Color highUsage = CodexMeterFormV2.UsageAccent(90, false);
+            Expect(ColorChroma(lowUsage) < ColorChroma(mediumUsage) &&
+                ColorChroma(mediumUsage) < ColorChroma(highUsage),
+                "model preference color becomes more vivid with usage");
+            Expect(CodexMeterFormV2.UsageAccent(-10, false) ==
+                CodexMeterFormV2.UsageAccent(0, false),
+                "model preference color clamps negative percentages");
+            Expect(CodexMeterFormV2.UsageAccent(150, true) ==
+                CodexMeterFormV2.UsageAccent(100, true),
+                "model preference color clamps percentages above one hundred");
+        }
+
+        private static int ColorChroma(Color color)
+        {
+            return Math.Max(color.R, Math.Max(color.G, color.B)) -
+                Math.Min(color.R, Math.Min(color.G, color.B));
         }
 
         private static void PrintWindow(UsageWindow window)

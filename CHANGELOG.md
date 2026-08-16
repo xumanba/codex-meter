@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased (Windows weekly activity)
+
+- Renames the Windows product, window, tray and Start-menu identity to `CodexMeter`.
+- Replaces the Windows executable/window/tray icon with a medium blue-gray
+  ice-glass usage-bars artwork while retaining the dark and light source variants.
+- Focuses the Windows card on the primary weekly quota and removes the separate
+  Spark row from the visible layout.
+- Adds local seven-day token activity and model/reasoning-effort preference rows.
+- Colors model rows continuously by usage share, from muted blue-gray to vivid blue.
+- Starts in compact mode and uses the pace row to expand or collapse the details.
+- Uses an incremental rollout cache that stores no prompts, responses or credentials.
+- Adds an in-app per-user startup toggle and preserves tray, edge-hide and manual-sync behavior.
+
 ## v0.2.0 (unified main)
 
 - Brings the complete macOS v0.2.0 source, edge docking and Windows v0.1.1

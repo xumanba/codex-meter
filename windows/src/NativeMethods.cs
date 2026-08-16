@@ -128,26 +128,33 @@ namespace CodexMeter
             }
         }
 
-        public static bool IsCodexForeground()
+        public static IntPtr ForegroundCodexWindow()
         {
             try
             {
                 IntPtr window = GetForegroundWindow();
                 if (window == IntPtr.Zero)
-                    return false;
+                    return IntPtr.Zero;
 
                 uint processId;
                 GetWindowThreadProcessId(window, out processId);
                 using (Process process = Process.GetProcessById((int)processId))
                 {
                     string name = process.ProcessName ?? String.Empty;
-                    return name.IndexOf("codex", StringComparison.OrdinalIgnoreCase) >= 0;
+                    return IsCodexProcessName(name) ? window : IntPtr.Zero;
                 }
             }
             catch
             {
-                return false;
+                return IntPtr.Zero;
             }
+        }
+
+        internal static bool IsCodexProcessName(string processName)
+        {
+            string name = processName ?? String.Empty;
+            return name.IndexOf("codex", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("chatgpt", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public static bool BroadcastShowExistingInstance()

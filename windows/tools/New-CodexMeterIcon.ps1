@@ -1,12 +1,19 @@
 [CmdletBinding()]
 param(
-    [string]$OutputPath
+    [string]$OutputPath,
+    [string]$SourcePath
 )
 
 $ErrorActionPreference = "Stop"
 
 if ([String]::IsNullOrWhiteSpace($OutputPath)) {
     $OutputPath = Join-Path (Split-Path -Parent $PSScriptRoot) "assets\CodexMeter.ico"
+}
+if ([String]::IsNullOrWhiteSpace($SourcePath)) {
+    $SourcePath = Join-Path (Split-Path -Parent $PSScriptRoot) "assets\CodexMeter-source-balanced.png"
+}
+if (-not (Test-Path -LiteralPath $SourcePath)) {
+    throw "The source PNG was not found: $SourcePath"
 }
 
 Add-Type -AssemblyName System.Drawing
@@ -21,11 +28,14 @@ public static class CodexMeterIconGenerator
 {
     private static readonly int[] Sizes = { 16, 20, 24, 32, 40, 48, 64, 128, 256 };
 
-    public static void Generate(string outputPath)
+    public static void Generate(string sourcePath, string outputPath)
     {
         List<byte[]> frames = new List<byte[]>();
-        foreach (int size in Sizes)
-            frames.Add(RenderDib(size));
+        using (Image source = Image.FromFile(sourcePath))
+        {
+            foreach (int size in Sizes)
+                frames.Add(RenderDib(source, size));
+        }
 
         string directory = Path.GetDirectoryName(outputPath);
         if (!Directory.Exists(directory))
@@ -58,7 +68,7 @@ public static class CodexMeterIconGenerator
         }
     }
 
-    private static byte[] RenderDib(int size)
+    private static byte[] RenderDib(Image source, int size)
     {
         using (Bitmap bitmap = new Bitmap(size, size))
         using (Graphics graphics = Graphics.FromImage(bitmap))
@@ -67,35 +77,8 @@ public static class CodexMeterIconGenerator
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
             graphics.CompositingQuality = CompositingQuality.HighQuality;
-
-            float margin = Math.Max(1f, size * 0.055f);
-            RectangleF circle = new RectangleF(margin, margin, size - (2f * margin), size - (2f * margin));
-            using (LinearGradientBrush blue = new LinearGradientBrush(
-                circle, Color.FromArgb(50, 203, 255), Color.FromArgb(0, 104, 255), 52f))
-            {
-                graphics.FillEllipse(blue, circle);
-            }
-
-            if (size >= 32)
-            {
-                using (Pen highlight = new Pen(Color.FromArgb(95, 255, 255, 255), Math.Max(1f, size * 0.018f)))
-                    graphics.DrawArc(highlight, circle.X + (size * 0.055f), circle.Y + (size * 0.055f),
-                        circle.Width - (size * 0.11f), circle.Height - (size * 0.11f), 205f, 115f);
-            }
-
-            using (SolidBrush white = new SolidBrush(Color.White))
-            {
-                FillSparkle(graphics, white, size * 0.53f, size * 0.52f,
-                    size * 0.235f, size * 0.155f, size * 0.045f);
-
-                if (size >= 20)
-                    FillSparkle(graphics, white, size * 0.31f, size * 0.31f,
-                        size * 0.070f, size * 0.050f, size * 0.018f);
-
-                if (size >= 40)
-                    FillSparkle(graphics, white, size * 0.70f, size * 0.27f,
-                        size * 0.050f, size * 0.036f, size * 0.014f);
-            }
+            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            graphics.DrawImage(source, new Rectangle(0, 0, size, size));
 
             int maskStride = ((size + 31) / 32) * 4;
             using (MemoryStream stream = new MemoryStream())
@@ -163,13 +146,15 @@ public static class CodexMeterIconGenerator
 '@
 
 $resolvedOutputPath = [IO.Path]::GetFullPath($OutputPath)
-[CodexMeterIconGenerator]::Generate($resolvedOutputPath)
+$resolvedSourcePath = [IO.Path]::GetFullPath($SourcePath)
+[CodexMeterIconGenerator]::Generate($resolvedSourcePath, $resolvedOutputPath)
 
 $icon = New-Object Drawing.Icon($resolvedOutputPath, 32, 32)
 try {
     $preview = $icon.ToBitmap()
     $preview.Dispose()
     Write-Host "ICON_OK"
+    Write-Host "Source: $resolvedSourcePath"
     Write-Host "Output: $resolvedOutputPath"
     Write-Host "Embedded sizes: 16, 20, 24, 32, 40, 48, 64, 128, 256"
     Write-Host "Preview size: $($icon.Width)x$($icon.Height)"

@@ -11,7 +11,7 @@ $distDirectory = Join-Path $windowsDirectory "dist"
 $archiveName = "Codex-Meter-Windows-portable-v$Version.zip"
 $archivePath = Join-Path $windowsDirectory $archiveName
 $checksumPath = "$archivePath.sha256"
-$packageRootName = "Codex Meter Windows v$Version"
+$packageRootName = "CodexMeter Windows v$Version"
 $stageDirectory = Join-Path $windowsDirectory "release-stage-v$Version"
 $packageDirectory = Join-Path $stageDirectory $packageRootName
 
