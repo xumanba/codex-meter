@@ -291,7 +291,7 @@ namespace CodexMeter
             bool hasDetail = !String.IsNullOrWhiteSpace(detail);
             if (!hasDetail)
                 detail = showAll
-                    ? "悬停上方统计项查看预测 · 悬停时间轴节点查看详情"
+                    ? "悬停统计项查看预测 · 悬停刻度或蓝点查看日期与时间"
                     : "悬停统计项查看预测 · 滚轮浏览历史 · 点击下方查看时间轴";
             Color accent = activeHoverTarget == 1
                 ? (darkTheme ? Color.FromArgb(67, 222, 160) : Color.FromArgb(13, 153, 103))
@@ -330,7 +330,7 @@ namespace CodexMeter
 
             using (Font titleFont = PixelFont(10.5f, FontStyle.Bold))
             using (Brush titleBrush = new SolidBrush(primary))
-                DrawText(graphics, "最近 " + chronological.Count + " 次 · 每格 1 天 · 每 3 天标日期",
+                DrawText(graphics, "最近 " + chronological.Count + " 次 · 每天一个刻度",
                     titleFont, titleBrush, new RectangleF(24, y + 5, DesignWidth - 48, 20),
                     StringAlignment.Near, StringAlignment.Center);
 
@@ -342,30 +342,21 @@ namespace CodexMeter
             long rangeEnd = dayTicks[dayTicks.Count - 1].ToUnixTimeSeconds();
             float gridTop = axisY - 13f;
             float gridBottom = axisY + 13f;
-            for (int index = 0; index < dayTicks.Count - 1; index++)
-            {
-                float left = TimelineX(dayTicks[index].ToUnixTimeSeconds(),
-                    rangeStart, rangeEnd, axisLeft, axisRight);
-                float right = TimelineX(dayTicks[index + 1].ToUnixTimeSeconds(),
-                    rangeStart, rangeEnd, axisLeft, axisRight);
-                if (index % 2 == 0)
-                {
-                    using (Brush dayFill = new SolidBrush(darkTheme
-                        ? Color.FromArgb(10, 255, 255, 255)
-                        : Color.FromArgb(13, 33, 135, 205)))
-                        graphics.FillRectangle(dayFill, left, gridTop,
-                            Math.Max(0.5f, right - left), gridBottom - gridTop);
-                }
-            }
             using (Pen dayGrid = new Pen(darkTheme
-                ? Color.FromArgb(45, 145, 177, 211)
-                : Color.FromArgb(42, 72, 126, 165), 0.7f))
+                ? Color.FromArgb(116, 145, 177, 211)
+                : Color.FromArgb(108, 72, 126, 165), 1f))
             {
                 for (int index = 0; index < dayTicks.Count; index++)
                 {
                     float x = TimelineX(dayTicks[index].ToUnixTimeSeconds(),
                         rangeStart, rangeEnd, axisLeft, axisRight);
                     graphics.DrawLine(dayGrid, x, gridTop, x, gridBottom);
+                    timelineTargets.Add(new TimelineHoverTarget
+                    {
+                        Bounds = new RectangleF(x - 6, gridTop - 4, 12,
+                            gridBottom - gridTop + 8),
+                        Day = dayTicks[index]
+                    });
                 }
             }
             using (Pen axis = new Pen(darkTheme
@@ -382,20 +373,18 @@ namespace CodexMeter
                 ResetHistoryEntry entry = chronological[index];
                 float x = TimelineX(entry.ResetUnixSeconds,
                     rangeStart, rangeEnd, axisLeft, axisRight);
-                Color accent = EntryAccent(entry);
-                using (Pen tick = new Pen(Color.FromArgb(darkTheme ? 155 : 135, accent), 1f))
-                    graphics.DrawLine(tick, x, axisY - 8, x, axisY + 8);
-                using (Brush halo = new SolidBrush(Color.FromArgb(darkTheme ? 54 : 43, accent)))
-                    graphics.FillEllipse(halo, x - 7, axisY - 7, 14, 14);
-                using (Brush point = new SolidBrush(accent))
-                    graphics.FillEllipse(point, x - 3.5f, axisY - 3.5f, 7, 7);
+                Color pointColor = darkTheme
+                    ? Color.FromArgb(74, 199, 255)
+                    : Color.FromArgb(20, 132, 218);
+                using (Brush point = new SolidBrush(pointColor))
+                    graphics.FillEllipse(point, x - 4f, axisY - 4f, 8f, 8f);
 
                 TimeSpan? previousInterval = index > 0
                     ? (TimeSpan?)(entry.ResetAt - chronological[index - 1].ResetAt)
                     : null;
                 timelineTargets.Add(new TimelineHoverTarget
                 {
-                    Bounds = new RectangleF(x - 8, axisY - 15, 16, 30),
+                    Bounds = new RectangleF(x - 8, axisY - 10, 16, 20),
                     Entry = entry,
                     PreviousInterval = previousInterval
                 });
@@ -404,25 +393,62 @@ namespace CodexMeter
             using (Font dateFont = PixelFont(8.5f, FontStyle.Bold))
             using (Brush dateBrush = new SolidBrush(secondary))
             {
-                for (int index = 0; index < dayTicks.Count - 1; index++)
-                {
-                    if (!ShouldLabelTimelineDay(index))
-                        continue;
-                    float x = TimelineX(dayTicks[index].ToUnixTimeSeconds(),
-                        rangeStart, rangeEnd, axisLeft, axisRight);
-                    float labelLeft = Math.Max(13f,
-                        Math.Min(DesignWidth - 61f, x - 24f));
-                    DrawText(graphics, dayTicks[index].ToString("M月d日"),
-                        dateFont, dateBrush,
-                        new RectangleF(labelLeft, axisY + 13, 48, 20),
-                        StringAlignment.Center, StringAlignment.Center);
-                }
+                DrawText(graphics, dayTicks[0].ToString("M月d日"),
+                    dateFont, dateBrush,
+                    new RectangleF(axisLeft - 2, axisY + 13, 58, 20),
+                    StringAlignment.Near, StringAlignment.Center);
             }
+            DrawTimelineHoverLabel(graphics, axisY, primary);
             using (Font hintFont = PixelFont(9f, FontStyle.Regular))
             using (Brush hintBrush = new SolidBrush(secondary))
-                DrawText(graphics, "悬停节点查看具体时间与相邻间隔", hintFont, hintBrush,
+                DrawText(graphics, "悬停刻度查看日期 · 悬停蓝点查看重置时间", hintFont, hintBrush,
                     new RectangleF(24, y + 91, DesignWidth - 48, 20),
                     StringAlignment.Center, StringAlignment.Center);
+        }
+
+        private void DrawTimelineHoverLabel(Graphics graphics, float axisY, Color primary)
+        {
+            if (activeHoverTarget < 100 ||
+                activeHoverTarget - 100 >= timelineTargets.Count)
+                return;
+
+            TimelineHoverTarget target = timelineTargets[activeHoverTarget - 100];
+            string label;
+            float width;
+            if (target.Entry != null)
+            {
+                label = target.Entry.ResetAt.ToLocalTime().ToString("M月d日 HH:mm");
+                width = 88f;
+            }
+            else if (target.Day.HasValue)
+            {
+                label = target.Day.Value.ToString("M月d日");
+                width = 52f;
+            }
+            else
+            {
+                return;
+            }
+
+            float center = target.Bounds.Left + target.Bounds.Width / 2f;
+            float left = Math.Max(15f, Math.Min(DesignWidth - 15f - width,
+                center - width / 2f));
+            RectangleF bounds = new RectangleF(left, axisY + 12f, width, 21f);
+            using (GraphicsPath path = RoundedRectangle(bounds, 6f))
+            using (Brush fill = new SolidBrush(darkTheme
+                ? Color.FromArgb(235, 34, 50, 70)
+                : Color.FromArgb(238, 248, 252, 255)))
+            using (Pen outline = new Pen(darkTheme
+                ? Color.FromArgb(94, 74, 199, 255)
+                : Color.FromArgb(78, 20, 132, 218), 0.8f))
+            using (Font font = PixelFont(8.5f, FontStyle.Bold))
+            using (Brush text = new SolidBrush(primary))
+            {
+                graphics.FillPath(fill, path);
+                graphics.DrawPath(outline, path);
+                DrawText(graphics, label, font, text, bounds,
+                    StringAlignment.Center, StringAlignment.Center);
+            }
         }
 
         private void DrawEntry(Graphics graphics, ResetHistoryEntry entry, int index,
@@ -521,22 +547,29 @@ namespace CodexMeter
             if (longestBounds.Contains(point))
                 return 2;
 
-            int bestIndex = -1;
-            float bestDistance = Single.MaxValue;
-            for (int index = 0; index < timelineTargets.Count; index++)
+            for (int priority = 0; priority < 2; priority++)
             {
-                TimelineHoverTarget target = timelineTargets[index];
-                if (!target.Bounds.Contains(point))
-                    continue;
-                float center = target.Bounds.Left + target.Bounds.Width / 2f;
-                float distance = Math.Abs(center - point.X);
-                if (distance < bestDistance)
+                bool resetPoint = priority == 0;
+                int bestIndex = -1;
+                float bestDistance = Single.MaxValue;
+                for (int index = 0; index < timelineTargets.Count; index++)
                 {
-                    bestDistance = distance;
-                    bestIndex = index;
+                    TimelineHoverTarget target = timelineTargets[index];
+                    if ((target.Entry != null) != resetPoint ||
+                        !target.Bounds.Contains(point))
+                        continue;
+                    float center = target.Bounds.Left + target.Bounds.Width / 2f;
+                    float distance = Math.Abs(center - point.X);
+                    if (distance < bestDistance)
+                    {
+                        bestDistance = distance;
+                        bestIndex = index;
+                    }
                 }
+                if (bestIndex >= 0)
+                    return 100 + bestIndex;
             }
-            return bestIndex >= 0 ? 100 + bestIndex : -1;
+            return -1;
         }
 
         private string HoverDetail(int target)
@@ -555,6 +588,10 @@ namespace CodexMeter
 
             TimelineHoverTarget timeline = timelineTargets[target - 100];
             ResetHistoryEntry entry = timeline.Entry;
+            if (entry == null && timeline.Day.HasValue)
+                return timeline.Day.Value.ToString("M月d日") + " · 每日刻度";
+            if (entry == null)
+                return null;
             string detail = entry.ResetAt.ToLocalTime().ToString("M月d日 HH:mm:ss") +
                 " · " + EntryStateText(entry);
             if (timeline.PreviousInterval.HasValue)
@@ -763,11 +800,6 @@ namespace CodexMeter
             return days;
         }
 
-        internal static bool ShouldLabelTimelineDay(int dayIndex)
-        {
-            return dayIndex >= 0 && dayIndex % 3 == 0;
-        }
-
         private Color EntryAccent(ResetHistoryEntry entry)
         {
             if (entry != null && !entry.IsEstimated)
@@ -831,6 +863,7 @@ namespace CodexMeter
         {
             public RectangleF Bounds { get; set; }
             public ResetHistoryEntry Entry { get; set; }
+            public DateTimeOffset? Day { get; set; }
             public TimeSpan? PreviousInterval { get; set; }
         }
     }

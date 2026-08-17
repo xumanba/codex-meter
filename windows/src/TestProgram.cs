@@ -31,7 +31,7 @@ namespace CodexMeter
                     return RenderPreview(args[1], false, false, false, false);
                 if (args.Length > 1 && String.Equals(args[0], "--preview-reset-history", StringComparison.OrdinalIgnoreCase))
                     return RenderResetHistoryPreview(args[1],
-                        args.Length <= 2 || !String.Equals(args[2], "list", StringComparison.OrdinalIgnoreCase));
+                        args.Length > 2 ? args[2] : "timeline");
                 if (args.Length > 1 && String.Equals(args[0], "--reset-history-live", StringComparison.OrdinalIgnoreCase))
                     return RunResetHistoryLiveProbe(args[1],
                         args.Length > 2 ? args[2] : null,
@@ -704,7 +704,7 @@ namespace CodexMeter
             }
         }
 
-        private static int RenderResetHistoryPreview(string outputPath, bool timeline)
+        private static int RenderResetHistoryPreview(string outputPath, string mode)
         {
             try
             {
@@ -717,8 +717,40 @@ namespace CodexMeter
                 ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(entries);
                 using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
                 {
+                    bool timeline = !String.Equals(mode, "list", StringComparison.OrdinalIgnoreCase);
                     if (timeline)
                         surface.ExpandTimeline();
+                    if (timeline && mode.StartsWith("hover-", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using (Bitmap warmup = new Bitmap(surface.Width, surface.Height))
+                            surface.DrawToBitmap(warmup, new Rectangle(Point.Empty, surface.Size));
+                        List<DateTimeOffset> days = ResetHistorySurface.TimelineDays(entries);
+                        long rangeStart = days[0].ToUnixTimeSeconds();
+                        long rangeEnd = days[days.Count - 1].ToUnixTimeSeconds();
+                        long timestamp;
+                        if (String.Equals(mode, "hover-reset", StringComparison.OrdinalIgnoreCase))
+                        {
+                            timestamp = entries[0].ResetUnixSeconds;
+                        }
+                        else
+                        {
+                            timestamp = days.Skip(1).Take(Math.Max(1, days.Count - 2))
+                                .OrderByDescending(day => entries.Min(entry => Math.Abs(
+                                    ResetHistorySurface.TimelineX(day.ToUnixTimeSeconds(),
+                                        rangeStart, rangeEnd, 29f, 391f) -
+                                    ResetHistorySurface.TimelineX(entry.ResetUnixSeconds,
+                                        rangeStart, rangeEnd, 29f, 391f))))
+                                .First().ToUnixTimeSeconds();
+                        }
+                        int x = Convert.ToInt32(Math.Round(ResetHistorySurface.TimelineX(
+                            timestamp, rangeStart, rangeEnd, 29f, 391f)));
+                        MethodInfo onMouseMove = typeof(Control).GetMethod("OnMouseMove",
+                            BindingFlags.Instance | BindingFlags.NonPublic);
+                        onMouseMove.Invoke(surface, new object[]
+                        {
+                            new MouseEventArgs(MouseButtons.None, 0, x, 190, 0)
+                        });
+                    }
                     using (Bitmap image = new Bitmap(surface.Width, surface.Height))
                     {
                         surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
@@ -957,11 +989,6 @@ namespace CodexMeter
                 Expect(dayTicks.Count > 3 &&
                     dayTicks[1].Date == dayTicks[0].Date.AddDays(1),
                     "reset timeline creates one grid cell per calendar day");
-                Expect(ResetHistorySurface.ShouldLabelTimelineDay(0) &&
-                    ResetHistorySurface.ShouldLabelTimelineDay(3) &&
-                    !ResetHistorySurface.ShouldLabelTimelineDay(1),
-                    "reset timeline labels every third calendar day");
-
                 surface.ExpandTimeline();
                 Expect(surface.Width == 420 && surface.Height == 307,
                     "expanded reset timeline uses the intended compact layout");
