@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,8 +29,20 @@ namespace CodexMeter
                     return RenderPreview(args[1], false, false, true, true);
                 if (args.Length > 1 && String.Equals(args[0], "--preview-compact", StringComparison.OrdinalIgnoreCase))
                     return RenderPreview(args[1], false, false, false, false);
+                if (args.Length > 1 && String.Equals(args[0], "--preview-reset-history", StringComparison.OrdinalIgnoreCase))
+                    return RenderResetHistoryPreview(args[1]);
+                if (args.Length > 1 && String.Equals(args[0], "--reset-history-live", StringComparison.OrdinalIgnoreCase))
+                    return RunResetHistoryLiveProbe(args[1],
+                        args.Length > 2 ? args[2] : null,
+                        args.Length > 3 ? args[3] : null);
                 if (args.Length > 1 && String.Equals(args[0], "--preview", StringComparison.OrdinalIgnoreCase))
                     return RenderPreview(args[1], false, false, false, true);
+                if (args.Length > 0 && String.Equals(args[0], "--reset-history-test", StringComparison.OrdinalIgnoreCase))
+                {
+                    CheckResetHistoryDetection();
+                    Console.WriteLine(failures == 0 ? "RESET_HISTORY_TEST_OK" : "RESET_HISTORY_TEST_FAILED=" + failures);
+                    return failures == 0 ? 0 : 1;
+                }
                 if (args.Length > 0 && String.Equals(args[0], "--live", StringComparison.OrdinalIgnoreCase))
                     return RunLiveProbe();
                 if (args.Length > 0 && String.Equals(args[0], "--weekly-live", StringComparison.OrdinalIgnoreCase))
@@ -40,6 +53,7 @@ namespace CodexMeter
                 CheckProLiteWindowMapping();
                 CheckPaceDailyAllowance();
                 CheckResetTimePresentation();
+                CheckResetHistoryDetection();
                 CheckDataFreshnessPresentation();
                 CheckErrorSanitization();
                 CheckHardTimeout();
@@ -648,6 +662,146 @@ namespace CodexMeter
             UsageSnapshot snapshot = UsageSnapshotDecoder.Decode(json);
             Expect(snapshot.Extras.Count == 1 && snapshot.Extras[0].ResetsAt.HasValue,
                 "decoder preserves Spark provider reset time");
+        }
+
+        private static int RunResetHistoryLiveProbe(
+            string cachePath, string sessionsOverride, string archivedOverride)
+        {
+            try
+            {
+                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                ResetHistoryStore store = new ResetHistoryStore(
+                    String.IsNullOrWhiteSpace(sessionsOverride)
+                        ? Path.Combine(userProfile, ".codex", "sessions") : sessionsOverride,
+                    String.IsNullOrWhiteSpace(archivedOverride)
+                        ? Path.Combine(userProfile, ".codex", "archived_sessions") : archivedOverride,
+                    cachePath);
+                ResetHistoryReport report = store.ImportLocalHistory();
+                Console.WriteLine("RESET_HISTORY_SNAPSHOTS=" + report.ImportedSnapshots);
+                Console.WriteLine("RESET_HISTORY_ENTRIES=" + report.Entries.Count);
+                Console.WriteLine("RESET_HISTORY_AVERAGE=" + ResetHistorySurface.AverageText(report));
+                foreach (ResetHistoryEntry entry in report.Entries.Take(10))
+                {
+                    Console.WriteLine("RESET=" + entry.ResetAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm") +
+                        " KIND=" + (entry.IsEstimated ? "estimated" : "observed") +
+                        " CONFIDENCE=" + ((ResetConfidence)entry.Confidence).ToString() +
+                        " EVIDENCE=" + entry.EvidenceCount);
+                }
+                if (!String.IsNullOrWhiteSpace(report.Error))
+                    Console.WriteLine("RESET_HISTORY_WARNING=" + report.Error);
+                Console.WriteLine("RESET_HISTORY_LIVE_OK");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("RESET_HISTORY_LIVE_FAILED: " + ex.Message);
+                return 1;
+            }
+        }
+
+        private static int RenderResetHistoryPreview(string outputPath)
+        {
+            try
+            {
+                DateTimeOffset latest = new DateTimeOffset(2026, 8, 14, 6, 38, 0, TimeSpan.Zero);
+                List<ResetHistoryEntry> entries = new List<ResetHistoryEntry>();
+                entries.Add(HistoryEntry(latest, ResetConfidence.High));
+                ResetHistoryEntry detected = HistoryEntry(latest.AddDays(-6).AddHours(-21), ResetConfidence.High);
+                detected.Kind = "observed";
+                entries.Add(detected);
+                entries.Add(HistoryEntry(latest.AddDays(-14).AddHours(-3), ResetConfidence.Medium));
+                entries.Add(HistoryEntry(latest.AddDays(-21).AddHours(-8), ResetConfidence.Medium));
+                ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(entries);
+                using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
+                using (Bitmap image = new Bitmap(surface.Width, surface.Height))
+                {
+                    surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
+                    image.Save(outputPath, ImageFormat.Png);
+                }
+                Console.WriteLine("RESET_HISTORY_PREVIEW=" + outputPath);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("RESET_HISTORY_PREVIEW_FAILED: " + ex.Message);
+                return 1;
+            }
+        }
+
+        private static void CheckResetHistoryDetection()
+        {
+            DateTimeOffset reset = new DateTimeOffset(2026, 8, 8, 15, 50, 0, TimeSpan.Zero);
+            ResetHistorySample before = new ResetHistorySample
+            {
+                ObservedUnixSeconds = reset.AddMinutes(-30).ToUnixTimeSeconds(),
+                UsedPercent = 83,
+                ResetUnixSeconds = reset.ToUnixTimeSeconds()
+            };
+            ResetHistorySample after = new ResetHistorySample
+            {
+                ObservedUnixSeconds = reset.AddMinutes(2).ToUnixTimeSeconds(),
+                UsedPercent = 0,
+                ResetUnixSeconds = reset.AddDays(7).ToUnixTimeSeconds()
+            };
+
+            ResetHistoryEntry detected = ResetHistoryStore.DetectTransition(before, after, "live");
+            Expect(detected != null && !detected.IsEstimated &&
+                detected.Confidence == (int)ResetConfidence.High,
+                "live reset transition is detected with high confidence");
+
+            ResetHistorySample premature = new ResetHistorySample
+            {
+                ObservedUnixSeconds = reset.AddHours(-2).ToUnixTimeSeconds(),
+                UsedPercent = 0,
+                ResetUnixSeconds = reset.AddDays(7).ToUnixTimeSeconds()
+            };
+            Expect(ResetHistoryStore.DetectTransition(before, premature, "live") == null,
+                "usage drop before the provider reset is not recorded");
+
+            ResetHistorySample smallDrop = new ResetHistorySample
+            {
+                ObservedUnixSeconds = reset.AddMinutes(2).ToUnixTimeSeconds(),
+                UsedPercent = 78,
+                ResetUnixSeconds = reset.AddDays(7).ToUnixTimeSeconds()
+            };
+            Expect(ResetHistoryStore.DetectTransition(before, smallDrop, "live") == null,
+                "ordinary rolling usage changes are not recorded as resets");
+
+            string line = "{\"timestamp\":\"2026-08-08T15:50:00Z\",\"type\":\"event_msg\"," +
+                "\"payload\":{\"type\":\"token_count\",\"info\":null," +
+                "\"rate_limits\":{\"limit_id\":\"codex\",\"primary\":{" +
+                "\"used_percent\":12.5,\"window_minutes\":10080,\"resets_at\":" +
+                reset.AddDays(7).ToUnixTimeSeconds() + "},\"secondary\":null}}}";
+            ResetHistorySample parsed;
+            Expect(ResetHistoryStore.TryParseRateLimitSample(line, out parsed) &&
+                parsed != null && Math.Abs(parsed.UsedPercent - 12.5) < 0.001,
+                "rollout parser reads only structured weekly rate-limit metadata");
+
+            List<ResetHistoryEntry> history = new List<ResetHistoryEntry>();
+            history.Add(HistoryEntry(reset, ResetConfidence.High));
+            history.Add(HistoryEntry(reset.AddDays(7), ResetConfidence.Medium));
+            history.Add(HistoryEntry(reset.AddDays(15), ResetConfidence.High));
+            history.Add(HistoryEntry(reset.AddDays(16), ResetConfidence.Low));
+            ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(history);
+            Expect(report.AverageInterval.HasValue && report.AverageIntervalCount == 2 &&
+                Math.Abs(report.AverageInterval.Value.TotalDays - 7.5) < 0.001,
+                "average reset interval excludes low-confidence records");
+            Expect(ResetHistorySurface.AverageText(report).IndexOf("7天12小时",
+                StringComparison.Ordinal) >= 0, "history panel formats the average reset interval");
+        }
+
+        private static ResetHistoryEntry HistoryEntry(DateTimeOffset reset, ResetConfidence confidence)
+        {
+            return new ResetHistoryEntry
+            {
+                ResetUnixSeconds = reset.ToUnixTimeSeconds(),
+                DetectedUnixSeconds = reset.AddMinutes(1).ToUnixTimeSeconds(),
+                BeforeUsedPercent = 80,
+                AfterUsedPercent = 0,
+                Confidence = (int)confidence,
+                EvidenceCount = 1,
+                Kind = "estimated"
+            };
         }
 
         private static void CheckDataFreshnessPresentation()

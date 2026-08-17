@@ -13,8 +13,9 @@ CodexMeter for Windows v0.1.1 (development build)
    选择“更多信息”→“仍要运行”。
 6. 若窗口被隐藏，请双击系统托盘中的 CodexMeter 图标恢复。
 7. 网速是整台电脑所有活动网卡的总流量，并非 Codex 专属流量。
-8. 聚焦显示每周额度和“xd xh 后重置”；悬停可查看准确的本机日期和时间。
-   Spark 附加窗口不再作为单独整栏显示。
+8. 聚焦显示每周额度和“xd xh 后重置”；悬停可查看当前预计的本机日期
+   和时间，点击可查看最近 3 次重置与平均间隔，并展开到最近 10 次。
+   本机日志回推记录会明确标为“推算”；Spark 不再作为单独整栏显示。
 9. 鼠标悬停在“实时”状态上，可通过与额度进度条同色系的圆角提示
    查看最近的数据更新时间。
 10. 在“•••”菜单勾选“开机自启动”，可让 CodexMeter 在当前用户登录
@@ -57,7 +58,9 @@ English installation
 6. If the card is hidden, double-click its notification-area icon to restore it.
 7. Network speed is aggregate system traffic, not Codex-only traffic.
 8. The focused Windows card shows the weekly allowance and its "xd xh until
-   reset" text. Spark is no longer rendered as a separate row.
+   reset" text. Click it for the latest three reset records and average interval,
+   with an expandable list of up to ten. Log-derived records are marked as
+   estimates. Spark is no longer rendered as a separate row.
 9. Hover the status pill to see the latest data-update time in a rounded prompt
    that uses the same color palette as the allowance progress bar.
 10. Toggle "开机自启动" in the `•••` menu to start CodexMeter after the

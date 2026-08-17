@@ -59,6 +59,9 @@ allowance and rate-window data available through CodexBar; it does not claim to
 count the raw tokens used by each individual prompt.
 
 - Remaining weekly Codex allowance and reset time
+- On Windows, click the reset countdown for the latest three reset records, the
+  average interval, and an expandable list of up to ten records. Log-derived
+  estimates remain visibly distinct from resets detected by the running app.
 - On the unreleased Windows main build, local seven-day activity and
   model/reasoning-effort preference rows behind a compact pace-row disclosure
 - On macOS v0.2.0, current-quota daily token usage for the latest seven days

@@ -41,6 +41,7 @@ namespace CodexMeter
         private readonly WinFormsTimer networkTimer = new WinFormsTimer();
         private readonly NetworkSpeedMonitor networkSpeedMonitor = new NetworkSpeedMonitor();
         private readonly WeeklyUsageReader weeklyUsageReader = new WeeklyUsageReader();
+        private readonly ResetHistoryStore resetHistoryStore = new ResetHistoryStore();
         private readonly ContextMenuStrip menu = new ContextMenuStrip();
         private readonly NotifyIcon trayIcon = new NotifyIcon();
         private readonly ToolTip contextualToolTip = new ToolTip();
@@ -55,10 +56,13 @@ namespace CodexMeter
         private ToolStripMenuItem visibilityItem;
         private UsageSnapshot snapshot;
         private WeeklyTokenReport weeklyUsage;
+        private ResetHistoryReport resetHistory;
+        private ResetHistoryPopup resetHistoryPopup;
         private string lastError;
         private bool isConnected;
         private bool isRefreshing;
         private bool isWeeklyUsageRefreshing;
+        private bool isResetHistoryRefreshing;
         private bool isExiting;
         private bool manuallyHidden;
         private bool dockRevealed;
@@ -72,6 +76,7 @@ namespace CodexMeter
         private Rectangle menuButtonBounds;
         private Rectangle syncButtonBounds;
         private Rectangle paceToggleBounds;
+        private Rectangle resetHistoryButtonBounds;
         private Rectangle budgetMarkerBounds;
         private bool syncButtonHovered;
         private bool paceToggleHovered;
@@ -104,6 +109,7 @@ namespace CodexMeter
             this.startedWithWindows = startedWithWindows;
             uiScale = Math.Max(1f, Math.Min(3f, NativeMethods.SystemScale()));
             settings = settingsStore.Load();
+            resetHistory = resetHistoryStore.Read();
 
             Text = "CodexMeter";
             Icon = NativeMethods.CreateAppIcon();
@@ -298,6 +304,7 @@ namespace CodexMeter
             statusTimer.Start();
             SaveSettings();
             RefreshNow();
+            RefreshResetHistory();
         }
 
         private void RevealDockForStartupIfNeeded()
@@ -334,6 +341,12 @@ namespace CodexMeter
             statusTimer.Stop();
             networkTimer.Stop();
             networkSpeedMonitor.Reset();
+            if (resetHistoryPopup != null)
+            {
+                ResetHistoryPopup popup = resetHistoryPopup;
+                resetHistoryPopup = null;
+                popup.Close();
+            }
             if (showExistingWait != null)
             {
                 showExistingWait.Unregister(null);
@@ -398,6 +411,10 @@ namespace CodexMeter
                                 lastError = null;
                                 consecutiveFailures = 0;
                                 lastSuccessfulRefreshAt = DateTimeOffset.Now;
+                                UsageWindow mainWindow = snapshot == null
+                                    ? null : snapshot.Weekly ?? snapshot.Session;
+                                resetHistory = resetHistoryStore.Observe(
+                                    mainWindow, lastSuccessfulRefreshAt.Value);
                             }
 
                             if (ReferenceEquals(refreshCancellation, requestCancellation))
@@ -408,6 +425,38 @@ namespace CodexMeter
                             ResizeForContent();
                             ScheduleNextRefresh();
                             Invalidate();
+                        });
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // The application is already closing.
+                    }
+                });
+        }
+
+        private void RefreshResetHistory()
+        {
+            if (isResetHistoryRefreshing)
+                return;
+
+            isResetHistoryRefreshing = true;
+            Task.Factory.StartNew(
+                delegate { return resetHistoryStore.ImportLocalHistory(); },
+                CancellationToken.None,
+                TaskCreationOptions.None,
+                TaskScheduler.Default)
+                .ContinueWith(delegate(Task<ResetHistoryReport> task)
+                {
+                    if (IsDisposed)
+                        return;
+                    try
+                    {
+                        BeginInvoke((MethodInvoker)delegate
+                        {
+                            isResetHistoryRefreshing = false;
+                            if (!task.IsFaulted && !task.IsCanceled && task.Result != null)
+                                resetHistory = task.Result;
+                            UpdateAccessibleSummary();
                         });
                     }
                     catch (InvalidOperationException)
@@ -629,6 +678,7 @@ namespace CodexMeter
             DrawHeader(graphics);
             budgetMarkerBounds = Rectangle.Empty;
             paceToggleBounds = Rectangle.Empty;
+            resetHistoryButtonBounds = Rectangle.Empty;
             budgetToolTipText = String.Empty;
             resetHoverTargets.Clear();
 
@@ -915,10 +965,13 @@ namespace CodexMeter
             RectangleF tokenBounds = new RectangleF(139, y + 29, 169, 22);
             if (!String.IsNullOrEmpty(reset))
             {
-                resetHoverTargets.Add(new ResetHoverTarget(
-                    new Rectangle(S(resetBounds.X), S(resetBounds.Y),
-                        S(resetBounds.Width), S(resetBounds.Height)),
-                    ResetToolTipText(window)));
+                Rectangle scaledResetBounds = new Rectangle(S(resetBounds.X), S(resetBounds.Y),
+                    S(resetBounds.Width), S(resetBounds.Height));
+                resetHoverTargets.Add(new ResetHoverTarget(scaledResetBounds,
+                    ResetToolTipText(window) +
+                    (prominent ? "\r\n点击查看重置历史" : String.Empty)));
+                if (prominent)
+                    resetHistoryButtonBounds = scaledResetBounds;
             }
             using (Font titleFont = PixelFont(SectionTitleFontSize, FontStyle.Bold))
             using (Font resetFont = PixelFont(SupportingTextFontSize, FontStyle.Regular))
@@ -1433,10 +1486,38 @@ namespace CodexMeter
                 RequestManualRefresh();
             else if (eventArgs.Button == MouseButtons.Left && menuButtonBounds.Contains(eventArgs.Location))
                 menu.Show(this, new Point(menuButtonBounds.Right, menuButtonBounds.Bottom), ToolStripDropDownDirection.BelowLeft);
+            else if (eventArgs.Button == MouseButtons.Left && resetHistoryButtonBounds.Contains(eventArgs.Location))
+                ShowResetHistory();
             else if (eventArgs.Button == MouseButtons.Left && paceToggleBounds.Contains(eventArgs.Location))
                 ToggleDetails();
             else if (eventArgs.Button == MouseButtons.Right)
                 menu.Show(this, eventArgs.Location);
+        }
+
+        private void ShowResetHistory()
+        {
+            if (resetHistoryPopup != null)
+            {
+                ResetHistoryPopup existing = resetHistoryPopup;
+                resetHistoryPopup = null;
+                existing.Close();
+            }
+
+            ResetHistoryPopup popup = new ResetHistoryPopup(
+                resetHistory ?? resetHistoryStore.Read(),
+                isResetHistoryRefreshing, IsDark, uiScale);
+            resetHistoryPopup = popup;
+            popup.Closed += delegate
+            {
+                if (ReferenceEquals(resetHistoryPopup, popup))
+                    resetHistoryPopup = null;
+                popup.Dispose();
+                suppressHideUntil = DateTime.UtcNow.AddSeconds(2);
+            };
+            suppressHideUntil = DateTime.UtcNow.AddMinutes(5);
+            popup.Show(this,
+                new Point(resetHistoryButtonBounds.Right, resetHistoryButtonBounds.Bottom),
+                ToolStripDropDownDirection.BelowLeft);
         }
 
         private void ToggleDetails()
@@ -1453,7 +1534,8 @@ namespace CodexMeter
         private void OnCardMouseDown(object sender, MouseEventArgs eventArgs)
         {
             if (eventArgs.Button != MouseButtons.Left || menuButtonBounds.Contains(eventArgs.Location) ||
-                syncButtonBounds.Contains(eventArgs.Location) || paceToggleBounds.Contains(eventArgs.Location))
+                syncButtonBounds.Contains(eventArgs.Location) || paceToggleBounds.Contains(eventArgs.Location) ||
+                resetHistoryButtonBounds.Contains(eventArgs.Location))
                 return;
 
             if (!String.IsNullOrEmpty(settings.DockEdge))
@@ -1470,6 +1552,7 @@ namespace CodexMeter
             {
                 bool hovered = syncButtonBounds.Contains(eventArgs.Location);
                 bool paceHovered = paceToggleBounds.Contains(eventArgs.Location);
+                bool resetHistoryHovered = resetHistoryButtonBounds.Contains(eventArgs.Location);
                 bool budgetHovered = budgetMarkerBounds.Contains(eventArgs.Location) &&
                     !String.IsNullOrEmpty(budgetToolTipText);
                 string resetToolTipText = resetHoverTargets
@@ -1505,7 +1588,8 @@ namespace CodexMeter
                     paceToggleHovered = paceHovered;
                     Invalidate(paceToggleBounds);
                 }
-                Cursor = hovered || paceHovered || menuButtonBounds.Contains(eventArgs.Location)
+                Cursor = hovered || paceHovered || resetHistoryHovered ||
+                    menuButtonBounds.Contains(eventArgs.Location)
                     ? Cursors.Hand
                     : (budgetHovered || !String.IsNullOrEmpty(resetToolTipText)
                         ? Cursors.Help : Cursors.Default);
@@ -1892,7 +1976,8 @@ namespace CodexMeter
             AccessibleDescription = usage + "。状态：" + StatusText +
                 "。系统总网速，下载 " + NetworkSpeedMonitor.FormatRate(networkSpeed.DownloadBytesPerSecond) +
                 "，上传 " + NetworkSpeedMonitor.FormatRate(networkSpeed.UploadBytesPerSecond) +
-                "。网速不是 Codex 专属流量。按 F5 立即同步，按 Esc 最小化到托盘。";
+                "。网速不是 Codex 专属流量。点击重置倒计时可查看重置历史。" +
+                "按 F5 立即同步，按 Esc 最小化到托盘。";
         }
 
         private void OpenCodexBarFolder()
@@ -2066,7 +2151,7 @@ namespace CodexMeter
         private static string ResetToolTipText(UsageWindow window)
         {
             if (window.ResetsAt.HasValue)
-                return "准确重置：" + window.ResetsAt.Value.ToLocalTime().ToString("M月d日 HH:mm:ss") +
+                return "当前预计重置：" + window.ResetsAt.Value.ToLocalTime().ToString("M月d日 HH:mm:ss") +
                     "（本机时间）";
             return window.ResetDescription ?? String.Empty;
         }
