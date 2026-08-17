@@ -713,7 +713,8 @@ namespace CodexMeter
                 int[] hoursAgo = { 0, 76, 123, 135, 218, 303, 347, 386, 410, 467 };
                 for (int index = 0; index < hoursAgo.Length; index++)
                     entries.Add(HistoryEntry(latest.AddHours(-hoursAgo[index]),
-                        index == 4 ? ResetConfidence.Low : ResetConfidence.Medium));
+                        index == 4 ? ResetConfidence.Low :
+                            (index == 0 ? ResetConfidence.High : ResetConfidence.Medium)));
                 ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(entries);
                 using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
                 {
@@ -998,6 +999,18 @@ namespace CodexMeter
                     dayTicks[1].AddHours(12), dayTicks);
                 Expect(Math.Abs(midday - 1.5f) < 0.01f,
                     "reset timeline places events within their daily tick interval");
+                Color low = ResetHistorySurface.TimelineConfidenceColor(
+                    HistoryEntry(latest, ResetConfidence.Low), false);
+                Color medium = ResetHistorySurface.TimelineConfidenceColor(
+                    HistoryEntry(latest, ResetConfidence.Medium), false);
+                Color high = ResetHistorySurface.TimelineConfidenceColor(
+                    HistoryEntry(latest, ResetConfidence.High), false);
+                Expect(low.R > low.G && low.R > low.B,
+                    "low-confidence timeline points are red");
+                Expect(medium.B > medium.R && medium.B > medium.G,
+                    "medium-confidence timeline points are blue");
+                Expect(high.G > high.R && high.G > high.B,
+                    "high-confidence timeline points are green");
                 surface.ExpandTimeline();
                 Expect(surface.Width == 500 && surface.Height == 388,
                     "expanded reset timeline uses the intended enlarged layout");

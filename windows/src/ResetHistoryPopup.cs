@@ -391,9 +391,7 @@ namespace CodexMeter
                 float x = axisLeft + (coordinate - timelineStartDay) * TimelineDayWidth;
                 if (x < axisLeft - 5f || x > axisRight + 5f)
                     continue;
-                Color pointColor = darkTheme
-                    ? Color.FromArgb(74, 199, 255)
-                    : Color.FromArgb(20, 132, 218);
+                Color pointColor = TimelineConfidenceColor(entry, darkTheme);
                 using (Brush point = new SolidBrush(pointColor))
                     graphics.FillEllipse(point, x - 4f, axisY - 4f, 8f, 8f);
 
@@ -972,6 +970,23 @@ namespace CodexMeter
                 return index + Convert.ToSingle(Math.Max(0d, Math.Min(1d, fraction)));
             }
             return last;
+        }
+
+        internal static Color TimelineConfidenceColor(ResetHistoryEntry entry,
+            bool darkTheme)
+        {
+            int confidence = entry == null ? 0 : entry.Confidence;
+            if (confidence >= (int)ResetConfidence.High)
+                return darkTheme
+                    ? Color.FromArgb(67, 222, 160)
+                    : Color.FromArgb(18, 158, 103);
+            if (confidence >= (int)ResetConfidence.Medium)
+                return darkTheme
+                    ? Color.FromArgb(74, 199, 255)
+                    : Color.FromArgb(20, 132, 218);
+            return darkTheme
+                ? Color.FromArgb(255, 104, 111)
+                : Color.FromArgb(218, 65, 72);
         }
 
         private Color EntryAccent(ResetHistoryEntry entry)
