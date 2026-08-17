@@ -562,7 +562,9 @@ namespace CodexMeter
             int hours = (totalMinutes / 60) % 24;
             int minutes = totalMinutes % 60;
             if (days > 0)
-                return days + "天" + (hours > 0 ? hours + "小时" : String.Empty);
+                return days + "天" + (hours > 0
+                    ? hours + "小时"
+                    : (minutes > 0 ? minutes + "分钟" : String.Empty));
             if (hours > 0)
                 return hours + "小时" + (minutes > 0 ? minutes + "分钟" : String.Empty);
             return minutes + "分钟";

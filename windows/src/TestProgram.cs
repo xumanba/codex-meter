@@ -799,6 +799,9 @@ namespace CodexMeter
                 "reset history reports the longest reliable interval");
             Expect(ResetHistorySurface.AverageText(report).IndexOf("7天12小时",
                 StringComparison.Ordinal) >= 0, "history panel formats the average reset interval");
+            Expect(ResetHistorySurface.IntervalText(
+                    TimeSpan.FromDays(1).Add(TimeSpan.FromMinutes(17))) == "1天17分钟",
+                "interval cards preserve minutes when no whole hours remain");
 
             DateTimeOffset latestReliable = reset.AddDays(15);
             string averageForecast = ResetHistorySurface.ForecastText(
