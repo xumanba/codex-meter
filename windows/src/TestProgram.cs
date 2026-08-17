@@ -30,7 +30,8 @@ namespace CodexMeter
                 if (args.Length > 1 && String.Equals(args[0], "--preview-compact", StringComparison.OrdinalIgnoreCase))
                     return RenderPreview(args[1], false, false, false, false);
                 if (args.Length > 1 && String.Equals(args[0], "--preview-reset-history", StringComparison.OrdinalIgnoreCase))
-                    return RenderResetHistoryPreview(args[1]);
+                    return RenderResetHistoryPreview(args[1],
+                        args.Length <= 2 || !String.Equals(args[2], "list", StringComparison.OrdinalIgnoreCase));
                 if (args.Length > 1 && String.Equals(args[0], "--reset-history-live", StringComparison.OrdinalIgnoreCase))
                     return RunResetHistoryLiveProbe(args[1],
                         args.Length > 2 ? args[2] : null,
@@ -703,7 +704,7 @@ namespace CodexMeter
             }
         }
 
-        private static int RenderResetHistoryPreview(string outputPath)
+        private static int RenderResetHistoryPreview(string outputPath, bool timeline)
         {
             try
             {
@@ -716,7 +717,8 @@ namespace CodexMeter
                 ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(entries);
                 using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
                 {
-                    surface.ExpandTimeline();
+                    if (timeline)
+                        surface.ExpandTimeline();
                     using (Bitmap image = new Bitmap(surface.Width, surface.Height))
                     {
                         surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
@@ -933,6 +935,33 @@ namespace CodexMeter
                 "reset timeline positions nodes by elapsed time");
             using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
             {
+                Expect(surface.ListOffset == 0,
+                    "reset history list starts at the latest records");
+                MethodInfo onMouseWheel = typeof(Control).GetMethod("OnMouseWheel",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                onMouseWheel.Invoke(surface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.None, 0, 10, 10,
+                        -SystemInformation.MouseWheelScrollDelta)
+                });
+                Expect(surface.ListOffset == 1,
+                    "reset history wheel event scrolls one record per step");
+                surface.ScrollHistory(100);
+                Expect(surface.ListOffset == 7,
+                    "reset history list clamps at the oldest three records");
+                surface.ScrollHistory(-100);
+                Expect(surface.ListOffset == 0,
+                    "reset history list scrolls back to the latest records");
+
+                List<DateTimeOffset> dayTicks = ResetHistorySurface.TimelineDays(entries);
+                Expect(dayTicks.Count > 3 &&
+                    dayTicks[1].Date == dayTicks[0].Date.AddDays(1),
+                    "reset timeline creates one grid cell per calendar day");
+                Expect(ResetHistorySurface.ShouldLabelTimelineDay(0) &&
+                    ResetHistorySurface.ShouldLabelTimelineDay(3) &&
+                    !ResetHistorySurface.ShouldLabelTimelineDay(1),
+                    "reset timeline labels every third calendar day");
+
                 surface.ExpandTimeline();
                 Expect(surface.Width == 420 && surface.Height == 307,
                     "expanded reset timeline uses the intended compact layout");
