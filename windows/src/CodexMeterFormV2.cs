@@ -1511,7 +1511,9 @@ namespace CodexMeter
             {
                 if (ReferenceEquals(resetHistoryPopup, popup))
                     resetHistoryPopup = null;
-                popup.Dispose();
+                // ToolStripDropDown still executes its close pipeline after Closed.
+                // Dispose only when the UI message has fully unwound.
+                popup.DisposeAfterClose();
                 suppressHideUntil = DateTime.UtcNow.AddSeconds(2);
             };
             suppressHideUntil = DateTime.UtcNow.AddMinutes(5);

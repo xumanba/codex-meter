@@ -54,6 +54,7 @@ namespace CodexMeter
                 CheckPaceDailyAllowance();
                 CheckResetTimePresentation();
                 CheckResetHistoryDetection();
+                CheckResetHistoryPopupCloseLifecycle();
                 CheckDataFreshnessPresentation();
                 CheckErrorSanitization();
                 CheckHardTimeout();
@@ -788,6 +789,41 @@ namespace CodexMeter
                 "average reset interval excludes low-confidence records");
             Expect(ResetHistorySurface.AverageText(report).IndexOf("7天12小时",
                 StringComparison.Ordinal) >= 0, "history panel formats the average reset interval");
+        }
+
+        private static void CheckResetHistoryPopupCloseLifecycle()
+        {
+            ResetHistoryPopup popup = null;
+            try
+            {
+                ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(
+                    new List<ResetHistoryEntry>
+                    {
+                        HistoryEntry(DateTimeOffset.Now.AddDays(-7), ResetConfidence.Medium)
+                    });
+                popup = new ResetHistoryPopup(report, false, false, 1f);
+                int closedCount = 0;
+                popup.Closed += delegate
+                {
+                    closedCount++;
+                    popup.DisposeAfterClose();
+                };
+
+                popup.Show(new Point(-10000, -10000));
+                popup.Close(ToolStripDropDownCloseReason.ItemClicked);
+
+                Expect(closedCount == 1, "reset history popup closes exactly once");
+                Expect(!popup.IsDisposed,
+                    "reset history popup is not disposed inside its Closed callback");
+                Application.DoEvents();
+                Expect(popup.IsDisposed,
+                    "reset history popup is disposed after the close pipeline completes");
+            }
+            finally
+            {
+                if (popup != null && !popup.IsDisposed)
+                    popup.Dispose();
+            }
         }
 
         private static ResetHistoryEntry HistoryEntry(DateTimeOffset reset, ResetConfidence confidence)

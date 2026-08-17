@@ -11,6 +11,7 @@ namespace CodexMeter
     {
         private readonly ResetHistorySurface surface;
         private readonly ToolStripControlHost host;
+        private bool disposeScheduled;
 
         public ResetHistoryPopup(ResetHistoryReport report, bool loading, bool darkTheme, float scale)
         {
@@ -37,6 +38,33 @@ namespace CodexMeter
                 PerformLayout();
             };
             surface.CloseRequested += delegate { Close(ToolStripDropDownCloseReason.ItemClicked); };
+        }
+
+        internal void DisposeAfterClose()
+        {
+            if (IsDisposed || disposeScheduled)
+                return;
+
+            disposeScheduled = true;
+            try
+            {
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    if (!IsDisposed)
+                        Dispose();
+                });
+            }
+            catch (InvalidOperationException)
+            {
+                EventHandler disposeOnIdle = null;
+                disposeOnIdle = delegate
+                {
+                    Application.Idle -= disposeOnIdle;
+                    if (!IsDisposed)
+                        Dispose();
+                };
+                Application.Idle += disposeOnIdle;
+            }
         }
     }
 
