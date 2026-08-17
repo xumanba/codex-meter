@@ -725,8 +725,6 @@ namespace CodexMeter
                         using (Bitmap warmup = new Bitmap(surface.Width, surface.Height))
                             surface.DrawToBitmap(warmup, new Rectangle(Point.Empty, surface.Size));
                         List<DateTimeOffset> days = ResetHistorySurface.TimelineDays(entries);
-                        long rangeStart = days[0].ToUnixTimeSeconds();
-                        long rangeEnd = days[days.Count - 1].ToUnixTimeSeconds();
                         long timestamp;
                         if (String.Equals(mode, "hover-reset", StringComparison.OrdinalIgnoreCase))
                         {
@@ -734,21 +732,26 @@ namespace CodexMeter
                         }
                         else
                         {
-                            timestamp = days.Skip(1).Take(Math.Max(1, days.Count - 2))
+                            timestamp = days.Skip(surface.TimelineStartDay + 1)
+                                .Take(Math.Max(1, Math.Min(
+                                    ResetHistorySurface.TimelineViewportDays - 1,
+                                    days.Count - surface.TimelineStartDay - 2)))
                                 .OrderByDescending(day => entries.Min(entry => Math.Abs(
-                                    ResetHistorySurface.TimelineX(day.ToUnixTimeSeconds(),
-                                        rangeStart, rangeEnd, 29f, 391f) -
-                                    ResetHistorySurface.TimelineX(entry.ResetUnixSeconds,
-                                        rangeStart, rangeEnd, 29f, 391f))))
+                                    ResetHistorySurface.TimelineDayCoordinate(day, days) -
+                                    ResetHistorySurface.TimelineDayCoordinate(entry.ResetAt, days))))
                                 .First().ToUnixTimeSeconds();
                         }
-                        int x = Convert.ToInt32(Math.Round(ResetHistorySurface.TimelineX(
-                            timestamp, rangeStart, rangeEnd, 29f, 391f)));
+                        float coordinate = ResetHistorySurface.TimelineDayCoordinate(
+                            DateTimeOffset.FromUnixTimeSeconds(timestamp), days);
+                        int x = Convert.ToInt32(Math.Round(
+                            ResetHistorySurface.TimelineAxisLeft +
+                            (coordinate - surface.TimelineStartDay) *
+                            ResetHistorySurface.TimelineDayWidth));
                         MethodInfo onMouseMove = typeof(Control).GetMethod("OnMouseMove",
                             BindingFlags.Instance | BindingFlags.NonPublic);
                         onMouseMove.Invoke(surface, new object[]
                         {
-                            new MouseEventArgs(MouseButtons.None, 0, x, 190, 0)
+                            new MouseEventArgs(MouseButtons.None, 0, x, 223, 0)
                         });
                     }
                     using (Bitmap image = new Bitmap(surface.Width, surface.Height))
@@ -967,6 +970,8 @@ namespace CodexMeter
                 "reset timeline positions nodes by elapsed time");
             using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
             {
+                Expect(surface.Width == 500 && surface.Height == 334,
+                    "collapsed reset history uses the intended enlarged layout");
                 Expect(surface.ListOffset == 0,
                     "reset history list starts at the latest records");
                 MethodInfo onMouseWheel = typeof(Control).GetMethod("OnMouseWheel",
@@ -989,11 +994,63 @@ namespace CodexMeter
                 Expect(dayTicks.Count > 3 &&
                     dayTicks[1].Date == dayTicks[0].Date.AddDays(1),
                     "reset timeline creates one grid cell per calendar day");
+                float midday = ResetHistorySurface.TimelineDayCoordinate(
+                    dayTicks[1].AddHours(12), dayTicks);
+                Expect(Math.Abs(midday - 1.5f) < 0.01f,
+                    "reset timeline places events within their daily tick interval");
                 surface.ExpandTimeline();
-                Expect(surface.Width == 420 && surface.Height == 307,
-                    "expanded reset timeline uses the intended compact layout");
+                Expect(surface.Width == 500 && surface.Height == 388,
+                    "expanded reset timeline uses the intended enlarged layout");
+                Expect(surface.TimelineMaximumStartDay > 0 &&
+                    surface.TimelineStartDay == surface.TimelineMaximumStartDay,
+                    "reset timeline initially shows the latest historical days");
                 using (Bitmap image = new Bitmap(surface.Width, surface.Height))
                     surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
+
+                RectangleF slider = surface.TimelineSliderBounds;
+                MethodInfo onMouseDown = typeof(Control).GetMethod("OnMouseDown",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                MethodInfo onMouseUp = typeof(Control).GetMethod("OnMouseUp",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                MethodInfo onMouseMove = typeof(Control).GetMethod("OnMouseMove",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                int sliderY = Convert.ToInt32(Math.Round(slider.Top + slider.Height / 2f));
+                onMouseDown.Invoke(surface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 1,
+                        Convert.ToInt32(Math.Round(slider.Right - 10)), sliderY, 0)
+                });
+                onMouseMove.Invoke(surface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 0,
+                        Convert.ToInt32(Math.Round(slider.Left + 10)), sliderY, 0)
+                });
+                onMouseUp.Invoke(surface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 1,
+                        Convert.ToInt32(Math.Round(slider.Left + 10)), sliderY, 0)
+                });
+                Expect(surface.TimelineStartDay == 0,
+                    "timeline slider drag reaches the oldest historical days");
+                using (Bitmap oldest = new Bitmap(surface.Width, surface.Height))
+                    surface.DrawToBitmap(oldest, new Rectangle(Point.Empty, surface.Size));
+                onMouseDown.Invoke(surface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 1,
+                        Convert.ToInt32(Math.Round(slider.Left + 10)), sliderY, 0)
+                });
+                onMouseMove.Invoke(surface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 0,
+                        Convert.ToInt32(Math.Round(slider.Right - 10)), sliderY, 0)
+                });
+                onMouseUp.Invoke(surface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 1,
+                        Convert.ToInt32(Math.Round(slider.Right - 10)), sliderY, 0)
+                });
+                Expect(surface.TimelineStartDay == surface.TimelineMaximumStartDay,
+                    "timeline slider drag returns to the latest historical days");
             }
         }
 
