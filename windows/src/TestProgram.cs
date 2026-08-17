@@ -56,6 +56,7 @@ namespace CodexMeter
                 CheckResetTimePresentation();
                 CheckResetHistoryDetection();
                 CheckResetHistoryWindowStartInference();
+                CheckResetHistoryTimelinePresentation();
                 CheckResetHistoryPopupCloseLifecycle();
                 CheckDataFreshnessPresentation();
                 CheckErrorSanitization();
@@ -708,18 +709,19 @@ namespace CodexMeter
             {
                 DateTimeOffset latest = new DateTimeOffset(2026, 8, 14, 6, 38, 0, TimeSpan.Zero);
                 List<ResetHistoryEntry> entries = new List<ResetHistoryEntry>();
-                entries.Add(HistoryEntry(latest, ResetConfidence.High));
-                ResetHistoryEntry detected = HistoryEntry(latest.AddDays(-6).AddHours(-21), ResetConfidence.High);
-                detected.Kind = "observed";
-                entries.Add(detected);
-                entries.Add(HistoryEntry(latest.AddDays(-14).AddHours(-3), ResetConfidence.Medium));
-                entries.Add(HistoryEntry(latest.AddDays(-21).AddHours(-8), ResetConfidence.Medium));
+                int[] hoursAgo = { 0, 76, 123, 135, 218, 303, 347, 386, 410, 467 };
+                for (int index = 0; index < hoursAgo.Length; index++)
+                    entries.Add(HistoryEntry(latest.AddHours(-hoursAgo[index]),
+                        index == 4 ? ResetConfidence.Low : ResetConfidence.Medium));
                 ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(entries);
                 using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
-                using (Bitmap image = new Bitmap(surface.Width, surface.Height))
                 {
-                    surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
-                    image.Save(outputPath, ImageFormat.Png);
+                    surface.ExpandTimeline();
+                    using (Bitmap image = new Bitmap(surface.Width, surface.Height))
+                    {
+                        surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
+                        image.Save(outputPath, ImageFormat.Png);
+                    }
                 }
                 Console.WriteLine("RESET_HISTORY_PREVIEW=" + outputPath);
                 return 0;
@@ -789,8 +791,32 @@ namespace CodexMeter
             Expect(report.AverageInterval.HasValue && report.AverageIntervalCount == 2 &&
                 Math.Abs(report.AverageInterval.Value.TotalDays - 7.5) < 0.001,
                 "average reset interval excludes low-confidence records");
+            Expect(report.ShortestInterval.HasValue &&
+                Math.Abs(report.ShortestInterval.Value.TotalDays - 7) < 0.001,
+                "reset history reports the shortest reliable interval");
+            Expect(report.LongestInterval.HasValue &&
+                Math.Abs(report.LongestInterval.Value.TotalDays - 8) < 0.001,
+                "reset history reports the longest reliable interval");
             Expect(ResetHistorySurface.AverageText(report).IndexOf("7天12小时",
                 StringComparison.Ordinal) >= 0, "history panel formats the average reset interval");
+
+            DateTimeOffset latestReliable = reset.AddDays(15);
+            string averageForecast = ResetHistorySurface.ForecastText(
+                report, report.AverageInterval, "平均", latestReliable.AddDays(6));
+            string shortestForecast = ResetHistorySurface.ForecastText(
+                report, report.ShortestInterval, "最短", latestReliable.AddDays(6));
+            string longestForecast = ResetHistorySurface.ForecastText(
+                report, report.LongestInterval, "最长", latestReliable.AddDays(6));
+            Expect(averageForecast.IndexOf("预计还有 1天12小时", StringComparison.Ordinal) >= 0,
+                "average interval hover forecasts from the latest reliable reset");
+            Expect(shortestForecast.IndexOf("预计还有 1天", StringComparison.Ordinal) >= 0,
+                "shortest interval hover forecasts from the latest reliable reset");
+            Expect(longestForecast.IndexOf("预计还有 2天", StringComparison.Ordinal) >= 0,
+                "longest interval hover forecasts from the latest reliable reset");
+            string overdueForecast = ResetHistorySurface.ForecastText(
+                report, report.LongestInterval, "最长", latestReliable.AddDays(9));
+            Expect(overdueForecast.IndexOf("预计时间已过 1天", StringComparison.Ordinal) >= 0,
+                "interval hover labels an overdue forecast honestly");
         }
 
         private static void CheckResetHistoryWindowStartInference()
@@ -888,6 +914,27 @@ namespace CodexMeter
             {
                 if (popup != null && !popup.IsDisposed)
                     popup.Dispose();
+            }
+        }
+
+        private static void CheckResetHistoryTimelinePresentation()
+        {
+            DateTimeOffset latest = new DateTimeOffset(2026, 8, 14, 6, 38, 0, TimeSpan.Zero);
+            List<ResetHistoryEntry> entries = new List<ResetHistoryEntry>();
+            for (int index = 0; index < 10; index++)
+                entries.Add(HistoryEntry(latest.AddHours(-index * index * 6), ResetConfidence.Medium));
+            ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(entries);
+
+            float quarter = ResetHistorySurface.TimelineX(25, 0, 100, 10, 110);
+            Expect(Math.Abs(quarter - 35f) < 0.001,
+                "reset timeline positions nodes by elapsed time");
+            using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
+            {
+                surface.ExpandTimeline();
+                Expect(surface.Width == 420 && surface.Height == 307,
+                    "expanded reset timeline uses the intended compact layout");
+                using (Bitmap image = new Bitmap(surface.Width, surface.Height))
+                    surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
             }
         }
 

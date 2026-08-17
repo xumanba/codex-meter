@@ -70,20 +70,28 @@ namespace CodexMeter
 
     internal sealed class ResetHistorySurface : Control
     {
-        private const int DesignWidth = 292;
-        private const int HeaderHeight = 40;
-        private const int SummaryHeight = 31;
-        private const int RowHeight = 32;
-        private const int FooterHeight = 31;
-        private const int BottomPadding = 8;
+        private const int DesignWidth = 420;
+        private const int HeaderHeight = 42;
+        private const int StatisticsHeight = 54;
+        private const int HoverDetailHeight = 38;
+        private const int RowHeight = 34;
+        private const int TimelineHeight = 126;
+        private const int FooterHeight = 34;
+        private const int BottomPadding = 9;
 
         private readonly ResetHistoryReport report;
         private readonly bool loading;
         private readonly bool darkTheme;
         private readonly float scale;
+        private readonly List<TimelineHoverTarget> timelineTargets =
+            new List<TimelineHoverTarget>();
         private bool showAll;
         private RectangleF moreBounds;
         private RectangleF closeBounds;
+        private RectangleF averageBounds;
+        private RectangleF shortestBounds;
+        private RectangleF longestBounds;
+        private int activeHoverTarget = Int32.MinValue;
 
         public event EventHandler LayoutChanged;
         public event EventHandler CloseRequested;
@@ -101,9 +109,21 @@ namespace CodexMeter
             BackColor = darkTheme ? Color.FromArgb(25, 31, 44) : Color.FromArgb(240, 248, 253);
             UpdateSurfaceSize();
             MouseMove += OnSurfaceMouseMove;
-            MouseLeave += delegate { Cursor = Cursors.Default; };
+            MouseLeave += delegate
+            {
+                Cursor = Cursors.Default;
+                activeHoverTarget = Int32.MinValue;
+                Invalidate();
+            };
             MouseClick += OnSurfaceMouseClick;
             KeyDown += OnSurfaceKeyDown;
+        }
+
+        internal void ExpandTimeline()
+        {
+            showAll = true;
+            UpdateSurfaceSize();
+            Invalidate();
         }
 
         protected override void OnPaint(PaintEventArgs eventArgs)
@@ -139,24 +159,12 @@ namespace CodexMeter
                     StringAlignment.Near, StringAlignment.Center);
             DrawCloseButton(graphics, closeBounds, secondary);
 
-            RectangleF summaryBounds = new RectangleF(12, HeaderHeight, DesignWidth - 24, SummaryHeight - 3);
-            using (GraphicsPath summaryPath = RoundedRectangle(summaryBounds, 10f))
-            using (Brush summaryFill = new SolidBrush(darkTheme
-                ? Color.FromArgb(27, 255, 255, 255)
-                : Color.FromArgb(145, 255, 255, 255)))
-            {
-                graphics.FillPath(summaryFill, summaryPath);
-            }
-
-            string average = AverageText(report);
-            using (Font summaryFont = PixelFont(11.5f, FontStyle.Bold))
-            using (Brush summaryBrush = new SolidBrush(primary))
-                DrawText(graphics, average, summaryFont, summaryBrush,
-                    new RectangleF(22, HeaderHeight, DesignWidth - 44, SummaryHeight - 3),
-                    StringAlignment.Near, StringAlignment.Center);
+            DrawStatistics(graphics, primary, secondary);
+            DrawHoverDetail(graphics, primary, secondary);
 
             List<ResetHistoryEntry> visible = VisibleEntries();
-            int rowY = HeaderHeight + SummaryHeight + 2;
+            int contentY = HeaderHeight + StatisticsHeight + HoverDetailHeight + 4;
+            timelineTargets.Clear();
             if (visible.Count == 0)
             {
                 string empty = loading
@@ -167,22 +175,32 @@ namespace CodexMeter
                 using (Font emptyFont = PixelFont(11f, FontStyle.Regular))
                 using (Brush emptyBrush = new SolidBrush(secondary))
                     DrawText(graphics, empty, emptyFont, emptyBrush,
-                        new RectangleF(16, rowY, DesignWidth - 32, 42),
+                        new RectangleF(16, contentY, DesignWidth - 32, 44),
                         StringAlignment.Center, StringAlignment.Center);
                 moreBounds = RectangleF.Empty;
                 return;
             }
 
-            for (int index = 0; index < visible.Count; index++)
-                DrawEntry(graphics, visible[index], index, rowY + index * RowHeight, primary, secondary);
+            int footerY;
+            if (showAll && visible.Count > 1)
+            {
+                DrawTimeline(graphics, visible, contentY, primary, secondary);
+                footerY = contentY + TimelineHeight;
+            }
+            else
+            {
+                for (int index = 0; index < visible.Count; index++)
+                    DrawEntry(graphics, visible[index], index,
+                        contentY + index * RowHeight, primary, secondary);
+                footerY = contentY + visible.Count * RowHeight;
+            }
 
-            int footerY = rowY + visible.Count * RowHeight;
             if (report.Entries.Count > 3)
             {
                 moreBounds = new RectangleF(12, footerY, DesignWidth - 24, FooterHeight - 3);
                 string more = showAll
                     ? "收起至最近 3 次"
-                    : "查看最近 " + Math.Min(10, report.Entries.Count) + " 次";
+                    : "在时间轴中查看最近 " + Math.Min(10, report.Entries.Count) + " 次";
                 using (Font moreFont = PixelFont(10.5f, FontStyle.Bold))
                 using (Brush moreBrush = new SolidBrush(darkTheme
                     ? Color.FromArgb(86, 203, 255)
@@ -194,6 +212,170 @@ namespace CodexMeter
             {
                 moreBounds = RectangleF.Empty;
             }
+        }
+
+        private void DrawStatistics(Graphics graphics, Color primary, Color secondary)
+        {
+            const float gap = 7f;
+            float width = (DesignWidth - 24f - gap * 2f) / 3f;
+            averageBounds = new RectangleF(12, HeaderHeight, width, StatisticsHeight - 5);
+            shortestBounds = new RectangleF(12 + width + gap, HeaderHeight,
+                width, StatisticsHeight - 5);
+            longestBounds = new RectangleF(12 + (width + gap) * 2f, HeaderHeight,
+                width, StatisticsHeight - 5);
+
+            DrawStatisticCard(graphics, averageBounds, "平均间隔",
+                IntervalText(report == null ? null : report.AverageInterval),
+                darkTheme ? Color.FromArgb(77, 198, 255) : Color.FromArgb(18, 127, 211),
+                primary, secondary);
+            DrawStatisticCard(graphics, shortestBounds, "最短间隔",
+                IntervalText(report == null ? null : report.ShortestInterval),
+                darkTheme ? Color.FromArgb(67, 222, 160) : Color.FromArgb(13, 153, 103),
+                primary, secondary);
+            DrawStatisticCard(graphics, longestBounds, "最长间隔",
+                IntervalText(report == null ? null : report.LongestInterval),
+                darkTheme ? Color.FromArgb(190, 135, 255) : Color.FromArgb(112, 82, 208),
+                primary, secondary);
+        }
+
+        private void DrawStatisticCard(Graphics graphics, RectangleF bounds,
+            string label, string value, Color accent, Color primary, Color secondary)
+        {
+            using (GraphicsPath path = RoundedRectangle(bounds, 10f))
+            using (Brush fill = new SolidBrush(darkTheme
+                ? Color.FromArgb(29, 255, 255, 255)
+                : Color.FromArgb(156, 255, 255, 255)))
+            using (Pen outline = new Pen(Color.FromArgb(darkTheme ? 34 : 30, accent), 0.7f))
+            {
+                graphics.FillPath(fill, path);
+                graphics.DrawPath(outline, path);
+            }
+
+            using (Brush dot = new SolidBrush(accent))
+                graphics.FillEllipse(dot, bounds.X + 10, bounds.Y + 10, 6, 6);
+            using (Font labelFont = PixelFont(9.5f, FontStyle.Bold))
+            using (Brush labelBrush = new SolidBrush(secondary))
+                DrawText(graphics, label, labelFont, labelBrush,
+                    new RectangleF(bounds.X + 21, bounds.Y + 4, bounds.Width - 28, 19),
+                    StringAlignment.Near, StringAlignment.Center);
+            using (Font valueFont = PixelFont(11.5f, FontStyle.Bold))
+            using (Brush valueBrush = new SolidBrush(primary))
+                DrawText(graphics, value, valueFont, valueBrush,
+                    new RectangleF(bounds.X + 10, bounds.Y + 22, bounds.Width - 20, 22),
+                    StringAlignment.Near, StringAlignment.Center);
+        }
+
+        private void DrawHoverDetail(Graphics graphics, Color primary, Color secondary)
+        {
+            RectangleF bounds = new RectangleF(
+                12, HeaderHeight + StatisticsHeight, DesignWidth - 24, HoverDetailHeight - 5);
+            using (GraphicsPath path = RoundedRectangle(bounds, 9f))
+            using (Brush fill = new SolidBrush(darkTheme
+                ? Color.FromArgb(22, 255, 255, 255)
+                : Color.FromArgb(116, 255, 255, 255)))
+            {
+                graphics.FillPath(fill, path);
+            }
+
+            string detail = HoverDetail(activeHoverTarget);
+            bool hasDetail = !String.IsNullOrWhiteSpace(detail);
+            if (!hasDetail)
+                detail = "悬停上方统计项查看预测 · 悬停时间轴节点查看详情";
+            Color accent = activeHoverTarget == 1
+                ? (darkTheme ? Color.FromArgb(67, 222, 160) : Color.FromArgb(13, 153, 103))
+                : (activeHoverTarget == 2
+                    ? (darkTheme ? Color.FromArgb(190, 135, 255) : Color.FromArgb(112, 82, 208))
+                    : (darkTheme ? Color.FromArgb(77, 198, 255) : Color.FromArgb(18, 127, 211)));
+            using (Brush dot = new SolidBrush(hasDetail ? accent : secondary))
+                graphics.FillEllipse(dot, bounds.X + 11, bounds.Y + 13, 6, 6);
+            using (Font font = PixelFont(hasDetail ? 9.5f : 9f,
+                hasDetail ? FontStyle.Bold : FontStyle.Regular))
+            using (Brush textBrush = new SolidBrush(hasDetail ? primary : secondary))
+                DrawText(graphics, detail, font, textBrush,
+                    new RectangleF(bounds.X + 23, bounds.Y + 3, bounds.Width - 34, bounds.Height - 6),
+                    StringAlignment.Near, StringAlignment.Center);
+        }
+
+        private void DrawTimeline(Graphics graphics, IList<ResetHistoryEntry> entries,
+            int y, Color primary, Color secondary)
+        {
+            List<ResetHistoryEntry> chronological = entries
+                .Where(item => item != null)
+                .OrderBy(item => item.ResetUnixSeconds)
+                .ToList();
+            RectangleF panel = new RectangleF(12, y, DesignWidth - 24, TimelineHeight - 4);
+            using (GraphicsPath path = RoundedRectangle(panel, 12f))
+            using (Brush fill = new SolidBrush(darkTheme
+                ? Color.FromArgb(20, 255, 255, 255)
+                : Color.FromArgb(104, 255, 255, 255)))
+            using (Pen outline = new Pen(darkTheme
+                ? Color.FromArgb(25, 109, 164, 211)
+                : Color.FromArgb(25, 54, 118, 163), 0.7f))
+            {
+                graphics.FillPath(fill, path);
+                graphics.DrawPath(outline, path);
+            }
+
+            using (Font titleFont = PixelFont(10.5f, FontStyle.Bold))
+            using (Brush titleBrush = new SolidBrush(primary))
+                DrawText(graphics, "最近 " + chronological.Count + " 次 · 位置按实际时间比例",
+                    titleFont, titleBrush, new RectangleF(24, y + 5, DesignWidth - 48, 20),
+                    StringAlignment.Near, StringAlignment.Center);
+
+            float axisLeft = 29f;
+            float axisRight = DesignWidth - 29f;
+            float axisY = y + 52f;
+            using (Pen axis = new Pen(darkTheme
+                ? Color.FromArgb(94, 147, 177, 211)
+                : Color.FromArgb(82, 82, 123, 158), 1.2f))
+            {
+                axis.StartCap = LineCap.Round;
+                axis.EndCap = LineCap.ArrowAnchor;
+                graphics.DrawLine(axis, axisLeft, axisY, axisRight, axisY);
+            }
+
+            long oldest = chronological[0].ResetUnixSeconds;
+            long newest = chronological[chronological.Count - 1].ResetUnixSeconds;
+            for (int index = 0; index < chronological.Count; index++)
+            {
+                ResetHistoryEntry entry = chronological[index];
+                float x = TimelineX(entry.ResetUnixSeconds, oldest, newest, axisLeft, axisRight);
+                Color accent = EntryAccent(entry);
+                using (Pen tick = new Pen(Color.FromArgb(darkTheme ? 155 : 135, accent), 1f))
+                    graphics.DrawLine(tick, x, axisY - 8, x, axisY + 8);
+                using (Brush halo = new SolidBrush(Color.FromArgb(darkTheme ? 54 : 43, accent)))
+                    graphics.FillEllipse(halo, x - 7, axisY - 7, 14, 14);
+                using (Brush point = new SolidBrush(accent))
+                    graphics.FillEllipse(point, x - 3.5f, axisY - 3.5f, 7, 7);
+
+                TimeSpan? previousInterval = index > 0
+                    ? (TimeSpan?)(entry.ResetAt - chronological[index - 1].ResetAt)
+                    : null;
+                timelineTargets.Add(new TimelineHoverTarget
+                {
+                    Bounds = new RectangleF(x - 8, axisY - 15, 16, 30),
+                    Entry = entry,
+                    PreviousInterval = previousInterval
+                });
+            }
+
+            string oldestText = chronological[0].ResetAt.ToLocalTime().ToString("M月d日");
+            string newestText = chronological[chronological.Count - 1].ResetAt.ToLocalTime().ToString("M月d日");
+            using (Font dateFont = PixelFont(9.5f, FontStyle.Bold))
+            using (Brush dateBrush = new SolidBrush(secondary))
+            {
+                DrawText(graphics, oldestText, dateFont, dateBrush,
+                    new RectangleF(axisLeft, axisY + 13, 90, 20),
+                    StringAlignment.Near, StringAlignment.Center);
+                DrawText(graphics, newestText, dateFont, dateBrush,
+                    new RectangleF(axisRight - 90, axisY + 13, 90, 20),
+                    StringAlignment.Far, StringAlignment.Center);
+            }
+            using (Font hintFont = PixelFont(9f, FontStyle.Regular))
+            using (Brush hintBrush = new SolidBrush(secondary))
+                DrawText(graphics, "悬停节点查看具体时间与相邻间隔", hintFont, hintBrush,
+                    new RectangleF(24, y + 91, DesignWidth - 48, 20),
+                    StringAlignment.Center, StringAlignment.Center);
         }
 
         private void DrawEntry(Graphics graphics, ResetHistoryEntry entry, int index,
@@ -208,13 +390,8 @@ namespace CodexMeter
             }
 
             string date = entry.ResetAt.ToLocalTime().ToString("M月d日 HH:mm");
-            string state = entry.IsEstimated ? "推算" : "检测";
-            string confidence = entry.Confidence >= (int)ResetConfidence.High
-                ? "高" : (entry.Confidence >= (int)ResetConfidence.Medium ? "中" : "低");
-            string label = state + " · " + confidence;
-            Color accent = entry.IsEstimated
-                ? (darkTheme ? Color.FromArgb(255, 190, 88) : Color.FromArgb(211, 119, 20))
-                : (darkTheme ? Color.FromArgb(62, 222, 145) : Color.FromArgb(18, 158, 103));
+            string label = EntryStateText(entry);
+            Color accent = EntryAccent(entry);
 
             using (Brush dot = new SolidBrush(accent))
                 graphics.FillEllipse(dot, 18, y + 12, 7, 7);
@@ -246,8 +423,67 @@ namespace CodexMeter
         private void OnSurfaceMouseMove(object sender, MouseEventArgs eventArgs)
         {
             PointF point = ToDesignPoint(eventArgs.Location);
-            Cursor = closeBounds.Contains(point) || moreBounds.Contains(point)
-                ? Cursors.Hand : Cursors.Default;
+            int hoverTarget = HoverTargetAt(point);
+            bool action = closeBounds.Contains(point) || moreBounds.Contains(point);
+            Cursor = action || hoverTarget >= 0
+                ? (action ? Cursors.Hand : Cursors.Help)
+                : Cursors.Default;
+
+            if (hoverTarget == activeHoverTarget)
+                return;
+
+            activeHoverTarget = hoverTarget;
+            Invalidate();
+        }
+
+        private int HoverTargetAt(PointF point)
+        {
+            if (averageBounds.Contains(point))
+                return 0;
+            if (shortestBounds.Contains(point))
+                return 1;
+            if (longestBounds.Contains(point))
+                return 2;
+
+            int bestIndex = -1;
+            float bestDistance = Single.MaxValue;
+            for (int index = 0; index < timelineTargets.Count; index++)
+            {
+                TimelineHoverTarget target = timelineTargets[index];
+                if (!target.Bounds.Contains(point))
+                    continue;
+                float center = target.Bounds.Left + target.Bounds.Width / 2f;
+                float distance = Math.Abs(center - point.X);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestIndex = index;
+                }
+            }
+            return bestIndex >= 0 ? 100 + bestIndex : -1;
+        }
+
+        private string HoverDetail(int target)
+        {
+            if (target == 0)
+                return ForecastInlineText(report, report == null ? null : report.AverageInterval,
+                    "平均", DateTimeOffset.Now);
+            if (target == 1)
+                return ForecastInlineText(report, report == null ? null : report.ShortestInterval,
+                    "最短", DateTimeOffset.Now);
+            if (target == 2)
+                return ForecastInlineText(report, report == null ? null : report.LongestInterval,
+                    "最长", DateTimeOffset.Now);
+            if (target < 100 || target - 100 >= timelineTargets.Count)
+                return null;
+
+            TimelineHoverTarget timeline = timelineTargets[target - 100];
+            ResetHistoryEntry entry = timeline.Entry;
+            string detail = entry.ResetAt.ToLocalTime().ToString("M月d日 HH:mm:ss") +
+                " · " + EntryStateText(entry);
+            if (timeline.PreviousInterval.HasValue)
+                detail += " · 距上一次 " + IntervalText(timeline.PreviousInterval);
+            return detail;
         }
 
         private void OnSurfaceMouseClick(object sender, MouseEventArgs eventArgs)
@@ -265,6 +501,7 @@ namespace CodexMeter
             if (moreBounds.Contains(point))
             {
                 showAll = !showAll;
+                activeHoverTarget = Int32.MinValue;
                 UpdateSurfaceSize();
                 Invalidate();
                 EventHandler handler = LayoutChanged;
@@ -289,8 +526,11 @@ namespace CodexMeter
             int rows = VisibleEntries().Count;
             int emptyHeight = rows == 0 ? 44 : 0;
             int footer = report != null && report.Entries.Count > 3 ? FooterHeight : 0;
-            int designHeight = HeaderHeight + SummaryHeight + 2 +
-                (rows * RowHeight) + emptyHeight + footer + BottomPadding;
+            int contentHeight = rows == 0
+                ? emptyHeight
+                : (showAll && rows > 1 ? TimelineHeight : rows * RowHeight);
+            int designHeight = HeaderHeight + StatisticsHeight + HoverDetailHeight + 4 +
+                contentHeight + footer + BottomPadding;
             Size = new Size(Px(DesignWidth), Px(designHeight));
         }
 
@@ -307,14 +547,101 @@ namespace CodexMeter
             if (value == null || !value.AverageInterval.HasValue || value.AverageIntervalCount <= 0)
                 return "平均间隔：样本不足";
 
-            TimeSpan interval = value.AverageInterval.Value;
-            int totalHours = Math.Max(0, Convert.ToInt32(Math.Round(interval.TotalHours)));
-            int days = totalHours / 24;
-            int hours = totalHours % 24;
-            string duration = days > 0
-                ? days + "天" + (hours > 0 ? hours + "小时" : String.Empty)
-                : hours + "小时";
-            return "平均间隔 " + duration + " · " + value.AverageIntervalCount + " 个区间";
+            return "平均间隔 " + IntervalText(value.AverageInterval) + " · " +
+                value.AverageIntervalCount + " 个区间";
+        }
+
+        internal static string IntervalText(TimeSpan? value)
+        {
+            if (!value.HasValue)
+                return "样本不足";
+
+            int totalMinutes = Math.Max(0,
+                Convert.ToInt32(Math.Round(Math.Abs(value.Value.TotalMinutes))));
+            int days = totalMinutes / (24 * 60);
+            int hours = (totalMinutes / 60) % 24;
+            int minutes = totalMinutes % 60;
+            if (days > 0)
+                return days + "天" + (hours > 0 ? hours + "小时" : String.Empty);
+            if (hours > 0)
+                return hours + "小时" + (minutes > 0 ? minutes + "分钟" : String.Empty);
+            return minutes + "分钟";
+        }
+
+        internal static string ForecastText(ResetHistoryReport value, TimeSpan? interval,
+            string label, DateTimeOffset now)
+        {
+            if (value == null || !interval.HasValue || value.Entries == null)
+                return label + "间隔：样本不足";
+
+            ResetHistoryEntry latest = value.Entries
+                .Where(item => item != null &&
+                    item.Confidence >= (int)ResetConfidence.Medium)
+                .OrderByDescending(item => item.ResetUnixSeconds)
+                .FirstOrDefault();
+            if (latest == null)
+                return label + "间隔：样本不足";
+
+            DateTimeOffset predicted = latest.ResetAt.Add(interval.Value);
+            TimeSpan remaining = predicted - now;
+            string timing = remaining >= TimeSpan.Zero
+                ? "预计还有 " + IntervalText(remaining)
+                : "预计时间已过 " + IntervalText(remaining.Duration()) +
+                    "，尚未检测到新重置";
+            return "按" + label + "间隔推算\r\n预计重置：" +
+                predicted.ToLocalTime().ToString("M月d日 HH:mm") + "\r\n" + timing;
+        }
+
+        internal static string ForecastInlineText(ResetHistoryReport value, TimeSpan? interval,
+            string label, DateTimeOffset now)
+        {
+            if (value == null || !interval.HasValue || value.Entries == null)
+                return label + "间隔：样本不足";
+
+            ResetHistoryEntry latest = value.Entries
+                .Where(item => item != null &&
+                    item.Confidence >= (int)ResetConfidence.Medium)
+                .OrderByDescending(item => item.ResetUnixSeconds)
+                .FirstOrDefault();
+            if (latest == null)
+                return label + "间隔：样本不足";
+
+            DateTimeOffset predicted = latest.ResetAt.Add(interval.Value);
+            TimeSpan remaining = predicted - now;
+            string timing = remaining >= TimeSpan.Zero
+                ? "还有 " + IntervalText(remaining)
+                : "已过 " + IntervalText(remaining.Duration()) + "，尚未检测到新重置";
+            return label + "推算：" + predicted.ToLocalTime().ToString("M月d日 HH:mm") +
+                " · " + timing;
+        }
+
+        internal static float TimelineX(long timestamp, long oldest, long newest,
+            float left, float right)
+        {
+            if (newest <= oldest)
+                return (left + right) / 2f;
+            double ratio = (timestamp - oldest) / (double)(newest - oldest);
+            ratio = Math.Max(0, Math.Min(1, ratio));
+            return left + Convert.ToSingle((right - left) * ratio);
+        }
+
+        private Color EntryAccent(ResetHistoryEntry entry)
+        {
+            if (entry != null && !entry.IsEstimated)
+                return darkTheme ? Color.FromArgb(62, 222, 145) : Color.FromArgb(18, 158, 103);
+            if (entry != null && entry.Confidence < (int)ResetConfidence.Medium)
+                return darkTheme ? Color.FromArgb(255, 190, 88) : Color.FromArgb(211, 119, 20);
+            return darkTheme ? Color.FromArgb(86, 203, 255) : Color.FromArgb(18, 127, 211);
+        }
+
+        private static string EntryStateText(ResetHistoryEntry entry)
+        {
+            if (entry == null)
+                return String.Empty;
+            string state = entry.IsEstimated ? "推算" : "检测";
+            string confidence = entry.Confidence >= (int)ResetConfidence.High
+                ? "高" : (entry.Confidence >= (int)ResetConfidence.Medium ? "中" : "低");
+            return state + " · " + confidence;
         }
 
         private PointF ToDesignPoint(Point point)
@@ -355,6 +682,13 @@ namespace CodexMeter
             path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
             path.CloseFigure();
             return path;
+        }
+
+        private sealed class TimelineHoverTarget
+        {
+            public RectangleF Bounds { get; set; }
+            public ResetHistoryEntry Entry { get; set; }
+            public TimeSpan? PreviousInterval { get; set; }
         }
     }
 }

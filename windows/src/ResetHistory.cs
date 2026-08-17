@@ -42,6 +42,8 @@ namespace CodexMeter
     {
         public List<ResetHistoryEntry> Entries { get; set; }
         public TimeSpan? AverageInterval { get; set; }
+        public TimeSpan? ShortestInterval { get; set; }
+        public TimeSpan? LongestInterval { get; set; }
         public int AverageIntervalCount { get; set; }
         public long ImportedSnapshots { get; set; }
         public string Error { get; set; }
@@ -554,6 +556,8 @@ namespace CodexMeter
             if (intervals.Count > 0)
             {
                 report.AverageInterval = TimeSpan.FromHours(intervals.Average());
+                report.ShortestInterval = TimeSpan.FromHours(intervals.Min());
+                report.LongestInterval = TimeSpan.FromHours(intervals.Max());
                 report.AverageIntervalCount = intervals.Count;
             }
             return report;
