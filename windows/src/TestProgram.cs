@@ -40,6 +40,7 @@ namespace CodexMeter
                 if (args.Length > 0 && String.Equals(args[0], "--reset-history-test", StringComparison.OrdinalIgnoreCase))
                 {
                     CheckResetHistoryDetection();
+                    CheckResetHistoryWindowStartInference();
                     Console.WriteLine(failures == 0 ? "RESET_HISTORY_TEST_OK" : "RESET_HISTORY_TEST_FAILED=" + failures);
                     return failures == 0 ? 0 : 1;
                 }
@@ -54,6 +55,7 @@ namespace CodexMeter
                 CheckPaceDailyAllowance();
                 CheckResetTimePresentation();
                 CheckResetHistoryDetection();
+                CheckResetHistoryWindowStartInference();
                 CheckResetHistoryPopupCloseLifecycle();
                 CheckDataFreshnessPresentation();
                 CheckErrorSanitization();
@@ -789,6 +791,69 @@ namespace CodexMeter
                 "average reset interval excludes low-confidence records");
             Expect(ResetHistorySurface.AverageText(report).IndexOf("7天12小时",
                 StringComparison.Ordinal) >= 0, "history panel formats the average reset interval");
+        }
+
+        private static void CheckResetHistoryWindowStartInference()
+        {
+            DateTimeOffset windowStart = new DateTimeOffset(2026, 8, 14, 6, 38, 40, TimeSpan.Zero);
+            DateTimeOffset resetTarget = windowStart.AddDays(7);
+            ResetHistorySample sample = new ResetHistorySample
+            {
+                ObservedUnixSeconds = windowStart.AddMinutes(2).ToUnixTimeSeconds(),
+                UsedPercent = 0,
+                ResetUnixSeconds = resetTarget.ToUnixTimeSeconds()
+            };
+            ResetHistoryEntry inferred = ResetHistoryStore.InferWindowStart(sample);
+            Expect(inferred != null && inferred.ResetAt == windowStart && inferred.IsEstimated &&
+                inferred.Confidence == (int)ResetConfidence.Medium,
+                "weekly reset target infers the current window start");
+
+            ResetHistorySample impossible = new ResetHistorySample
+            {
+                ObservedUnixSeconds = windowStart.AddHours(-1).ToUnixTimeSeconds(),
+                UsedPercent = 0,
+                ResetUnixSeconds = resetTarget.ToUnixTimeSeconds()
+            };
+            Expect(ResetHistoryStore.InferWindowStart(impossible) == null,
+                "window start inference rejects observations outside the provider window");
+
+            string root = Path.Combine(Path.GetTempPath(),
+                "CodexMeter-ResetHistory-" + Guid.NewGuid().ToString("N"));
+            string sessions = Path.Combine(root, "sessions");
+            string archived = Path.Combine(root, "archived");
+            string cache = Path.Combine(root, "cache", "reset-history.json");
+            try
+            {
+                Directory.CreateDirectory(sessions);
+                string line = "{\"timestamp\":\"" +
+                    sample.ObservedAt.ToString("O") + "\",\"type\":\"event_msg\"," +
+                    "\"payload\":{\"type\":\"token_count\",\"info\":null," +
+                    "\"rate_limits\":{\"limit_id\":\"codex\",\"primary\":{" +
+                    "\"used_percent\":0,\"window_minutes\":10080,\"resets_at\":" +
+                    sample.ResetUnixSeconds + "},\"secondary\":null}}}";
+                File.WriteAllText(Path.Combine(sessions, "window-start.jsonl"),
+                    line + Environment.NewLine, new System.Text.UTF8Encoding(false));
+
+                ResetHistoryStore store = new ResetHistoryStore(sessions, archived, cache);
+                ResetHistoryReport imported = store.ImportLocalHistory();
+                Expect(imported.Entries.Count == 1 && imported.Entries[0].ResetAt == windowStart,
+                    "local logs recover a reset from the provider window start");
+
+                UsageWindow liveWindow = new UsageWindow
+                {
+                    UsedPercent = 8,
+                    WindowMinutes = 10080,
+                    ResetsAt = resetTarget
+                };
+                ResetHistoryReport observed = store.Observe(liveWindow, windowStart.AddDays(3));
+                Expect(observed.Entries.Count == 1 && observed.Entries[0].EvidenceCount == 1,
+                    "repeated live window observations do not duplicate reset history");
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, true);
+            }
         }
 
         private static void CheckResetHistoryPopupCloseLifecycle()

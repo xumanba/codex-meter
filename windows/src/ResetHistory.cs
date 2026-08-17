@@ -134,8 +134,10 @@ namespace CodexMeter
                 ResetHistoryEntry candidate = DetectTransition(previous, current, "live");
                 if (candidate != null)
                     MergeEntry(data.Entries, candidate);
+                ResetHistoryEntry inferredWindowStart = InferWindowStart(current);
+                bool addedWindowStart = MergeInferredEntry(data.Entries, inferredWindowStart);
                 data.LiveSample = current;
-                bool shouldSave = candidate != null || previous == null ||
+                bool shouldSave = candidate != null || addedWindowStart || previous == null ||
                     previous.ResetUnixSeconds != current.ResetUnixSeconds ||
                     Math.Abs(previous.UsedPercent - current.UsedPercent) >= 0.01 ||
                     current.ObservedUnixSeconds - previous.ObservedUnixSeconds >= 15 * 60;
@@ -150,6 +152,7 @@ namespace CodexMeter
             string error = null;
             long importedSnapshots = 0;
             List<ResetHistoryEntry> candidates = new List<ResetHistoryEntry>();
+            List<ResetHistoryEntry> inferredWindowStarts = new List<ResetHistoryEntry>();
 
             try
             {
@@ -166,7 +169,12 @@ namespace CodexMeter
 
                     try
                     {
-                        importedSnapshots += ScanFile(file.Value, checkpoint, candidates);
+                        importedSnapshots += ScanFile(
+                            file.Value, checkpoint, candidates, inferredWindowStarts);
+                        ResetHistoryEntry checkpointWindowStart =
+                            InferWindowStart(checkpoint.LastSample);
+                        if (checkpointWindowStart != null)
+                            inferredWindowStarts.Add(checkpointWindowStart);
                         lock (syncRoot)
                             data.Files[file.Key] = checkpoint;
                     }
@@ -189,6 +197,8 @@ namespace CodexMeter
             {
                 foreach (ResetHistoryEntry candidate in candidates)
                     MergeEntry(data.Entries, candidate);
+                foreach (ResetHistoryEntry inferredWindowStart in inferredWindowStarts)
+                    MergeInferredEntry(data.Entries, inferredWindowStart);
                 data.ImportedSnapshots += importedSnapshots;
                 data.LastImportUnixSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 Save(data);
@@ -249,6 +259,34 @@ namespace CodexMeter
             };
         }
 
+        internal static ResetHistoryEntry InferWindowStart(ResetHistorySample sample)
+        {
+            if (sample == null || sample.ResetUnixSeconds <= 0 ||
+                sample.ObservedUnixSeconds <= 0)
+            {
+                return null;
+            }
+
+            DateTimeOffset windowStart = sample.ResetAt.AddMinutes(-WeeklyWindowMinutes);
+            DateTimeOffset observedAt = sample.ObservedAt;
+            if (observedAt < windowStart.AddMinutes(-5) ||
+                observedAt > sample.ResetAt.AddMinutes(5))
+            {
+                return null;
+            }
+
+            return new ResetHistoryEntry
+            {
+                ResetUnixSeconds = windowStart.ToUnixTimeSeconds(),
+                DetectedUnixSeconds = sample.ObservedUnixSeconds,
+                BeforeUsedPercent = 0,
+                AfterUsedPercent = Math.Max(0, Math.Min(100, sample.UsedPercent)),
+                Confidence = (int)ResetConfidence.Medium,
+                EvidenceCount = 1,
+                Kind = "estimated"
+            };
+        }
+
         internal static ResetHistoryReport BuildReportForTests(IEnumerable<ResetHistoryEntry> entries)
         {
             ResetHistoryData testData = new ResetHistoryData();
@@ -257,7 +295,8 @@ namespace CodexMeter
         }
 
         private long ScanFile(string path, ResetLogCheckpoint checkpoint,
-            ICollection<ResetHistoryEntry> candidates)
+            ICollection<ResetHistoryEntry> candidates,
+            ICollection<ResetHistoryEntry> inferredWindowStarts)
         {
             FileInfo info = new FileInfo(path);
             if (!info.Exists)
@@ -283,8 +322,17 @@ namespace CodexMeter
                         return;
 
                     parsedSnapshots++;
+                    ResetHistorySample previous = checkpoint.LastSample;
+                    if (previous == null || Math.Abs(
+                            previous.ResetUnixSeconds - sample.ResetUnixSeconds) >
+                        MergeTolerance.TotalSeconds)
+                    {
+                        ResetHistoryEntry inferredWindowStart = InferWindowStart(sample);
+                        if (inferredWindowStart != null)
+                            inferredWindowStarts.Add(inferredWindowStart);
+                    }
                     ResetHistoryEntry candidate = DetectTransition(
-                        checkpoint.LastSample, sample, "local_log");
+                        previous, sample, "local_log");
                     if (candidate != null)
                         candidates.Add(candidate);
                     checkpoint.LastSample = sample;
@@ -541,6 +589,48 @@ namespace CodexMeter
             {
                 existing.Confidence = (int)ResetConfidence.Medium;
             }
+        }
+
+        private static bool MergeInferredEntry(
+            IList<ResetHistoryEntry> entries, ResetHistoryEntry candidate)
+        {
+            if (candidate == null)
+                return false;
+
+            ResetHistoryEntry existing = entries
+                .Where(item => item != null)
+                .OrderBy(item => Math.Abs(item.ResetUnixSeconds - candidate.ResetUnixSeconds))
+                .FirstOrDefault(item => Math.Abs(item.ResetUnixSeconds - candidate.ResetUnixSeconds) <=
+                    MergeTolerance.TotalSeconds);
+            if (existing == null)
+            {
+                entries.Add(CloneEntry(candidate));
+                return true;
+            }
+
+            bool changed = false;
+            if (existing.Confidence < candidate.Confidence)
+            {
+                existing.Confidence = candidate.Confidence;
+                existing.ResetUnixSeconds = candidate.ResetUnixSeconds;
+                changed = true;
+            }
+            if (existing.EvidenceCount <= 0)
+            {
+                existing.EvidenceCount = 1;
+                changed = true;
+            }
+            if (existing.DetectedUnixSeconds <= 0 && candidate.DetectedUnixSeconds > 0)
+            {
+                existing.DetectedUnixSeconds = candidate.DetectedUnixSeconds;
+                changed = true;
+            }
+            if (candidate.AfterUsedPercent < existing.AfterUsedPercent)
+            {
+                existing.AfterUsedPercent = candidate.AfterUsedPercent;
+                changed = true;
+            }
+            return changed;
         }
 
         private static ResetHistoryEntry CloneEntry(ResetHistoryEntry item)
