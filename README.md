@@ -38,7 +38,7 @@
 | 平台 | 原生界面 | 当前版本 / 安装包 | 数据来源 |
 |---|---|---|---|
 | Windows 10/11 | WinForms + DWM，Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip) | [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar) CLI |
-| macOS 14+ | SwiftUI + AppKit | [`CodexMeter-macos-universal-0.2.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) | 内置 CodexBar CLI |
+| macOS 14+ | SwiftUI + AppKit | [`ZIP`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) · [`DMG`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.dmg) | 内置 CodexBar CLI |
 
 Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](windows/README.zh-CN.md)。不同平台的版本差异请看 [`VERSION-GUIDE.md`](VERSION-GUIDE.md)。
 
@@ -102,8 +102,8 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 
 ### macOS v0.2.0
 
-1. 从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载 `CodexMeter-macos-universal-0.2.0.zip`。
-2. 解压后将 **CodexMeter.app** 拖到“应用程序”。
+1. 从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载 DMG（推荐）或 ZIP。
+2. 打开 DMG，将 **CodexMeter.app** 拖到“应用程序”；如果使用 ZIP，则解压后拖入“应用程序”。
 3. 当前版本是 ad-hoc 签名且没有 Apple notarization，第一次打开时请右键应用并选择“打开”；如果仍被拦截，请到“系统设置 → 隐私与安全性”中选择“仍要打开”。
 4. 打开 CodexMeter；本机 Codex 登录有效时，浮窗会自动出现。
 
@@ -134,7 +134,7 @@ chmod +x install.sh uninstall.sh build-app.sh
 ./Scripts/package-release.sh
 ```
 
-输出文件为 `.build/release/CodexMeter-macos-universal-0.2.0.zip` 及对应的 `.sha256` 校验文件。构建脚本会检查 arm64/x86_64 架构、深度签名、CodexBar 许可证和应用图标。
+输出文件为 `.build/release/CodexMeter-macos-universal-0.2.0.zip`、`.dmg` 及各自的 `.sha256` 校验文件。构建脚本会检查 arm64/x86_64 架构、深度签名、CodexBar 许可证、应用图标，并验证 DMG 可以挂载。
 
 ## 边缘吸附
 

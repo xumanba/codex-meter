@@ -43,7 +43,7 @@ time on Windows, or use the detailed current-quota token view on macOS.
 | Platform | Native UI | Release / install | Data provider |
 |---|---|---|---|
 | Windows 10/11 | WinForms + DWM, Per-Monitor V2 DPI | `Codex-Meter-Windows-portable-v0.1.1.zip` | [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar) CLI |
-| macOS 14+ | SwiftUI + AppKit | [`CodexMeter-macos-universal-0.2.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) | Bundled CodexBar CLI |
+| macOS 14+ | SwiftUI + AppKit | [`ZIP`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) · [`DMG`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.dmg) | Bundled CodexBar CLI |
 
 Windows-specific build, install and troubleshooting instructions are available
 in [`windows/README.zh-CN.md`](windows/README.zh-CN.md). See the bilingual
@@ -186,8 +186,9 @@ copy and stops with a clear message instead of attempting to replace it.
 
 ### macOS v0.2.0
 
-Download `CodexMeter-macos-universal-0.2.0.zip` from the v0.2.0 Release, open the
-ZIP and move **CodexMeter.app** to Applications. The package is ad-hoc signed,
+Download the DMG (recommended) or ZIP from the v0.2.0 Release. Open the DMG and
+drag **CodexMeter.app** to Applications; with the ZIP, extract it first. The
+package is ad-hoc signed,
 not Apple-notarized: Control-click the app and choose **Open** the first time,
 or approve it under **System Settings → Privacy & Security**.
 
@@ -319,7 +320,7 @@ network.
 
 The Windows build uses the .NET Framework compiler already present on Windows
 and downloads no NuGet dependencies. The Release script verifies the executable
-version, runs the test suite, checks ZIP contents and prints SHA-256 hashes.
+version, runs the test suite, checks ZIP/DMG contents and prints SHA-256 hashes.
 
 ### macOS v0.2.0 release line
 
