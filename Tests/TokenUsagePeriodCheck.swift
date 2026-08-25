@@ -38,8 +38,75 @@ enum TokenUsagePeriodCheck {
 
         checkDailyQuotaPercentages()
         checkModelQuotaEstimation()
+        checkForkedBaselineHandling()
+        checkTokenWindowFiltering()
 
         print("Token usage period checks passed")
+    }
+
+    private static func checkForkedBaselineHandling() {
+        precondition(
+            TokenUsageScanner.shouldSkipForkedBaseline(
+                isForkedSession: true,
+                modelIsKnown: false,
+                hasPreviousTotal: false
+            )
+        )
+        precondition(
+            !TokenUsageScanner.shouldSkipForkedBaseline(
+                isForkedSession: false,
+                modelIsKnown: false,
+                hasPreviousTotal: false
+            )
+        )
+        precondition(
+            !TokenUsageScanner.shouldSkipForkedBaseline(
+                isForkedSession: true,
+                modelIsKnown: true,
+                hasPreviousTotal: false
+            )
+        )
+        precondition(
+            !TokenUsageScanner.shouldSkipForkedBaseline(
+                isForkedSession: true,
+                modelIsKnown: false,
+                hasPreviousTotal: true
+            )
+        )
+    }
+
+    private static func checkTokenWindowFiltering() {
+        let weeklyReset = Date(timeIntervalSince1970: 2_000_000)
+        let shortWindowReset = weeklyReset.addingTimeInterval(60 * 60)
+
+        precondition(
+            TokenUsageScanner.shouldIncludeTokenEvent(
+                quotaWindowMinutes: 300,
+                quotaResetsAt: shortWindowReset,
+                weeklyReset: weeklyReset
+            )
+        )
+        precondition(
+            TokenUsageScanner.shouldIncludeTokenEvent(
+                quotaWindowMinutes: 10080,
+                quotaResetsAt: weeklyReset,
+                weeklyReset: weeklyReset
+            )
+        )
+        precondition(
+            !TokenUsageScanner.shouldIncludeTokenEvent(
+                quotaWindowMinutes: 10080,
+                quotaResetsAt: shortWindowReset,
+                weeklyReset: weeklyReset
+            )
+        )
+        precondition(
+            TokenUsageScanner.shouldIncludeTokenEvent(
+                quotaWindowMinutes: nil,
+                quotaResetsAt: nil,
+                weeklyReset: weeklyReset
+            )
+        )
     }
 
     private static func checkDailyQuotaPercentages() {
