@@ -1,0 +1,5 @@
+windows/dist/
+windows/dist-fallback/
+windows/release-stage-*/
+windows/*.zip
+windows/*.zip.sha256
