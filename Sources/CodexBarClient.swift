@@ -5,6 +5,7 @@ final class CodexBarClient: ObservableObject {
     @Published private(set) var snapshot: UsageSnapshot?
     @Published private(set) var tokenUsage: TokenUsageSnapshot?
     @Published private(set) var isConnected = false
+    @Published private(set) var isRefreshing = false
     @Published private(set) var lastError: String?
 
     private let endpoint = URL(string: "http://127.0.0.1:18747/usage?provider=codex")!
@@ -31,6 +32,7 @@ final class CodexBarClient: ObservableObject {
     }
 
     func refreshNow() {
+        guard !isRefreshing else { return }
         Task { await refresh(startServerIfNeeded: true) }
     }
 
@@ -42,6 +44,14 @@ final class CodexBarClient: ObservableObject {
     }
 
     private func refresh(startServerIfNeeded: Bool) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
+        await performRefresh(startServerIfNeeded: startServerIfNeeded)
+    }
+
+    private func performRefresh(startServerIfNeeded: Bool) async {
         let refreshDate = Date()
         do {
             let usageSnapshot = try await fetch()
@@ -61,7 +71,7 @@ final class CodexBarClient: ObservableObject {
             if startServerIfNeeded && serverProcess?.isRunning != true {
                 startServer()
                 try? await Task.sleep(for: .seconds(1))
-                await refresh(startServerIfNeeded: false)
+                await performRefresh(startServerIfNeeded: false)
                 return
             }
             tokenUsage = await scanTokenUsage(

@@ -85,8 +85,15 @@ struct TokenUsagePeriod: Codable, Equatable, Sendable {
         }
 
         let usageDropped = usedPercent + 0.5 < lastUsedPercent
+        let nextStart: Date
+        if let resetAt {
+            nextStart = resetAt.addingTimeInterval(-7 * 60 * 60 * 24)
+        } else {
+            nextStart = resetChanged || usageDropped ? now : start
+        }
+
         return TokenUsagePeriod(
-            start: resetChanged || usageDropped ? now : start,
+            start: nextStart,
             resetsAt: resetAt ?? resetsAt,
             lastUsedPercent: usedPercent
         )
@@ -283,7 +290,7 @@ enum TokenUsageScanner {
         let quotaStart = quotaPeriodStart
             ?? weeklyResetsAt?.addingTimeInterval(-7 * 60 * 60 * 24)
             ?? firstDay
-        let eventCutoff = max(firstDay, quotaStart)
+        let eventCutoff = quotaStart
         let events = scanFiles(cutoff: eventCutoff)
 
         var quotaSamples = loadQuotaSamples(currentReset: weeklyResetsAt)
