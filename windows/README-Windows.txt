@@ -1,16 +1,16 @@
-CodexMeter for Windows v0.1.1 (development build)
+CodexMeter for Windows v0.1.3
 ==================================================
 
 中文安装说明
 ------------
 
 1. 系统要求：Windows 10 或 Windows 11，.NET Framework 4.7.2 或更高版本。
-2. 请先安装并登录 Win-CodexBar：
-   https://github.com/Finesssee/Win-CodexBar
-3. 解压整个 ZIP，保持本文件夹内的文件在一起。
+2. 请先登录 Codex 桌面客户端，或运行 codex login。
+3. 完整解压整个 ZIP，保持 CodexMeter.exe、codexbar-cli.exe 和许可证文件
+   位于同一个文件夹；不需要另外安装 Win-CodexBar。
 4. 双击 CodexMeter.exe。
-5. 如果 Windows 显示“未知发布者”，请确认文件来自本项目 Release 后，
-   选择“更多信息”→“仍要运行”。
+5. CodexMeter 和内置 CLI 均未进行 Authenticode 签名。如果 Windows 显示
+   “未知发布者”，请先核对 Release SHA-256，再选择“更多信息”→“仍要运行”。
 6. 若窗口被隐藏，请双击系统托盘中的 CodexMeter 图标恢复。
 7. 网速是整台电脑所有活动网卡的总流量，并非 Codex 专属流量。
 8. 聚焦显示每周额度和“xd xh 后重置”；悬停可查看当前预计的本机日期
@@ -49,12 +49,13 @@ English installation
 --------------------
 
 1. Requires Windows 10/11 and .NET Framework 4.7.2 or newer.
-2. Install and sign in to Win-CodexBar first:
-   https://github.com/Finesssee/Win-CodexBar
-3. Extract the entire ZIP and keep all files in this folder together.
+2. Sign in to the Codex desktop app first, or run `codex login`.
+3. Fully extract the ZIP and keep CodexMeter.exe, codexbar-cli.exe and the
+   license files together. No separate Win-CodexBar installation is required.
 4. Run CodexMeter.exe.
-5. The binary is not Authenticode-signed. Windows may display an
-   unknown-publisher warning; continue only after verifying the download.
+5. CodexMeter and the bundled CLI are not Authenticode-signed. Windows may
+   display an unknown-publisher warning; continue only after verifying the
+   Release SHA-256.
 6. If the card is hidden, double-click its notification-area icon to restore it.
 7. Network speed is aggregate system traffic, not Codex-only traffic.
 8. The focused Windows card shows the weekly allowance and its "xd xh until

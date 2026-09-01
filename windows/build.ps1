@@ -7,6 +7,8 @@ $repositoryDirectory = Split-Path -Parent $windowsDirectory
 $sourceDirectory = Join-Path $windowsDirectory "src"
 $outputDirectory = Join-Path $windowsDirectory "dist"
 $iconPath = Join-Path $windowsDirectory "assets\CodexMeter.ico"
+$bundledCliPath = Join-Path $windowsDirectory "vendor\codexbar-cli.exe"
+$bundledCliSha256 = "C0B737E1B36E0D90524AA6FAB169D718EBB9E54F00656695E340522D284ADFAD"
 $compilerCandidates = @(
     "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe",
     "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
@@ -19,11 +21,33 @@ if (-not $compiler) {
 if (-not (Test-Path -LiteralPath $iconPath)) {
     throw "The Windows application icon was not found: $iconPath"
 }
+if (-not (Test-Path -LiteralPath $bundledCliPath)) {
+    throw "The bundled Win-CodexBar CLI was not found: $bundledCliPath"
+}
+$actualBundledCliHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $bundledCliPath).Hash
+if (-not [String]::Equals($actualBundledCliHash, $bundledCliSha256,
+    [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Bundled Win-CodexBar CLI SHA-256 mismatch: $actualBundledCliHash"
+}
 
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
-$sourceFiles = Get-ChildItem -LiteralPath $sourceDirectory -Filter "*.cs" |
+$sourceFiles = @(Get-ChildItem -LiteralPath $sourceDirectory -Filter "*.cs" |
     Where-Object { $_.Name -ne "CodexMeterForm.cs" } |
-    ForEach-Object { $_.FullName }
+    Sort-Object -Property Name |
+    ForEach-Object { $_.FullName })
+$applicationSourceFiles = @($sourceFiles |
+    Where-Object { [System.IO.Path]::GetFileName($_) -ne "TestProgram.cs" })
+$testProgramSource = Join-Path $sourceDirectory "TestProgram.cs"
+
+if ($sourceFiles.Count -eq 0) {
+    throw "No Windows source files were found."
+}
+if (-not (Test-Path -LiteralPath $testProgramSource)) {
+    throw "The Windows test entry point was not found: $testProgramSource"
+}
+if ($applicationSourceFiles -contains $testProgramSource) {
+    throw "The production source list must not contain TestProgram.cs."
+}
 
 $commonArguments = @(
     "/nologo",
@@ -38,7 +62,7 @@ $commonArguments = @(
 )
 
 $applicationPath = Join-Path $outputDirectory "CodexMeter.exe"
-& $compiler $commonArguments "/target:winexe" "/main:CodexMeter.Program" "/win32manifest:$windowsDirectory\app.manifest" "/win32icon:$iconPath" "/out:$applicationPath" $sourceFiles
+& $compiler $commonArguments "/target:winexe" "/main:CodexMeter.Program" "/win32manifest:$windowsDirectory\app.manifest" "/win32icon:$iconPath" "/out:$applicationPath" $applicationSourceFiles
 if ($LASTEXITCODE -ne 0) {
     throw "CodexMeter.exe build failed with exit code $LASTEXITCODE"
 }
@@ -60,7 +84,10 @@ Copy-Item -LiteralPath (Join-Path $windowsDirectory "CodexMeter.exe.config") -De
 Copy-Item -LiteralPath (Join-Path $repositoryDirectory "LICENSE") -Destination (Join-Path $outputDirectory "LICENSE.txt") -Force
 Copy-Item -LiteralPath (Join-Path $repositoryDirectory "NOTICE") -Destination (Join-Path $outputDirectory "NOTICE.txt") -Force
 Copy-Item -LiteralPath (Join-Path $repositoryDirectory "ThirdPartyLicenses\CodexBar-LICENSE.txt") -Destination (Join-Path $outputDirectory "CodexBar-LICENSE.txt") -Force
+Copy-Item -LiteralPath (Join-Path $repositoryDirectory "ThirdPartyLicenses\Win-CodexBar-LICENSE.txt") -Destination (Join-Path $outputDirectory "Win-CodexBar-LICENSE.txt") -Force
+Copy-Item -LiteralPath $bundledCliPath -Destination (Join-Path $outputDirectory "codexbar-cli.exe") -Force
 
 Write-Host "BUILD_OK"
 Write-Host "Application: $applicationPath"
 Write-Host "Tests: $testPath"
+Write-Host "Bundled Win-CodexBar CLI: 0.45.2 ($actualBundledCliHash)"

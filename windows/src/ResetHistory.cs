@@ -15,6 +15,14 @@ namespace CodexMeter
         High = 3
     }
 
+    internal static class ResetHistorySource
+    {
+        public const string LiveTransition = "live_transition";
+        public const string LocalLogTransition = "local_log_transition";
+        public const string ProviderWindow = "provider_window";
+        public const string Legacy = "legacy";
+    }
+
     internal sealed class ResetHistoryEntry
     {
         public long ResetUnixSeconds { get; set; }
@@ -24,6 +32,7 @@ namespace CodexMeter
         public int Confidence { get; set; }
         public int EvidenceCount { get; set; }
         public string Kind { get; set; }
+        public string Source { get; set; }
 
         [ScriptIgnore]
         public DateTimeOffset ResetAt
@@ -257,7 +266,10 @@ namespace CodexMeter
                 AfterUsedPercent = current.UsedPercent,
                 Confidence = (int)confidence,
                 EvidenceCount = 1,
-                Kind = directObservation ? "observed" : "estimated"
+                Kind = directObservation ? "observed" : "estimated",
+                Source = String.Equals(source, "live", StringComparison.OrdinalIgnoreCase)
+                    ? ResetHistorySource.LiveTransition
+                    : ResetHistorySource.LocalLogTransition
             };
         }
 
@@ -283,9 +295,13 @@ namespace CodexMeter
                 DetectedUnixSeconds = sample.ObservedUnixSeconds,
                 BeforeUsedPercent = 0,
                 AfterUsedPercent = Math.Max(0, Math.Min(100, sample.UsedPercent)),
-                Confidence = (int)ResetConfidence.Medium,
+                // The timestamp is calculated directly from the provider's weekly
+                // window boundary. Its source is inferred, but its timestamp accuracy
+                // is high; keep those two concepts separate.
+                Confidence = (int)ResetConfidence.High,
                 EvidenceCount = 1,
-                Kind = "estimated"
+                Kind = "estimated",
+                Source = ResetHistorySource.ProviderWindow
             };
         }
 
@@ -404,7 +420,7 @@ namespace CodexMeter
         {
             sample = null;
             if (String.IsNullOrEmpty(line) ||
-                !String.Equals(ExtractJsonString(line, "\"type\"", 0),
+                !String.Equals(RolloutJsonFields.ExtractString(line, "\"type\"", 0),
                     "event_msg", StringComparison.Ordinal))
             {
                 return false;
@@ -412,7 +428,7 @@ namespace CodexMeter
 
             int payloadIndex = line.IndexOf("\"payload\"", StringComparison.Ordinal);
             if (payloadIndex < 0 || !String.Equals(
-                    ExtractJsonString(line, "\"type\"", payloadIndex),
+                    RolloutJsonFields.ExtractString(line, "\"type\"", payloadIndex),
                     "token_count", StringComparison.Ordinal))
             {
                 return false;
@@ -420,7 +436,7 @@ namespace CodexMeter
 
             int rateLimitIndex = line.IndexOf("\"rate_limits\"", payloadIndex, StringComparison.Ordinal);
             if (rateLimitIndex < 0 || !String.Equals(
-                    ExtractJsonString(line, "\"limit_id\"", rateLimitIndex),
+                    RolloutJsonFields.ExtractString(line, "\"limit_id\"", rateLimitIndex),
                     "codex", StringComparison.OrdinalIgnoreCase))
             {
                 return false;
@@ -433,16 +449,19 @@ namespace CodexMeter
             long resetUnixSeconds;
             long windowMinutes;
             double usedPercent;
-            if (!TryExtractDouble(line, "\"used_percent\"", primaryIndex, out usedPercent) ||
-                !TryExtractLong(line, "\"window_minutes\"", primaryIndex, out windowMinutes) ||
+            if (!RolloutJsonFields.TryExtractDouble(
+                    line, "\"used_percent\"", primaryIndex, out usedPercent) ||
+                !RolloutJsonFields.TryExtractLong(
+                    line, "\"window_minutes\"", primaryIndex, out windowMinutes) ||
                 windowMinutes != WeeklyWindowMinutes ||
-                !TryExtractLong(line, "\"resets_at\"", primaryIndex, out resetUnixSeconds) ||
+                !RolloutJsonFields.TryExtractLong(
+                    line, "\"resets_at\"", primaryIndex, out resetUnixSeconds) ||
                 resetUnixSeconds <= 0)
             {
                 return false;
             }
 
-            string timestamp = ExtractJsonString(line, "\"timestamp\"", 0);
+            string timestamp = RolloutJsonFields.ExtractString(line, "\"timestamp\"", 0);
             DateTimeOffset observedAt;
             if (!DateTimeOffset.TryParse(timestamp, CultureInfo.InvariantCulture,
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out observedAt))
@@ -461,55 +480,38 @@ namespace CodexMeter
 
         private Dictionary<string, string> DiscoverFiles()
         {
-            Dictionary<string, string> result =
-                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            AddFiles(result, sessionsRoot);
-            AddFiles(result, archivedSessionsRoot);
-            return result;
-        }
-
-        private static void AddFiles(IDictionary<string, string> result, string root)
-        {
-            if (String.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-                return;
-
-            foreach (string path in Directory.EnumerateFiles(root, "*.jsonl", SearchOption.AllDirectories))
-            {
-                try
-                {
-                    string name = Path.GetFileName(path);
-                    string existing;
-                    if (!result.TryGetValue(name, out existing) ||
-                        File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(existing))
-                    {
-                        result[name] = path;
-                    }
-                }
-                catch
-                {
-                    // A concurrently moved rollout is retried on the next application start.
-                }
-            }
+            return CodexRolloutFiles.DiscoverLatestByName(
+                new string[] { sessionsRoot, archivedSessionsRoot }, null);
         }
 
         private ResetHistoryData Load()
         {
-            if (String.IsNullOrWhiteSpace(historyPath) || !File.Exists(historyPath))
+            if (String.IsNullOrWhiteSpace(historyPath))
                 return new ResetHistoryData();
 
-            try
+            Exception lastError = null;
+            foreach (string candidatePath in AtomicFileStore.ExistingReadCandidates(historyPath))
             {
-                ResetHistoryData loaded = serializer.Deserialize<ResetHistoryData>(
-                    File.ReadAllText(historyPath, Encoding.UTF8));
-                if (loaded == null || loaded.Version != DataVersion)
-                    return new ResetHistoryData();
-                loaded.Normalize();
-                return loaded;
+                try
+                {
+                    ResetHistoryData loaded = serializer.Deserialize<ResetHistoryData>(
+                        File.ReadAllText(candidatePath, Encoding.UTF8));
+                    if (loaded == null || loaded.Version != DataVersion)
+                        continue;
+                    loaded.Normalize();
+                    if (!String.Equals(candidatePath, historyPath, StringComparison.OrdinalIgnoreCase))
+                        AppDiagnostics.RecordMessage("reset-history", "Recovered reset history from backup.");
+                    return loaded;
+                }
+                catch (Exception exception)
+                {
+                    lastError = exception;
+                }
             }
-            catch
-            {
-                return new ResetHistoryData();
-            }
+
+            if (lastError != null)
+                AppDiagnostics.Record("reset-history-read", lastError);
+            return new ResetHistoryData();
         }
 
         private void Save(ResetHistoryData value)
@@ -519,14 +521,12 @@ namespace CodexMeter
 
             try
             {
-                string directory = Path.GetDirectoryName(historyPath);
-                if (!String.IsNullOrWhiteSpace(directory))
-                    Directory.CreateDirectory(directory);
-                File.WriteAllText(historyPath, serializer.Serialize(value), new UTF8Encoding(false));
+                AtomicFileStore.WriteUtf8(historyPath, serializer.Serialize(value));
             }
-            catch
+            catch (Exception exception)
             {
                 // A failed cache write must not interrupt quota synchronization.
+                AppDiagnostics.Record("reset-history-write", exception);
             }
         }
 
@@ -585,9 +585,19 @@ namespace CodexMeter
             {
                 existing.Confidence = candidate.Confidence;
                 existing.ResetUnixSeconds = candidate.ResetUnixSeconds;
+                existing.Source = candidate.Source;
             }
             if (String.Equals(candidate.Kind, "observed", StringComparison.OrdinalIgnoreCase))
+            {
                 existing.Kind = "observed";
+                existing.Source = ResetHistorySource.LiveTransition;
+            }
+            else if (String.IsNullOrWhiteSpace(existing.Source) ||
+                String.Equals(existing.Source, ResetHistorySource.Legacy,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                existing.Source = candidate.Source;
+            }
             if (existing.Confidence < (int)ResetConfidence.Medium &&
                 existing.EvidenceCount >= 2)
             {
@@ -617,6 +627,14 @@ namespace CodexMeter
             {
                 existing.Confidence = candidate.Confidence;
                 existing.ResetUnixSeconds = candidate.ResetUnixSeconds;
+                existing.Source = candidate.Source;
+                changed = true;
+            }
+            if (String.IsNullOrWhiteSpace(existing.Source) ||
+                String.Equals(existing.Source, ResetHistorySource.Legacy,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                existing.Source = candidate.Source;
                 changed = true;
             }
             if (existing.EvidenceCount <= 0)
@@ -647,7 +665,8 @@ namespace CodexMeter
                 AfterUsedPercent = item.AfterUsedPercent,
                 Confidence = item.Confidence,
                 EvidenceCount = item.EvidenceCount,
-                Kind = item.Kind
+                Kind = item.Kind,
+                Source = item.Source
             };
         }
 
@@ -666,89 +685,6 @@ namespace CodexMeter
                     ResetUnixSeconds = item.LastSample.ResetUnixSeconds
                 }
             };
-        }
-
-        private static string ExtractJsonString(string line, string key, int startIndex)
-        {
-            int keyIndex = line.IndexOf(key, Math.Max(0, startIndex), StringComparison.Ordinal);
-            if (keyIndex < 0)
-                return null;
-            int colon = line.IndexOf(':', keyIndex + key.Length);
-            if (colon < 0)
-                return null;
-            int quote = line.IndexOf('"', colon + 1);
-            if (quote < 0)
-                return null;
-
-            StringBuilder value = new StringBuilder();
-            bool escaped = false;
-            for (int index = quote + 1; index < line.Length; index++)
-            {
-                char character = line[index];
-                if (escaped)
-                {
-                    value.Append(character);
-                    escaped = false;
-                }
-                else if (character == '\\')
-                {
-                    escaped = true;
-                }
-                else if (character == '"')
-                {
-                    return value.ToString();
-                }
-                else
-                {
-                    value.Append(character);
-                }
-            }
-            return null;
-        }
-
-        private static bool TryExtractLong(string line, string key, int startIndex, out long value)
-        {
-            value = 0;
-            string number;
-            if (!TryExtractNumber(line, key, startIndex, out number))
-                return false;
-            return Int64.TryParse(number, NumberStyles.Integer,
-                CultureInfo.InvariantCulture, out value);
-        }
-
-        private static bool TryExtractDouble(string line, string key, int startIndex, out double value)
-        {
-            value = 0;
-            string number;
-            if (!TryExtractNumber(line, key, startIndex, out number))
-                return false;
-            return Double.TryParse(number, NumberStyles.Float,
-                CultureInfo.InvariantCulture, out value);
-        }
-
-        private static bool TryExtractNumber(string line, string key, int startIndex, out string number)
-        {
-            number = null;
-            int keyIndex = line.IndexOf(key, Math.Max(0, startIndex), StringComparison.Ordinal);
-            if (keyIndex < 0)
-                return false;
-            int colon = line.IndexOf(':', keyIndex + key.Length);
-            if (colon < 0)
-                return false;
-
-            int index = colon + 1;
-            while (index < line.Length && Char.IsWhiteSpace(line[index]))
-                index++;
-            int end = index;
-            while (end < line.Length && (Char.IsDigit(line[end]) || line[end] == '-' ||
-                line[end] == '+' || line[end] == '.' || line[end] == 'e' || line[end] == 'E'))
-            {
-                end++;
-            }
-            if (end <= index)
-                return false;
-            number = line.Substring(index, end - index);
-            return true;
         }
 
         private static string SafeError(Exception exception)
@@ -783,6 +719,16 @@ namespace CodexMeter
                     Files = new Dictionary<string, ResetLogCheckpoint>(Files, StringComparer.OrdinalIgnoreCase);
                 if (Entries == null)
                     Entries = new List<ResetHistoryEntry>();
+                foreach (ResetHistoryEntry entry in Entries.Where(item => item != null))
+                {
+                    if (String.IsNullOrWhiteSpace(entry.Source))
+                        entry.Source = ResetHistorySource.Legacy;
+                    if (entry.Confidence < (int)ResetConfidence.Low ||
+                        entry.Confidence > (int)ResetConfidence.High)
+                    {
+                        entry.Confidence = (int)ResetConfidence.Low;
+                    }
+                }
             }
         }
 

@@ -36,6 +36,7 @@ namespace CodexMeter
                 }
                 catch (Exception ex)
                 {
+                    AppDiagnostics.Record("unhandled", ex);
                     MessageBox.Show("CodexMeter 发生未处理错误：\r\n" + ex.Message,
                         "CodexMeter", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }

@@ -22,10 +22,10 @@
 </div>
 
 > [!IMPORTANT]
-> **Windows 和 macOS 都有对应版本。** Windows 当前是 v0.1.1，使用原生 WinForms 客户端和 Win-CodexBar CLI；macOS 当前是 v0.2.0，使用 SwiftUI/AppKit 客户端并内置已经验证的 CodexBar CLI。两端都不会保存账号凭证。
+> **Windows 和 macOS 都有对应版本。** Windows 当前是 v0.1.3，使用原生 WinForms 客户端并内置已校验的 Win-CodexBar CLI；macOS 当前是 v0.2.0，使用 SwiftUI/AppKit 客户端并内置已经验证的 CodexBar CLI。两端都不会保存账号凭证。
 
 > [!NOTE]
-> **统一主线。** `main` 现在同时包含 Windows v0.1.1 和 macOS v0.2.0 的完整源码；macOS 安装包仍可从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载。
+> **统一主线。** `main` 现在同时包含 Windows v0.1.3 和 macOS v0.2.0 的完整源码；两端安装包彼此独立，macOS 安装包仍可从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载。
 
 ## 当前浮窗界面
 
@@ -37,23 +37,23 @@
 
 | 平台 | 原生界面 | 当前版本 / 安装包 | 数据来源 |
 |---|---|---|---|
-| Windows 10/11 | WinForms + DWM，Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip) | [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar) CLI |
+| Windows 10/11 | WinForms + DWM，Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip) | 内置并校验 Win-CodexBar CLI 0.45.2 |
 | macOS 14+ | SwiftUI + AppKit | [`CodexMeter-macos-universal-0.2.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) | 内置 CodexBar CLI |
 
 Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](windows/README.zh-CN.md)。不同平台的版本差异请看 [`VERSION-GUIDE.md`](VERSION-GUIDE.md)。
 
 ## 功能概览
 
-### Windows 主线开发版（正式下载仍为 v0.1.1）
+### Windows v0.1.3
 
 - 聚焦显示每周主额度、重置时间和使用节奏，不再绘制单独的 Spark 整栏。
-- 点击重置倒计时可查看最近 3 次重置、平均间隔，并展开到最近 10 次；历史日志推算与程序直接检测会明确区分。
+- 点击重置倒计时可查看最近 3 次重置和间隔统计，并展开为可拖动的完整历史时间轴；重置来源与时间可信度分别显示。
 - 默认使用简易卡片；点击节奏行展开近 7 天 token 与模型/推理强度偏好。
 - 模型偏好颜色按使用占比从低饱和蓝灰连续增强为高饱和蓝色。
 - 支持左右边缘吸附、悬停展开、托盘模式、开机自启动和多显示器 DPI。
-- 支持点击“实时”立即同步、失败退避和系统总上传/下载速度提示。
-- 使用本机 Win-CodexBar CLI，不把账号凭证写入应用。
-- 本机 token 与重置历史缓存不保存提示词、回复或凭据；缺少模型元数据时明确标为“未标注模型”。
+- 支持点击“实时”立即同步；若自动同步正在运行，会排队一次手动同步，不会丢弃点击。同步失败时自动退避。
+- ZIP 内置并校验 Win-CodexBar CLI 0.45.2；无需另外安装 Win-CodexBar，也不把账号凭证写入应用。
+- 本机 token 与重置历史缓存不保存提示词、回复或凭据；缓存采用原子替换并保留上一代备份。
 
 ### macOS v0.2.0
 
@@ -94,12 +94,12 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 
 ## 安装
 
-### Windows v0.1.1
+### Windows v0.1.3
 
-1. 安装并登录 [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar)。
-2. 下载 [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip)。
-3. 解压后打开 `Codex Meter Windows v0.1.1`，运行 `CodexMeter.exe`。
-4. Windows 可能提示未知发布者，因为社区版本没有 Authenticode 签名；如有需要请审查源码或自行构建。
+1. 确保 Codex 桌面客户端已经登录；也可以先运行 `codex login`。
+2. 下载 [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip)。
+3. 完整解压后打开 `CodexMeter Windows v0.1.3`，运行 `CodexMeter.exe`；无需另外安装 Win-CodexBar。
+4. Windows 可能提示未知发布者，因为 CodexMeter 和内置 CLI 均没有 Authenticode 签名；请先核对 Release 中的 SHA-256。
 
 ### macOS v0.2.0
 
@@ -117,7 +117,7 @@ macOS v0.2.0 安装包同时支持 Apple 芯片和 Intel Mac，不需要单独�
 ```powershell
 .\windows\build.ps1
 .\windows\dist\CodexMeter.Tests.exe
-.\windows\package-release.ps1 -Version 0.1.1
+.\windows\package-release.ps1 -Version 0.1.3
 ```
 
 ### macOS v0.2.0
@@ -150,13 +150,13 @@ macOS 使用 AppKit 鼠标追踪，Windows 使用 Per-Monitor V2 DPI 感知的�
 
 ## 数据与隐私
 
-macOS v0.2.0 通过本机 `127.0.0.1:18747` helper 获取额度；token 统计只读取本机 Codex session 记录，并按当前额度周期、日期、模型、思考强度和 Fast 模式在本机聚合，不会上传这些记录。Windows 每次额度刷新直接调用本机 `codexbar-cli.exe`，不开放监听端口；近 7 天与重置历史统计只读取本机 Codex rollout 的时间、模型、推理强度、token 汇总和结构化额度窗口字段，并把不含对话正文的增量缓存保存在 `%LOCALAPPDATA%\CodexMeter`。
+macOS v0.2.0 通过本机 `127.0.0.1:18747` helper 获取额度；token 统计只读取本机 Codex session 记录，并按当前额度周期、日期、模型、思考强度和 Fast 模式在本机聚合，不会上传这些记录。Windows 每次额度刷新直接调用 ZIP 内置并通过 SHA-256 校验的 `codexbar-cli.exe`，不开放监听端口；近 7 天与重置历史统计只读取本机 Codex rollout 的时间、模型、推理强度、token 汇总和结构化额度窗口字段，并把不含对话正文的增量缓存保存在 `%LOCALAPPDATA%\CodexMeter`。
 
 CodexBar 读取你本机 Codex 配置中的 OAuth 会话并请求该账号的额度数据。CodexMeter 不复制、显示或打包密码、OAuth token、Cookie 或账号邮箱。
 
 ## 第三方组件与许可证
 
-CodexMeter 是基于 [steipete/CodexBar](https://github.com/steipete/CodexBar) 的独立、非官方应用。macOS 发布包内置 CodexBar CLI v0.45.2，完整许可证位于 `ThirdPartyLicenses/` 和应用包内。
+CodexMeter 是基于 [steipete/CodexBar](https://github.com/steipete/CodexBar) 的独立、非官方应用。Windows v0.1.3 内置 [Win-CodexBar](https://github.com/nesszer/Win-CodexBar) CLI 0.45.2，macOS v0.2.0 内置上游 CodexBar CLI；对应完整 MIT 许可证位于 `ThirdPartyLicenses/` 和各安装包内。
 
 本项目使用 [MIT License](LICENSE)，与 CodexBar、OpenAI 或 Apple 没有隶属或官方背书关系。
 

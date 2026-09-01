@@ -157,24 +157,35 @@ namespace CodexMeter
 
         private UsageCache LoadCache()
         {
-            if (String.IsNullOrWhiteSpace(cachePath) || !File.Exists(cachePath))
+            if (String.IsNullOrWhiteSpace(cachePath))
                 return new UsageCache();
 
-            try
+            Exception lastError = null;
+            foreach (string candidatePath in AtomicFileStore.ExistingReadCandidates(cachePath))
             {
-                UsageCache cache = serializer.Deserialize<UsageCache>(File.ReadAllText(cachePath, Encoding.UTF8));
-                if (cache == null || cache.Version != CacheVersion)
-                    return new UsageCache();
-                if (cache.Files == null)
-                    cache.Files = new Dictionary<string, FileCheckpoint>(StringComparer.OrdinalIgnoreCase);
-                else
-                    cache.Files = new Dictionary<string, FileCheckpoint>(cache.Files, StringComparer.OrdinalIgnoreCase);
-                return cache;
+                try
+                {
+                    UsageCache cache = serializer.Deserialize<UsageCache>(
+                        File.ReadAllText(candidatePath, Encoding.UTF8));
+                    if (cache == null || cache.Version != CacheVersion)
+                        continue;
+                    if (cache.Files == null)
+                        cache.Files = new Dictionary<string, FileCheckpoint>(StringComparer.OrdinalIgnoreCase);
+                    else
+                        cache.Files = new Dictionary<string, FileCheckpoint>(cache.Files, StringComparer.OrdinalIgnoreCase);
+                    if (!String.Equals(candidatePath, cachePath, StringComparison.OrdinalIgnoreCase))
+                        AppDiagnostics.RecordMessage("weekly-cache", "Recovered the weekly cache from backup.");
+                    return cache;
+                }
+                catch (Exception exception)
+                {
+                    lastError = exception;
+                }
             }
-            catch
-            {
-                return new UsageCache();
-            }
+
+            if (lastError != null)
+                AppDiagnostics.Record("weekly-cache-read", lastError);
+            return new UsageCache();
         }
 
         private void SaveCache(UsageCache cache)
@@ -184,58 +195,23 @@ namespace CodexMeter
 
             try
             {
-                string directory = Path.GetDirectoryName(cachePath);
-                if (!String.IsNullOrWhiteSpace(directory))
-                    Directory.CreateDirectory(directory);
-                File.WriteAllText(cachePath, serializer.Serialize(cache), new UTF8Encoding(false));
+                AtomicFileStore.WriteUtf8(cachePath, serializer.Serialize(cache));
             }
-            catch
+            catch (Exception exception)
             {
                 // The report remains usable for this run; only the next run may need a full scan.
+                AppDiagnostics.Record("weekly-cache-write", exception);
             }
         }
 
         private Dictionary<string, string> DiscoverCandidateFiles(DateTime firstDay)
         {
-            Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            AddCandidateFiles(result, sessionsRoot, firstDay);
-            AddCandidateFiles(result, archivedSessionsRoot, firstDay);
-            return result;
-        }
-
-        private static void AddCandidateFiles(Dictionary<string, string> result, string root, DateTime firstDay)
-        {
-            if (String.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
-                return;
-
-            try
-            {
-                foreach (string path in Directory.EnumerateFiles(root, "*.jsonl", SearchOption.AllDirectories))
+            return CodexRolloutFiles.DiscoverLatestByName(
+                new string[] { sessionsRoot, archivedSessionsRoot },
+                delegate(FileInfo info)
                 {
-                    try
-                    {
-                        FileInfo info = new FileInfo(path);
-                        if (info.LastWriteTime < firstDay)
-                            continue;
-
-                        string fileName = info.Name;
-                        string existing;
-                        if (!result.TryGetValue(fileName, out existing) ||
-                            File.GetLastWriteTimeUtc(path) > File.GetLastWriteTimeUtc(existing))
-                        {
-                            result[fileName] = path;
-                        }
-                    }
-                    catch
-                    {
-                        // A concurrently moved rollout is safe to retry on the next refresh.
-                    }
-                }
-            }
-            catch
-            {
-                // Missing or inaccessible optional roots simply contribute no files.
-            }
+                    return info.LastWriteTime >= firstDay;
+                });
         }
 
         private static void UpdateCheckpoint(string path, FileCheckpoint checkpoint, DateTime firstDay)
@@ -279,18 +255,18 @@ namespace CodexMeter
             if (String.IsNullOrEmpty(line))
                 return;
 
-            string recordType = ExtractJsonString(line, "\"type\"", 0);
+            string recordType = RolloutJsonFields.ExtractString(line, "\"type\"", 0);
             if (String.Equals(recordType, "turn_context", StringComparison.Ordinal))
             {
                 int contextMarker = Math.Max(0,
                     line.IndexOf("\"payload\"", StringComparison.Ordinal));
-                string model = ExtractJsonString(line, "\"model\"", contextMarker);
-                string effort = ExtractJsonString(line, "\"effort\"", contextMarker);
+                string model = RolloutJsonFields.ExtractString(line, "\"model\"", contextMarker);
+                string effort = RolloutJsonFields.ExtractString(line, "\"effort\"", contextMarker);
                 int collaborationIndex = line.IndexOf("\"collaboration_mode\"", contextMarker,
                     StringComparison.Ordinal);
                 string mode = collaborationIndex < 0
                     ? String.Empty
-                    : ExtractJsonString(line, "\"mode\"", collaborationIndex);
+                    : RolloutJsonFields.ExtractString(line, "\"mode\"", collaborationIndex);
 
                 checkpoint.Model = String.IsNullOrWhiteSpace(model) ? UnknownModel : model;
                 checkpoint.Effort = effort ?? String.Empty;
@@ -302,7 +278,7 @@ namespace CodexMeter
                 return;
             int payloadIndex = line.IndexOf("\"payload\"", StringComparison.Ordinal);
             if (payloadIndex < 0 || !String.Equals(
-                    ExtractJsonString(line, "\"type\"", payloadIndex),
+                    RolloutJsonFields.ExtractString(line, "\"type\"", payloadIndex),
                     "token_count", StringComparison.Ordinal))
                 return;
 
@@ -311,10 +287,11 @@ namespace CodexMeter
                 return;
 
             long tokens;
-            if (!TryExtractLong(line, "\"total_tokens\"", lastUsageIndex, out tokens) || tokens <= 0)
+            if (!RolloutJsonFields.TryExtractLong(
+                    line, "\"total_tokens\"", lastUsageIndex, out tokens) || tokens <= 0)
                 return;
 
-            string timestamp = ExtractJsonString(line, "\"timestamp\"", 0);
+            string timestamp = RolloutJsonFields.ExtractString(line, "\"timestamp\"", 0);
             DateTimeOffset parsed;
             if (!DateTimeOffset.TryParse(timestamp, CultureInfo.InvariantCulture,
                     DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out parsed))
@@ -329,71 +306,6 @@ namespace CodexMeter
             long current;
             checkpoint.Buckets.TryGetValue(key, out current);
             checkpoint.Buckets[key] = SafeAdd(current, tokens);
-        }
-
-        private static string ExtractJsonString(string line, string key, int startIndex)
-        {
-            int keyIndex = line.IndexOf(key, Math.Max(0, startIndex), StringComparison.Ordinal);
-            if (keyIndex < 0)
-                return null;
-            int colon = line.IndexOf(':', keyIndex + key.Length);
-            if (colon < 0)
-                return null;
-            int quote = line.IndexOf('"', colon + 1);
-            if (quote < 0)
-                return null;
-
-            StringBuilder value = new StringBuilder();
-            bool escaped = false;
-            for (int index = quote + 1; index < line.Length; index++)
-            {
-                char character = line[index];
-                if (escaped)
-                {
-                    if (character == 'n')
-                        value.Append('\n');
-                    else if (character == 'r')
-                        value.Append('\r');
-                    else if (character == 't')
-                        value.Append('\t');
-                    else
-                        value.Append(character);
-                    escaped = false;
-                }
-                else if (character == '\\')
-                {
-                    escaped = true;
-                }
-                else if (character == '"')
-                {
-                    return value.ToString();
-                }
-                else
-                {
-                    value.Append(character);
-                }
-            }
-            return null;
-        }
-
-        private static bool TryExtractLong(string line, string key, int startIndex, out long value)
-        {
-            value = 0;
-            int keyIndex = line.IndexOf(key, Math.Max(0, startIndex), StringComparison.Ordinal);
-            if (keyIndex < 0)
-                return false;
-            int colon = line.IndexOf(':', keyIndex + key.Length);
-            if (colon < 0)
-                return false;
-
-            int index = colon + 1;
-            while (index < line.Length && Char.IsWhiteSpace(line[index]))
-                index++;
-            int end = index;
-            while (end < line.Length && Char.IsDigit(line[end]))
-                end++;
-            return end > index && Int64.TryParse(line.Substring(index, end - index),
-                NumberStyles.None, CultureInfo.InvariantCulture, out value);
         }
 
         private static void TrimBuckets(FileCheckpoint checkpoint, DateTime firstDay)

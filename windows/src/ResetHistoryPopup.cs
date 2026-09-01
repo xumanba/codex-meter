@@ -91,13 +91,8 @@ namespace CodexMeter
         private readonly float scale;
         private readonly List<TimelineHoverTarget> timelineTargets =
             new List<TimelineHoverTarget>();
-        private bool showAll;
-        private int listOffset;
-        private int timelineStartDay;
-        private int timelineMaximumStartDay;
-        private int timelineTotalDays = 1;
-        private bool draggingTimelineSlider;
-        private float timelineSliderDragOffset;
+        private readonly ResetHistoryInteractionState interaction =
+            new ResetHistoryInteractionState();
         private RectangleF moreBounds;
         private RectangleF closeBounds;
         private RectangleF averageBounds;
@@ -143,8 +138,7 @@ namespace CodexMeter
 
         internal void ExpandTimeline()
         {
-            showAll = true;
-            MoveTimelineToLatest();
+            interaction.Expand(TimelineDays(), TimelineViewportDays);
             UpdateSurfaceSize();
             Invalidate();
         }
@@ -207,7 +201,7 @@ namespace CodexMeter
             }
 
             int footerY;
-            if (showAll && visible.Count > 1)
+            if (interaction.ShowAll && visible.Count > 1)
             {
                 DrawTimeline(graphics, visible, contentY, primary, secondary);
                 footerY = contentY + TimelineHeight;
@@ -224,7 +218,7 @@ namespace CodexMeter
             if (report.Entries.Count > 1)
             {
                 moreBounds = new RectangleF(14, footerY, DesignWidth - 28, FooterHeight - 3);
-                string more = showAll
+                string more = interaction.ShowAll
                     ? "收起至最近 3 次"
                     : "点击查看历史重置时间轴";
                 using (Font moreFont = PixelFont(12f, FontStyle.Bold))
@@ -251,15 +245,18 @@ namespace CodexMeter
                 width, StatisticsHeight - 5);
 
             DrawStatisticCard(graphics, averageBounds, "平均间隔",
-                IntervalText(report == null ? null : report.AverageInterval),
+                ResetHistoryPresentation.IntervalText(
+                    report == null ? null : report.AverageInterval),
                 darkTheme ? Color.FromArgb(77, 198, 255) : Color.FromArgb(18, 127, 211),
                 primary, secondary);
             DrawStatisticCard(graphics, shortestBounds, "最短间隔",
-                IntervalText(report == null ? null : report.ShortestInterval),
+                ResetHistoryPresentation.IntervalText(
+                    report == null ? null : report.ShortestInterval),
                 darkTheme ? Color.FromArgb(67, 222, 160) : Color.FromArgb(13, 153, 103),
                 primary, secondary);
             DrawStatisticCard(graphics, longestBounds, "最长间隔",
-                IntervalText(report == null ? null : report.LongestInterval),
+                ResetHistoryPresentation.IntervalText(
+                    report == null ? null : report.LongestInterval),
                 darkTheme ? Color.FromArgb(190, 135, 255) : Color.FromArgb(112, 82, 208),
                 primary, secondary);
         }
@@ -306,7 +303,7 @@ namespace CodexMeter
             string detail = HoverDetail(activeHoverTarget);
             bool hasDetail = !String.IsNullOrWhiteSpace(detail);
             if (!hasDetail)
-                detail = showAll
+                detail = interaction.ShowAll
                     ? "悬停统计项查看预测 · 悬停刻度或蓝点查看日期与时间"
                     : "悬停统计项查看预测 · 滚轮浏览历史 · 点击下方查看时间轴";
             Color accent = activeHoverTarget == 1
@@ -353,7 +350,8 @@ namespace CodexMeter
             float axisLeft = TimelineAxisLeft;
             float axisRight = TimelineAxisRight;
             float axisY = y + 63f;
-            List<DateTimeOffset> dayTicks = TimelineDays(chronological);
+            List<DateTimeOffset> dayTicks =
+                ResetHistoryPresentation.TimelineDays(chronological);
             UpdateTimelineRange(dayTicks);
             float gridTop = axisY - 15f;
             float gridBottom = axisY + 15f;
@@ -362,10 +360,11 @@ namespace CodexMeter
                 : Color.FromArgb(108, 72, 126, 165), 1f))
             {
                 int lastVisible = Math.Min(dayTicks.Count - 1,
-                    timelineStartDay + TimelineViewportDays);
-                for (int index = timelineStartDay; index <= lastVisible; index++)
+                    interaction.TimelineStartDay + TimelineViewportDays);
+                for (int index = interaction.TimelineStartDay; index <= lastVisible; index++)
                 {
-                    float x = axisLeft + (index - timelineStartDay) * TimelineDayWidth;
+                    float x = axisLeft +
+                        (index - interaction.TimelineStartDay) * TimelineDayWidth;
                     graphics.DrawLine(dayGrid, x, gridTop, x, gridBottom);
                     timelineTargets.Add(new TimelineHoverTarget
                     {
@@ -387,11 +386,14 @@ namespace CodexMeter
             for (int index = 0; index < chronological.Count; index++)
             {
                 ResetHistoryEntry entry = chronological[index];
-                float coordinate = TimelineDayCoordinate(entry.ResetAt, dayTicks);
-                float x = axisLeft + (coordinate - timelineStartDay) * TimelineDayWidth;
+                float coordinate = ResetHistoryPresentation.TimelineDayCoordinate(
+                    entry.ResetAt, dayTicks);
+                float x = axisLeft +
+                    (coordinate - interaction.TimelineStartDay) * TimelineDayWidth;
                 if (x < axisLeft - 5f || x > axisRight + 5f)
                     continue;
-                Color pointColor = TimelineConfidenceColor(entry, darkTheme);
+                Color pointColor = ResetHistoryPresentation.TimelineConfidenceColor(
+                    entry, darkTheme);
                 using (Brush point = new SolidBrush(pointColor))
                     graphics.FillEllipse(point, x - 4f, axisY - 4f, 8f, 8f);
 
@@ -409,7 +411,8 @@ namespace CodexMeter
             using (Font dateFont = PixelFont(10f, FontStyle.Bold))
             using (Brush dateBrush = new SolidBrush(secondary))
             {
-                DrawText(graphics, dayTicks[timelineStartDay].ToString("M月d日"),
+                DrawText(graphics,
+                    dayTicks[interaction.TimelineStartDay].ToString("M月d日"),
                     dateFont, dateBrush,
                     new RectangleF(axisLeft - 1, axisY + 17, 68, 23),
                     StringAlignment.Near, StringAlignment.Center);
@@ -426,14 +429,15 @@ namespace CodexMeter
         private void DrawTimelineSlider(Graphics graphics, int y, Color secondary)
         {
             RectangleF track = new RectangleF(48, y + 133, DesignWidth - 96, 6);
-            int totalDays = timelineTotalDays;
+            int totalDays = interaction.TimelineTotalDays;
             int visibleDays = Math.Min(TimelineViewportDays, Math.Max(1, totalDays));
             float thumbWidth = totalDays <= visibleDays
                 ? track.Width
                 : Math.Max(44f, track.Width * visibleDays / totalDays);
-            float ratio = timelineMaximumStartDay <= 0
+            float ratio = interaction.TimelineMaximumStartDay <= 0
                 ? 0f
-                : timelineStartDay / (float)timelineMaximumStartDay;
+                : interaction.TimelineStartDay /
+                    (float)interaction.TimelineMaximumStartDay;
             float thumbLeft = track.Left + (track.Width - thumbWidth) * ratio;
             timelineSliderBounds = new RectangleF(
                 track.Left - 5, track.Top - 10, track.Width + 10, 27);
@@ -516,7 +520,7 @@ namespace CodexMeter
             }
 
             string date = entry.ResetAt.ToLocalTime().ToString("M月d日 HH:mm");
-            string label = EntryStateText(entry);
+            string label = ResetHistoryPresentation.EntryStateText(entry);
             Color accent = EntryAccent(entry);
 
             using (Brush dot = new SolidBrush(accent))
@@ -544,7 +548,8 @@ namespace CodexMeter
             float trackX = DesignWidth - 18f;
             float thumbHeight = Math.Max(18f, trackHeight * visibleCount / total);
             int maxOffset = Math.Max(1, total - VisibleListRows);
-            float thumbTop = trackTop + (trackHeight - thumbHeight) * listOffset / maxOffset;
+            float thumbTop = trackTop + (trackHeight - thumbHeight) *
+                interaction.ListOffset / maxOffset;
             using (Pen track = new Pen(darkTheme
                 ? Color.FromArgb(42, 255, 255, 255)
                 : Color.FromArgb(30, 45, 91, 127), 2.2f))
@@ -578,7 +583,7 @@ namespace CodexMeter
         private void OnSurfaceMouseMove(object sender, MouseEventArgs eventArgs)
         {
             PointF point = ToDesignPoint(eventArgs.Location);
-            if (draggingTimelineSlider)
+            if (interaction.DraggingTimelineSlider)
             {
                 UpdateTimelineFromSlider(point.X);
                 Cursor = Cursors.SizeWE;
@@ -587,7 +592,8 @@ namespace CodexMeter
 
             int hoverTarget = HoverTargetAt(point);
             bool action = closeBounds.Contains(point) || moreBounds.Contains(point);
-            bool sliderAction = showAll && timelineMaximumStartDay > 0 &&
+            bool sliderAction = interaction.ShowAll &&
+                interaction.TimelineMaximumStartDay > 0 &&
                 timelineSliderBounds.Contains(point);
             Cursor = sliderAction
                 ? Cursors.SizeWE
@@ -604,45 +610,34 @@ namespace CodexMeter
 
         private void OnSurfaceMouseDown(object sender, MouseEventArgs eventArgs)
         {
-            if (eventArgs.Button != MouseButtons.Left || !showAll ||
-                timelineMaximumStartDay <= 0)
+            if (eventArgs.Button != MouseButtons.Left)
                 return;
             PointF point = ToDesignPoint(eventArgs.Location);
-            if (!timelineSliderBounds.Contains(point))
+            if (!interaction.BeginTimelineDrag(
+                    point, timelineSliderBounds, timelineThumbBounds))
                 return;
 
-            draggingTimelineSlider = true;
             Capture = true;
-            timelineSliderDragOffset = timelineThumbBounds.Contains(point)
-                ? point.X - timelineThumbBounds.Left
-                : timelineThumbBounds.Width / 2f;
             UpdateTimelineFromSlider(point.X);
         }
 
         private void OnSurfaceMouseUp(object sender, MouseEventArgs eventArgs)
         {
-            if (eventArgs.Button != MouseButtons.Left || !draggingTimelineSlider)
+            if (eventArgs.Button != MouseButtons.Left ||
+                !interaction.DraggingTimelineSlider)
                 return;
-            draggingTimelineSlider = false;
+            interaction.EndTimelineDrag();
             Capture = false;
             Cursor = Cursors.SizeWE;
         }
 
         private void UpdateTimelineFromSlider(float pointerX)
         {
-            if (timelineMaximumStartDay <= 0 || timelineThumbBounds.Width <= 0)
-                return;
             const float trackLeft = 48f;
             const float trackWidth = DesignWidth - 96f;
-            float available = Math.Max(1f, trackWidth - timelineThumbBounds.Width);
-            float thumbLeft = Math.Max(trackLeft, Math.Min(trackLeft + available,
-                pointerX - timelineSliderDragOffset));
-            int next = Convert.ToInt32(Math.Round(
-                (thumbLeft - trackLeft) / available * timelineMaximumStartDay));
-            next = Math.Max(0, Math.Min(timelineMaximumStartDay, next));
-            if (next == timelineStartDay)
+            if (!interaction.UpdateTimelineFromSlider(
+                    pointerX, trackLeft, trackWidth, timelineThumbBounds.Width))
                 return;
-            timelineStartDay = next;
             activeHoverTarget = Int32.MinValue;
             Invalidate();
         }
@@ -684,13 +679,16 @@ namespace CodexMeter
         private string HoverDetail(int target)
         {
             if (target == 0)
-                return ForecastInlineText(report, report == null ? null : report.AverageInterval,
+                return ResetHistoryPresentation.ForecastInlineText(
+                    report, report == null ? null : report.AverageInterval,
                     "平均", DateTimeOffset.Now);
             if (target == 1)
-                return ForecastInlineText(report, report == null ? null : report.ShortestInterval,
+                return ResetHistoryPresentation.ForecastInlineText(
+                    report, report == null ? null : report.ShortestInterval,
                     "最短", DateTimeOffset.Now);
             if (target == 2)
-                return ForecastInlineText(report, report == null ? null : report.LongestInterval,
+                return ResetHistoryPresentation.ForecastInlineText(
+                    report, report == null ? null : report.LongestInterval,
                     "最长", DateTimeOffset.Now);
             if (target < 100 || target - 100 >= timelineTargets.Count)
                 return null;
@@ -702,9 +700,10 @@ namespace CodexMeter
             if (entry == null)
                 return null;
             string detail = entry.ResetAt.ToLocalTime().ToString("M月d日 HH:mm:ss") +
-                " · " + EntryStateText(entry);
+                " · " + ResetHistoryPresentation.EntryStateText(entry);
             if (timeline.PreviousInterval.HasValue)
-                detail += " · 距上一次 " + IntervalText(timeline.PreviousInterval);
+                detail += " · 距上一次 " +
+                    ResetHistoryPresentation.IntervalText(timeline.PreviousInterval);
             return detail;
         }
 
@@ -722,11 +721,7 @@ namespace CodexMeter
             }
             if (moreBounds.Contains(point))
             {
-                showAll = !showAll;
-                if (!showAll)
-                    listOffset = 0;
-                else
-                    MoveTimelineToLatest();
+                interaction.Toggle(TimelineDays(), TimelineViewportDays);
                 activeHoverTarget = Int32.MinValue;
                 UpdateSurfaceSize();
                 Invalidate();
@@ -738,7 +733,7 @@ namespace CodexMeter
 
         private void OnSurfaceMouseWheel(object sender, MouseEventArgs eventArgs)
         {
-            if (showAll || eventArgs.Delta == 0)
+            if (interaction.ShowAll || eventArgs.Delta == 0)
                 return;
 
             int notches = Math.Max(1,
@@ -751,31 +746,26 @@ namespace CodexMeter
 
         internal void ScrollHistory(int steps)
         {
-            if (showAll || steps == 0)
-                return;
             int total = report == null || report.Entries == null ? 0 : report.Entries.Count;
-            int maxOffset = Math.Max(0, total - VisibleListRows);
-            int next = Math.Max(0, Math.Min(maxOffset, listOffset + steps));
-            if (next == listOffset)
+            if (!interaction.ScrollList(total, VisibleListRows, steps))
                 return;
-            listOffset = next;
             activeHoverTarget = Int32.MinValue;
             Invalidate();
         }
 
         internal int ListOffset
         {
-            get { return listOffset; }
+            get { return interaction.ListOffset; }
         }
 
         internal int TimelineStartDay
         {
-            get { return timelineStartDay; }
+            get { return interaction.TimelineStartDay; }
         }
 
         internal int TimelineMaximumStartDay
         {
-            get { return timelineMaximumStartDay; }
+            get { return interaction.TimelineMaximumStartDay; }
         }
 
         internal RectangleF TimelineSliderBounds
@@ -801,7 +791,7 @@ namespace CodexMeter
             int footer = report != null && report.Entries.Count > 1 ? FooterHeight : 0;
             int contentHeight = rows == 0
                 ? emptyHeight
-                : (showAll && rows > 1 ? TimelineHeight : rows * RowHeight);
+                : (interaction.ShowAll && rows > 1 ? TimelineHeight : rows * RowHeight);
             int designHeight = HeaderHeight + StatisticsHeight + HoverDetailHeight + 4 +
                 contentHeight + footer + BottomPadding;
             Size = new Size(Px(DesignWidth), Px(designHeight));
@@ -811,201 +801,23 @@ namespace CodexMeter
         {
             if (report == null || report.Entries == null)
                 return new List<ResetHistoryEntry>();
-            if (showAll)
-                return report.Entries.ToList();
-
-            int maxOffset = Math.Max(0, report.Entries.Count - VisibleListRows);
-            listOffset = Math.Max(0, Math.Min(maxOffset, listOffset));
-            return report.Entries.Skip(listOffset).Take(VisibleListRows).ToList();
+            return interaction.VisibleEntries(report.Entries, VisibleListRows);
         }
 
-        private void MoveTimelineToLatest()
+        private List<DateTimeOffset> TimelineDays()
         {
-            List<DateTimeOffset> days = TimelineDays(
+            return ResetHistoryPresentation.TimelineDays(
                 report == null ? null : report.Entries);
-            UpdateTimelineRange(days);
-            timelineStartDay = timelineMaximumStartDay;
         }
 
         private void UpdateTimelineRange(IList<DateTimeOffset> days)
         {
-            timelineTotalDays = days == null
-                ? 1
-                : Math.Max(1, days.Count - 1);
-            timelineMaximumStartDay = Math.Max(0,
-                timelineTotalDays - TimelineViewportDays);
-            timelineStartDay = Math.Max(0,
-                Math.Min(timelineMaximumStartDay, timelineStartDay));
-        }
-
-        internal static string AverageText(ResetHistoryReport value)
-        {
-            if (value == null || !value.AverageInterval.HasValue || value.AverageIntervalCount <= 0)
-                return "平均间隔：样本不足";
-
-            return "平均间隔 " + IntervalText(value.AverageInterval) + " · " +
-                value.AverageIntervalCount + " 个区间";
-        }
-
-        internal static string IntervalText(TimeSpan? value)
-        {
-            if (!value.HasValue)
-                return "样本不足";
-
-            int totalMinutes = Math.Max(0,
-                Convert.ToInt32(Math.Round(Math.Abs(value.Value.TotalMinutes))));
-            int days = totalMinutes / (24 * 60);
-            int hours = (totalMinutes / 60) % 24;
-            int minutes = totalMinutes % 60;
-            if (days > 0)
-                return days + "天" + (hours > 0
-                    ? hours + "小时"
-                    : (minutes > 0 ? minutes + "分钟" : String.Empty));
-            if (hours > 0)
-                return hours + "小时" + (minutes > 0 ? minutes + "分钟" : String.Empty);
-            return minutes + "分钟";
-        }
-
-        internal static string ForecastText(ResetHistoryReport value, TimeSpan? interval,
-            string label, DateTimeOffset now)
-        {
-            if (value == null || !interval.HasValue || value.Entries == null)
-                return label + "间隔：样本不足";
-
-            ResetHistoryEntry latest = value.Entries
-                .Where(item => item != null &&
-                    item.Confidence >= (int)ResetConfidence.Medium)
-                .OrderByDescending(item => item.ResetUnixSeconds)
-                .FirstOrDefault();
-            if (latest == null)
-                return label + "间隔：样本不足";
-
-            DateTimeOffset predicted = latest.ResetAt.Add(interval.Value);
-            TimeSpan remaining = predicted - now;
-            string timing = remaining >= TimeSpan.Zero
-                ? "预计还有 " + IntervalText(remaining)
-                : "预计时间已过 " + IntervalText(remaining.Duration()) +
-                    "，尚未检测到新重置";
-            return "按" + label + "间隔推算\r\n预计重置：" +
-                predicted.ToLocalTime().ToString("M月d日 HH:mm") + "\r\n" + timing;
-        }
-
-        internal static string ForecastInlineText(ResetHistoryReport value, TimeSpan? interval,
-            string label, DateTimeOffset now)
-        {
-            if (value == null || !interval.HasValue || value.Entries == null)
-                return label + "间隔：样本不足";
-
-            ResetHistoryEntry latest = value.Entries
-                .Where(item => item != null &&
-                    item.Confidence >= (int)ResetConfidence.Medium)
-                .OrderByDescending(item => item.ResetUnixSeconds)
-                .FirstOrDefault();
-            if (latest == null)
-                return label + "间隔：样本不足";
-
-            DateTimeOffset predicted = latest.ResetAt.Add(interval.Value);
-            TimeSpan remaining = predicted - now;
-            string timing = remaining >= TimeSpan.Zero
-                ? "还有 " + IntervalText(remaining)
-                : "已过 " + IntervalText(remaining.Duration()) + "，尚未检测到新重置";
-            return label + "推算：" + predicted.ToLocalTime().ToString("M月d日 HH:mm") +
-                " · " + timing;
-        }
-
-        internal static float TimelineX(long timestamp, long oldest, long newest,
-            float left, float right)
-        {
-            if (newest <= oldest)
-                return (left + right) / 2f;
-            double ratio = (timestamp - oldest) / (double)(newest - oldest);
-            ratio = Math.Max(0, Math.Min(1, ratio));
-            return left + Convert.ToSingle((right - left) * ratio);
-        }
-
-        internal static List<DateTimeOffset> TimelineDays(IList<ResetHistoryEntry> entries)
-        {
-            List<ResetHistoryEntry> chronological = entries == null
-                ? new List<ResetHistoryEntry>()
-                : entries.Where(item => item != null)
-                    .OrderBy(item => item.ResetUnixSeconds)
-                    .ToList();
-            if (chronological.Count == 0)
-                return new List<DateTimeOffset>();
-
-            DateTime firstDate = chronological[0].ResetAt.ToLocalTime().Date;
-            DateTime lastDate = chronological[chronological.Count - 1]
-                .ResetAt.ToLocalTime().Date.AddDays(1);
-            List<DateTimeOffset> days = new List<DateTimeOffset>();
-            for (DateTime date = firstDate; date <= lastDate; date = date.AddDays(1))
-            {
-                DateTime local = DateTime.SpecifyKind(date, DateTimeKind.Unspecified);
-                days.Add(new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local)));
-            }
-            return days;
-        }
-
-        internal static float TimelineDayCoordinate(DateTimeOffset timestamp,
-            IList<DateTimeOffset> days)
-        {
-            if (days == null || days.Count < 2)
-                return 0f;
-
-            long value = timestamp.ToUnixTimeSeconds();
-            if (value <= days[0].ToUnixTimeSeconds())
-                return 0f;
-            int last = days.Count - 1;
-            if (value >= days[last].ToUnixTimeSeconds())
-                return last;
-
-            for (int index = 0; index < last; index++)
-            {
-                long start = days[index].ToUnixTimeSeconds();
-                long end = days[index + 1].ToUnixTimeSeconds();
-                if (value > end)
-                    continue;
-                double fraction = end <= start
-                    ? 0d
-                    : (value - start) / (double)(end - start);
-                return index + Convert.ToSingle(Math.Max(0d, Math.Min(1d, fraction)));
-            }
-            return last;
-        }
-
-        internal static Color TimelineConfidenceColor(ResetHistoryEntry entry,
-            bool darkTheme)
-        {
-            int confidence = entry == null ? 0 : entry.Confidence;
-            if (confidence >= (int)ResetConfidence.High)
-                return darkTheme
-                    ? Color.FromArgb(67, 222, 160)
-                    : Color.FromArgb(18, 158, 103);
-            if (confidence >= (int)ResetConfidence.Medium)
-                return darkTheme
-                    ? Color.FromArgb(74, 199, 255)
-                    : Color.FromArgb(20, 132, 218);
-            return darkTheme
-                ? Color.FromArgb(255, 104, 111)
-                : Color.FromArgb(218, 65, 72);
+            interaction.UpdateTimelineRange(days, TimelineViewportDays);
         }
 
         private Color EntryAccent(ResetHistoryEntry entry)
         {
-            if (entry != null && !entry.IsEstimated)
-                return darkTheme ? Color.FromArgb(62, 222, 145) : Color.FromArgb(18, 158, 103);
-            if (entry != null && entry.Confidence < (int)ResetConfidence.Medium)
-                return darkTheme ? Color.FromArgb(255, 190, 88) : Color.FromArgb(211, 119, 20);
-            return darkTheme ? Color.FromArgb(86, 203, 255) : Color.FromArgb(18, 127, 211);
-        }
-
-        private static string EntryStateText(ResetHistoryEntry entry)
-        {
-            if (entry == null)
-                return String.Empty;
-            string state = entry.IsEstimated ? "推算" : "检测";
-            string confidence = entry.Confidence >= (int)ResetConfidence.High
-                ? "高" : (entry.Confidence >= (int)ResetConfidence.Medium ? "中" : "低");
-            return state + " · " + confidence;
+            return ResetHistoryPresentation.TimelineConfidenceColor(entry, darkTheme);
         }
 
         private PointF ToDesignPoint(Point point)
@@ -1020,32 +832,19 @@ namespace CodexMeter
 
         private static Font PixelFont(float size, FontStyle style)
         {
-            return new Font("Microsoft YaHei UI", size, style, GraphicsUnit.Pixel);
+            return UiDrawing.PixelFont(size, style);
         }
 
         private static void DrawText(Graphics graphics, string text, Font font, Brush brush,
             RectangleF bounds, StringAlignment horizontal, StringAlignment vertical)
         {
-            using (StringFormat format = new StringFormat(StringFormat.GenericTypographic))
-            {
-                format.Alignment = horizontal;
-                format.LineAlignment = vertical;
-                format.FormatFlags |= StringFormatFlags.NoWrap;
-                format.Trimming = StringTrimming.EllipsisCharacter;
-                graphics.DrawString(text ?? String.Empty, font, brush, bounds, format);
-            }
+            UiDrawing.DrawText(
+                graphics, text, font, brush, bounds, horizontal, vertical);
         }
 
         private static GraphicsPath RoundedRectangle(RectangleF bounds, float radius)
         {
-            float diameter = Math.Max(1, radius * 2);
-            GraphicsPath path = new GraphicsPath();
-            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
-            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
-            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
-            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
-            path.CloseFigure();
-            return path;
+            return UiDrawing.RoundedRectangle(bounds, radius);
         }
 
         private sealed class TimelineHoverTarget

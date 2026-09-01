@@ -1,8 +1,22 @@
 CodexMeter is an independent, unofficial application powered by CodexBar.
 
-Release packages include the CodexBar CLI binary so users do not need to
-install CodexBar separately. The bundled binary is redistributed under the MIT
-License. Its complete license text is included at:
+Windows v0.1.3 packages include the Win-CodexBar 0.45.2 standalone console CLI
+so users do not need to install the Win-CodexBar desktop application. The exact
+binary is pinned and verified with SHA-256 at build time and before execution.
+Its MIT license is included at:
+
+  ThirdPartyLicenses/Win-CodexBar-LICENSE.txt
+
+and beside the Windows executable as:
+
+  Win-CodexBar-LICENSE.txt
+
+Win-CodexBar:
+  https://github.com/nesszer/Win-CodexBar
+  Licensed under the MIT License:
+  https://github.com/nesszer/Win-CodexBar/blob/main/LICENSE
+
+macOS packages include the upstream CodexBar CLI and its license at:
 
   ThirdPartyLicenses/CodexBar-LICENSE.txt
 
@@ -12,7 +26,7 @@ and inside the application bundle at:
 
 CodexBar:
   https://github.com/steipete/CodexBar
-  Copyright (c) 2026 Peter Steinberger
+  Copyright (c) 2025 Peter Steinberger
   Licensed under the MIT License:
   https://github.com/steipete/CodexBar/blob/main/LICENSE
 

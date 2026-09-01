@@ -71,9 +71,10 @@ namespace CodexMeter
                     Apply(settings, key, value);
                 }
             }
-            catch
+            catch (Exception exception)
             {
                 // Corrupt settings should never prevent the meter from starting.
+                AppDiagnostics.Record("settings-read", exception);
             }
 
             if (settings.UiVersion < 2)

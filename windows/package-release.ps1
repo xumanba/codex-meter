@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = "0.1.1"
+    [string]$Version = "0.1.3"
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,9 +40,11 @@ if ($application.VersionInfo.FileVersion -ne $expectedFileVersion) {
 $packageFiles = @{
     "CodexMeter.exe" = $applicationPath
     "CodexMeter.exe.config" = Join-Path $distDirectory "CodexMeter.exe.config"
+    "codexbar-cli.exe" = Join-Path $distDirectory "codexbar-cli.exe"
     "LICENSE.txt" = Join-Path $distDirectory "LICENSE.txt"
     "NOTICE.txt" = Join-Path $distDirectory "NOTICE.txt"
     "CodexBar-LICENSE.txt" = Join-Path $distDirectory "CodexBar-LICENSE.txt"
+    "Win-CodexBar-LICENSE.txt" = Join-Path $distDirectory "Win-CodexBar-LICENSE.txt"
     "README-Windows.txt" = Join-Path $windowsDirectory "README-Windows.txt"
     "install.ps1" = Join-Path $windowsDirectory "install.ps1"
     "uninstall.ps1" = Join-Path $windowsDirectory "uninstall.ps1"
@@ -62,6 +64,8 @@ $expectedEntries = @(
     "$packageRootName/CodexBar-LICENSE.txt",
     "$packageRootName/CodexMeter.exe",
     "$packageRootName/CodexMeter.exe.config",
+    "$packageRootName/Win-CodexBar-LICENSE.txt",
+    "$packageRootName/codexbar-cli.exe",
     "$packageRootName/LICENSE.txt",
     "$packageRootName/NOTICE.txt",
     "$packageRootName/README-Windows.txt",

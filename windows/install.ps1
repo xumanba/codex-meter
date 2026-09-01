@@ -65,9 +65,11 @@ function Copy-InstallFile {
 $applicationFiles = @(
     "CodexMeter.exe",
     "CodexMeter.exe.config",
+    "codexbar-cli.exe",
     "LICENSE.txt",
     "NOTICE.txt",
-    "CodexBar-LICENSE.txt"
+    "CodexBar-LICENSE.txt",
+    "Win-CodexBar-LICENSE.txt"
 )
 foreach ($fileName in $applicationFiles) {
     $sourcePath = Join-Path $sourceDirectory $fileName
