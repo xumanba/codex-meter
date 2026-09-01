@@ -73,8 +73,9 @@ count the raw tokens used by each individual prompt.
   because Codex does not expose a per-model quota price for that hidden variant
 - Fast mode uses a 2.5x quota weight; the 1.5x value in the model catalog refers
   to speed improvement, not quota consumption
-- Model rows only include sessions from the current weekly quota window, so stale
-  pre-refresh tokens do not appear as a misleading `0%` row
+- Model rows only include sessions from the current weekly quota window, using
+  Codex's reset boundary so a launch after a missed refresh can backfill the
+  current period without carrying stale tokens across weeks
 - Reasoning effort labels use the UI spelling `None`, `Low`, `Medium`, `High`, `xHigh` and `Max`
 - On macOS v0.2.0, weekly pace compares actual usage with time-based expected usage,
   marks normal/fast/slow pacing and shows an estimated depletion time when available
@@ -110,8 +111,8 @@ selection is restored automatically on both systems.
   token amounts across the latest seven calendar days.
 - **macOS model preference** — keeps each model, reasoning effort and Fast mode
   separate, with percentage first and token amount second.
-- **Refresh-bound model preference** — clears model totals when the quota reset
-  is detected, then counts only usage after that refresh.
+- **Quota-window model preference** — clears model totals at Codex's actual weekly
+  quota boundary, including the current period when the app missed the refresh.
 - **macOS whole-number quota** — weekly remaining percentage follows Codex's
   integer precision and does not invent decimal values.
 - **macOS weekly pace** — marks the time-based expected usage position on the

@@ -27,14 +27,27 @@ enum TokenUsagePeriodCheck {
             usedPercent: 0,
             now: refreshDate
         )
-        precondition(afterUsageDrop.start == refreshDate)
+        precondition(afterUsageDrop.start == resetAt.addingTimeInterval(-7 * 60 * 60 * 24))
 
         let afterResetChange = afterUsageDrop.updated(
             resetAt: nextResetAt,
             usedPercent: 1,
             now: refreshDate.addingTimeInterval(60)
         )
-        precondition(afterResetChange.start == refreshDate.addingTimeInterval(60))
+        precondition(
+            afterResetChange.start == nextResetAt.addingTimeInterval(-7 * 60 * 60 * 24)
+        )
+
+        let migrated = TokenUsagePeriod(
+            start: refreshDate,
+            resetsAt: resetAt,
+            lastUsedPercent: 12
+        ).updated(
+            resetAt: resetAt,
+            usedPercent: 12,
+            now: refreshDate
+        )
+        precondition(migrated.start == resetAt.addingTimeInterval(-7 * 60 * 60 * 24))
 
         checkDailyQuotaPercentages()
         checkModelQuotaEstimation()

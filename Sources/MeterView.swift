@@ -143,6 +143,7 @@ struct MeterView: View {
                 Button("立即刷新", systemImage: "arrow.clockwise") {
                     client.refreshNow()
                 }
+                .disabled(client.isRefreshing)
                 Button("退出", systemImage: "power", action: quit)
             } label: {
                 Image(systemName: "ellipsis")
