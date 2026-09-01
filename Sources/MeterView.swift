@@ -10,8 +10,8 @@ enum MeterTheme: String {
 enum MeterLayout {
     static let width: CGFloat = 344
     static let minimumHeight: CGFloat = 240
-    private static let modelRowHeight: CGFloat = 32
-    private static let modelRowSpacing: CGFloat = 9
+    private static let modelRowHeight: CGFloat = 28
+    private static let modelRowSpacing: CGFloat = 6
     private static let paceSectionHeight: CGFloat = 29
 
     static func height(
@@ -28,7 +28,7 @@ enum MeterLayout {
         }
 
         let paceHeight = hasPace ? paceSectionHeight : 0
-        let intrinsicHeight = 28 + 26 + (3 * 13) + 103 + paceHeight + 117 + 14 + 9 + modelHeight
+        let intrinsicHeight = 28 + 26 + (3 * 13) + 103 + paceHeight + 108 + 14 + 9 + modelHeight
         guard let maximum else { return intrinsicHeight }
         return min(intrinsicHeight, max(minimumHeight, maximum))
     }
@@ -143,6 +143,7 @@ struct MeterView: View {
                 Button("立即刷新", systemImage: "arrow.clockwise") {
                     client.refreshNow()
                 }
+                .disabled(client.isRefreshing)
                 Button("退出", systemImage: "power", action: quit)
             } label: {
                 Image(systemName: "ellipsis")
@@ -316,7 +317,7 @@ struct MeterView: View {
     }
 
     private func paceMarkerColor(for _: UsageSnapshot.Pace) -> Color {
-        Color(red: 1.0, green: 0.62, blue: 0.22)
+        .white
     }
 
     private func paceForecast(for pace: UsageSnapshot.Pace) -> String {
@@ -330,7 +331,7 @@ struct MeterView: View {
     }
 
     private func dailyUsage(_ usage: TokenUsageSnapshot) -> some View {
-        let quotaMaximum = max(0.1, usage.daily.map(\.quotaPercent).max() ?? 0)
+        let tokenMaximum = max(1, usage.daily.map(\.totals.totalTokens).max() ?? 0)
 
         return VStack(alignment: .leading, spacing: 9) {
             Text("近7天每日")
@@ -341,23 +342,23 @@ struct MeterView: View {
                 ForEach(usage.daily) { day in
                     dailyBar(
                         day,
-                        quotaMaximum: quotaMaximum
+                        tokenMaximum: tokenMaximum
                     )
                 }
             }
-            .frame(height: 94)
+            .frame(height: 84)
         }
     }
 
     private func dailyBar(
         _ day: TokenUsageSnapshot.Daily,
-        quotaMaximum: Double
+        tokenMaximum: Int64
     ) -> some View {
-        let normalized = day.quotaPercent / quotaMaximum
+        let normalized = Double(max(0, day.totals.totalTokens)) / Double(tokenMaximum)
 
         return VStack(spacing: 4) {
-            Text(formatPercent(day.quotaPercent))
-                .font(.system(size: 10, weight: .bold, design: .rounded))
+            Text(tokenAmount(day.totals.totalTokens))
+                .font(.system(size: 9.5, weight: .bold, design: .rounded))
                 .foregroundStyle(primaryText)
                 .monospacedDigit()
                 .frame(height: 12)
@@ -374,19 +375,13 @@ struct MeterView: View {
             Text(dayLabel(day.date))
                 .font(.system(size: 9.5, weight: .medium))
                 .foregroundStyle(secondaryText)
-            Text(tokenAmount(day.totals.totalTokens))
-                .font(.system(size: 9.5, weight: .medium))
-                .foregroundStyle(tertiaryText)
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
         }
         .frame(maxWidth: .infinity)
     }
 
     private func modelUsage(_ usage: TokenUsageSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Text("模型偏好 · 额度估算")
+        VStack(alignment: .leading, spacing: 6) {
+            Text("模型偏好")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(primaryText)
 
@@ -424,20 +419,13 @@ struct MeterView: View {
                     .foregroundStyle(.orange)
             }
             Spacer(minLength: 3)
-            Text(formatEstimatedPercent(breakdown.estimatedQuotaPercent))
+            Text(tokenAmount(breakdown.totals.totalTokens))
                 .font(.system(size: 14.5, weight: .bold, design: .rounded))
                 .foregroundStyle(accent)
                 .monospacedDigit()
-            Text("·")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(tertiaryText)
-            Text(tokenAmount(breakdown.totals.totalTokens))
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(accent.opacity(0.78))
-                .monospacedDigit()
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.vertical, 5)
         .background(statusBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
@@ -533,11 +521,6 @@ struct MeterView: View {
     private func formatPercent(_ value: Double?) -> String {
         guard let value else { return "—" }
         return String(format: "%.1f%%", max(0, value))
-    }
-
-    private func formatEstimatedPercent(_ value: Double?) -> String {
-        guard let value else { return "—" }
-        return String(format: "%.2f%%", max(0, value))
     }
 
     private func formatWholePercent(_ value: Double?) -> String {

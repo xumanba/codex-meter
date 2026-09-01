@@ -30,8 +30,11 @@
   implementation onto the `main` branch.
 - Adds current-quota daily token usage and separate model, reasoning-effort and
   Fast-mode preference statistics.
-- Resets model preference totals when the weekly quota reset is detected and
-  recounts from the refresh point instead of carrying totals across periods.
+- Resets model preference totals at Codex's actual weekly quota boundary and
+  backfills the current period even when the app was closed during the refresh.
+- Performs a complete current-period token scan on a quota-window change and
+  serializes manual and automatic refreshes so repeated clicks do not expose
+  partial or overlapping results.
 - Uses the CodexMeter app icon in the floating card header.
 - Corrects the displayed casing of the `xHigh` reasoning level.
 - Restores the macOS weekly pace status, expected-budget marker and depletion

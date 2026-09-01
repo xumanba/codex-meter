@@ -27,19 +27,99 @@ enum TokenUsagePeriodCheck {
             usedPercent: 0,
             now: refreshDate
         )
-        precondition(afterUsageDrop.start == refreshDate)
+        precondition(afterUsageDrop.start == resetAt.addingTimeInterval(-7 * 60 * 60 * 24))
 
         let afterResetChange = afterUsageDrop.updated(
             resetAt: nextResetAt,
             usedPercent: 1,
             now: refreshDate.addingTimeInterval(60)
         )
-        precondition(afterResetChange.start == refreshDate.addingTimeInterval(60))
+        precondition(
+            afterResetChange.start == nextResetAt.addingTimeInterval(-7 * 60 * 60 * 24)
+        )
+
+        let migrated = TokenUsagePeriod(
+            start: refreshDate,
+            resetsAt: resetAt,
+            lastUsedPercent: 12
+        ).updated(
+            resetAt: resetAt,
+            usedPercent: 12,
+            now: refreshDate
+        )
+        precondition(migrated.start == resetAt.addingTimeInterval(-7 * 60 * 60 * 24))
 
         checkDailyQuotaPercentages()
         checkModelQuotaEstimation()
+        checkForkedBaselineHandling()
+        checkTokenWindowFiltering()
 
         print("Token usage period checks passed")
+    }
+
+    private static func checkForkedBaselineHandling() {
+        precondition(
+            TokenUsageScanner.shouldSkipForkedBaseline(
+                isForkedSession: true,
+                modelIsKnown: false,
+                hasPreviousTotal: false
+            )
+        )
+        precondition(
+            !TokenUsageScanner.shouldSkipForkedBaseline(
+                isForkedSession: false,
+                modelIsKnown: false,
+                hasPreviousTotal: false
+            )
+        )
+        precondition(
+            !TokenUsageScanner.shouldSkipForkedBaseline(
+                isForkedSession: true,
+                modelIsKnown: true,
+                hasPreviousTotal: false
+            )
+        )
+        precondition(
+            !TokenUsageScanner.shouldSkipForkedBaseline(
+                isForkedSession: true,
+                modelIsKnown: false,
+                hasPreviousTotal: true
+            )
+        )
+    }
+
+    private static func checkTokenWindowFiltering() {
+        let weeklyReset = Date(timeIntervalSince1970: 2_000_000)
+        let shortWindowReset = weeklyReset.addingTimeInterval(60 * 60)
+
+        precondition(
+            TokenUsageScanner.shouldIncludeTokenEvent(
+                quotaWindowMinutes: 300,
+                quotaResetsAt: shortWindowReset,
+                weeklyReset: weeklyReset
+            )
+        )
+        precondition(
+            TokenUsageScanner.shouldIncludeTokenEvent(
+                quotaWindowMinutes: 10080,
+                quotaResetsAt: weeklyReset,
+                weeklyReset: weeklyReset
+            )
+        )
+        precondition(
+            !TokenUsageScanner.shouldIncludeTokenEvent(
+                quotaWindowMinutes: 10080,
+                quotaResetsAt: shortWindowReset,
+                weeklyReset: weeklyReset
+            )
+        )
+        precondition(
+            TokenUsageScanner.shouldIncludeTokenEvent(
+                quotaWindowMinutes: nil,
+                quotaResetsAt: nil,
+                weeklyReset: weeklyReset
+            )
+        )
     }
 
     private static func checkDailyQuotaPercentages() {

@@ -38,7 +38,7 @@
 | 平台 | 原生界面 | 当前版本 / 安装包 | 数据来源 |
 |---|---|---|---|
 | Windows 10/11 | WinForms + DWM，Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip) | 内置并校验 Win-CodexBar CLI 0.45.2 |
-| macOS 14+ | SwiftUI + AppKit | [`CodexMeter-macos-universal-0.2.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) | 内置 CodexBar CLI |
+| macOS 14+ | SwiftUI + AppKit | [`ZIP`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) · [`DMG`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.dmg) | 内置 CodexBar CLI |
 
 Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](windows/README.zh-CN.md)。不同平台的版本差异请看 [`VERSION-GUIDE.md`](VERSION-GUIDE.md)。
 
@@ -67,7 +67,7 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 - Fast 模式按 2.5 倍额度权重估算；模型目录中的 1.5 倍描述表示速度提升，不是额度倍率。
 - 模型统计只纳入当前周额度窗口的会话；旧额度窗口的 token 不会留下一个 `0%` 的模型行。
 - 思考强度按界面规范显示为 `None`、`Low`、`Medium`、`High`、`xHigh`、`Max` 等等级。
-- 检测到额度刷新后，模型偏好自动清零，从刷新时刻重新统计，不会跨额度周期累积。
+- 检测到额度刷新后，按 Codex 返回的当前周额度周期起点（重置时间前 7 天）重新统计；插件关闭期间错过刷新也能补回当前周期记录，不会跨周期累积。
 - 使用过的新模型自动增加一行，超过屏幕可用高度后浮窗内部滚动。
 - 支持深色/浅色玻璃、固定桌面、跟随 Codex 和左右边缘吸附。
 - 应用名称为 `CodexMeter`，浮窗顶部和安装包均使用 CodexMeter 应用图标。
@@ -83,7 +83,8 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 - 修复跨额度窗口混入：额度刷新后，旧窗口的模型 token 不再混入当前周统计并显示为 `0%`。
 - 将周额度进度条的节奏参考线改为橙色，提高与绿色剩余额度条的对比度。
 - 恢复每周额度的使用节奏状态、按时间应使用标记和耗尽预测。
-- 刷新额度后，刷新前的记录不混入当前额度周期；当天中途刷新时只统计刷新之后的 token。
+- 刷新额度后，以实际额度周期起点为边界，旧周期记录不会混入；插件晚打开时也不会因为打开时间而漏掉当前周期 token。
+- 修复首次打开或重复点击刷新时 token 分批增加：当前周期首次扫描会覆盖完整窗口，手动刷新与自动刷新不会并行重复执行。
 - 增加模型、思考强度和 Fast 模式的独立偏好统计。
 - 模型偏好绑定当前额度周期；检测到重置时间变化或已用比例回落后自动清零重算。
 - 模型行按实际数量动态增高，超过屏幕高度后启用内部滚动。
@@ -103,8 +104,8 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 
 ### macOS v0.2.0
 
-1. 从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载 `CodexMeter-macos-universal-0.2.0.zip`。
-2. 解压后将 **CodexMeter.app** 拖到“应用程序”。
+1. 从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载 DMG（推荐）或 ZIP。
+2. 打开 DMG，将 **CodexMeter.app** 拖到“应用程序”；如果使用 ZIP，则解压后拖入“应用程序”。
 3. 当前版本是 ad-hoc 签名且没有 Apple notarization，第一次打开时请右键应用并选择“打开”；如果仍被拦截，请到“系统设置 → 隐私与安全性”中选择“仍要打开”。
 4. 打开 CodexMeter；本机 Codex 登录有效时，浮窗会自动出现。
 
@@ -135,7 +136,7 @@ chmod +x install.sh uninstall.sh build-app.sh
 ./Scripts/package-release.sh
 ```
 
-输出文件为 `.build/release/CodexMeter-macos-universal-0.2.0.zip` 及对应的 `.sha256` 校验文件。构建脚本会检查 arm64/x86_64 架构、深度签名、CodexBar 许可证和应用图标。
+输出文件为 `.build/release/CodexMeter-macos-universal-0.2.0.zip`、`.dmg` 及各自的 `.sha256` 校验文件。构建脚本会检查 arm64/x86_64 架构、深度签名、CodexBar 许可证、应用图标，并验证 DMG 可以挂载。
 
 ## 边缘吸附
 

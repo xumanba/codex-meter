@@ -85,8 +85,15 @@ struct TokenUsagePeriod: Codable, Equatable, Sendable {
         }
 
         let usageDropped = usedPercent + 0.5 < lastUsedPercent
+        let nextStart: Date
+        if let resetAt {
+            nextStart = resetAt.addingTimeInterval(-7 * 60 * 60 * 24)
+        } else {
+            nextStart = resetChanged || usageDropped ? now : start
+        }
+
         return TokenUsagePeriod(
-            start: resetChanged || usageDropped ? now : start,
+            start: nextStart,
             resetsAt: resetAt ?? resetsAt,
             lastUsedPercent: usedPercent
         )
@@ -243,6 +250,7 @@ enum TokenUsageScanner {
         let isFast: Bool
         let quotaUsedPercent: Double?
         let quotaResetsAt: Date?
+        let quotaWindowMinutes: Int?
     }
 
     private struct QuotaHistory: Decodable {
@@ -282,7 +290,7 @@ enum TokenUsageScanner {
         let quotaStart = quotaPeriodStart
             ?? weeklyResetsAt?.addingTimeInterval(-7 * 60 * 60 * 24)
             ?? firstDay
-        let eventCutoff = max(firstDay, quotaStart)
+        let eventCutoff = quotaStart
         let events = scanFiles(cutoff: eventCutoff)
 
         var quotaSamples = loadQuotaSamples(currentReset: weeklyResetsAt)
@@ -308,7 +316,11 @@ enum TokenUsageScanner {
 
         for event in events where event.date >= quotaStart
             && event.date <= now
-            && belongsToQuotaWindow(event.quotaResetsAt, weeklyReset: weeklyResetsAt) {
+            && shouldIncludeTokenEvent(
+                quotaWindowMinutes: event.quotaWindowMinutes,
+                quotaResetsAt: event.quotaResetsAt,
+                weeklyReset: weeklyResetsAt
+            ) {
             let day = calendar.startOfDay(for: event.date)
             if let index = dailyIndex[day] {
                 dailyTotals[index] = dailyTotals[index].adding(event.totals)
@@ -554,6 +566,7 @@ enum TokenUsageScanner {
         var context = UsageContext()
         var previousTotal: TokenUsageTotals?
         var previousLast: TokenUsageTotals?
+        var isForkedSession = false
         var events: [UsageEvent] = []
 
         for line in text.split(whereSeparator: \.isNewline) {
@@ -563,6 +576,9 @@ enum TokenUsageScanner {
                 continue
             }
 
+            if dictionary["type"] as? String == "session_meta" {
+                isForkedSession = isForkedSession || isForkedSessionPayload(payload)
+            }
             context.update(from: payload)
             let quota = quotaUsage(in: payload)
             let dateString = (dictionary["timestamp"] as? String)
@@ -577,9 +593,17 @@ enum TokenUsageScanner {
             }
 
             if let total = tokenUsage(at: ["info", "total_token_usage"], in: payload) {
+                let skipInheritedBaseline = shouldSkipForkedBaseline(
+                    isForkedSession: isForkedSession,
+                    modelIsKnown: context.model != "未知模型",
+                    hasPreviousTotal: previousTotal != nil
+                )
                 let delta = total.delta(from: previousTotal)
                 previousTotal = total
                 previousLast = nil
+                if skipInheritedBaseline {
+                    continue
+                }
                 if delta.totalTokens > 0 && date >= cutoff {
                     events.append(
                         UsageEvent(
@@ -589,7 +613,8 @@ enum TokenUsageScanner {
                             effort: context.effort,
                             isFast: context.isFast,
                             quotaUsedPercent: quota?.usedPercent,
-                            quotaResetsAt: quota?.resetsAt
+                            quotaResetsAt: quota?.resetsAt,
+                            quotaWindowMinutes: quota?.windowMinutes
                         )
                     )
                 }
@@ -608,7 +633,8 @@ enum TokenUsageScanner {
                         effort: context.effort,
                         isFast: context.isFast,
                         quotaUsedPercent: quota?.usedPercent,
-                        quotaResetsAt: quota?.resetsAt
+                        quotaResetsAt: quota?.resetsAt,
+                        quotaWindowMinutes: quota?.windowMinutes
                     )
                 )
             }
@@ -616,6 +642,28 @@ enum TokenUsageScanner {
         }
 
         return events
+    }
+
+    static func shouldSkipForkedBaseline(
+        isForkedSession: Bool,
+        modelIsKnown: Bool,
+        hasPreviousTotal: Bool
+    ) -> Bool {
+        isForkedSession && !modelIsKnown && !hasPreviousTotal
+    }
+
+    private static func isForkedSessionPayload(_ payload: [String: Any]) -> Bool {
+        if payload["forked_from_id"] != nil || payload["parent_thread_id"] != nil {
+            return true
+        }
+        if payload["thread_source"] as? String == "subagent" {
+            return true
+        }
+        if let source = payload["source"] as? [String: Any],
+           source["subagent"] != nil {
+            return true
+        }
+        return false
     }
 
     private static func tokenUsage(
@@ -664,7 +712,7 @@ enum TokenUsageScanner {
 
     private static func quotaUsage(
         in payload: [String: Any]
-    ) -> (usedPercent: Double, resetsAt: Date?)? {
+    ) -> (usedPercent: Double, resetsAt: Date?, windowMinutes: Int?)? {
         guard let rateLimits = payload["rate_limits"] as? [String: Any],
               let primary = rateLimits["primary"] as? [String: Any],
               let usedPercent = double(primary["used_percent"]) else {
@@ -673,7 +721,8 @@ enum TokenUsageScanner {
 
         let resetsAt = double(primary["resets_at"])
             .map(Date.init(timeIntervalSince1970:))
-        return (usedPercent, resetsAt)
+        let windowMinutes = integer(primary["window_minutes"]).map(Int.init)
+        return (usedPercent, resetsAt, windowMinutes)
     }
 
     private static func value(at path: [String], in object: [String: Any]) -> Any? {
@@ -854,6 +903,16 @@ enum TokenUsageScanner {
     ) -> Bool {
         guard weeklyReset != nil else { return true }
         return matchesReset(eventReset, weeklyReset)
+    }
+
+    static func shouldIncludeTokenEvent(
+        quotaWindowMinutes: Int?,
+        quotaResetsAt: Date?,
+        weeklyReset: Date?
+    ) -> Bool {
+        guard let quotaWindowMinutes else { return true }
+        guard quotaWindowMinutes == 10080 else { return true }
+        return belongsToQuotaWindow(quotaResetsAt, weeklyReset: weeklyReset)
     }
 
 }
