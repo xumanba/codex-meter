@@ -1,20 +1,21 @@
-CodexMeter for Windows v0.1.1 (development build)
+CodexMeter for Windows v0.1.3
 ==================================================
 
 中文安装说明
 ------------
 
 1. 系统要求：Windows 10 或 Windows 11，.NET Framework 4.7.2 或更高版本。
-2. 请先安装并登录 Win-CodexBar：
-   https://github.com/Finesssee/Win-CodexBar
-3. 解压整个 ZIP，保持本文件夹内的文件在一起。
+2. 请先登录 Codex 桌面客户端，或运行 codex login。
+3. 完整解压整个 ZIP，保持 CodexMeter.exe、codexbar-cli.exe 和许可证文件
+   位于同一个文件夹；不需要另外安装 Win-CodexBar。
 4. 双击 CodexMeter.exe。
-5. 如果 Windows 显示“未知发布者”，请确认文件来自本项目 Release 后，
-   选择“更多信息”→“仍要运行”。
+5. CodexMeter 和内置 CLI 均未进行 Authenticode 签名。如果 Windows 显示
+   “未知发布者”，请先核对 Release SHA-256，再选择“更多信息”→“仍要运行”。
 6. 若窗口被隐藏，请双击系统托盘中的 CodexMeter 图标恢复。
 7. 网速是整台电脑所有活动网卡的总流量，并非 Codex 专属流量。
-8. 聚焦显示每周额度和“xd xh 后重置”；悬停可查看准确的本机日期和时间。
-   Spark 附加窗口不再作为单独整栏显示。
+8. 聚焦显示每周额度和“xd xh 后重置”；悬停可查看当前预计的本机日期
+   和时间，点击可查看最近 3 次重置与平均间隔，并展开到最近 10 次。
+   本机日志回推记录会明确标为“推算”；Spark 不再作为单独整栏显示。
 9. 鼠标悬停在“实时”状态上，可通过与额度进度条同色系的圆角提示
    查看最近的数据更新时间。
 10. 在“•••”菜单勾选“开机自启动”，可让 CodexMeter 在当前用户登录
@@ -22,8 +23,9 @@ CodexMeter for Windows v0.1.1 (development build)
     正常贴边隐藏；再次点击即可关闭。
 11. 同步期间按钮名称仍保持“实时”，蓝色状态点表示查询中；重复点击会
     合并到当前查询，避免连续执行两次慢查询。
-12. Codex/ChatGPT 位于同一显示器并处于前台时，卡片会临时保持在其上方；
-    “始终置顶”仍可控制其他场景下是否全局置顶。
+12. 默认始终置顶；勾选“取消始终置顶”后，其他程序可以覆盖卡片。
+    Codex/ChatGPT 位于同一显示器并处于前台时仍会临时抬高卡片，离开后
+    恢复普通层级。
 13. 新增本机近 7 天 token、每日额度折算和模型/推理强度偏好。增量缓存
     不保存提示词、回复或凭据；缺少模型字段时显示“未标注模型”。
 14. 默认采用简易模式；点击“节奏正常/超额”整行可展开或收起近 7 天和
@@ -47,16 +49,19 @@ English installation
 --------------------
 
 1. Requires Windows 10/11 and .NET Framework 4.7.2 or newer.
-2. Install and sign in to Win-CodexBar first:
-   https://github.com/Finesssee/Win-CodexBar
-3. Extract the entire ZIP and keep all files in this folder together.
+2. Sign in to the Codex desktop app first, or run `codex login`.
+3. Fully extract the ZIP and keep CodexMeter.exe, codexbar-cli.exe and the
+   license files together. No separate Win-CodexBar installation is required.
 4. Run CodexMeter.exe.
-5. The binary is not Authenticode-signed. Windows may display an
-   unknown-publisher warning; continue only after verifying the download.
+5. CodexMeter and the bundled CLI are not Authenticode-signed. Windows may
+   display an unknown-publisher warning; continue only after verifying the
+   Release SHA-256.
 6. If the card is hidden, double-click its notification-area icon to restore it.
 7. Network speed is aggregate system traffic, not Codex-only traffic.
 8. The focused Windows card shows the weekly allowance and its "xd xh until
-   reset" text. Spark is no longer rendered as a separate row.
+   reset" text. Click it for the latest three reset records and average interval,
+   with an expandable list of up to ten. Log-derived records are marked as
+   estimates. Spark is no longer rendered as a separate row.
 9. Hover the status pill to see the latest data-update time in a rounded prompt
    that uses the same color palette as the allowance progress bar.
 10. Toggle "开机自启动" in the `•••` menu to start CodexMeter after the
@@ -64,8 +69,10 @@ English installation
     at login before normal edge hiding resumes; toggle it again to disable startup.
 11. The status label remains live while its blue dot indicates an active query.
     Repeated clicks are coalesced instead of starting back-to-back CLI queries.
-12. The card temporarily stays above foreground Codex/ChatGPT on the same display;
-    the always-on-top option still controls all other situations.
+12. The card is always on top by default. Check “取消始终置顶” to use ordinary
+    window ordering so other applications can cover it. Foreground Codex/ChatGPT
+    on the same display still raises the card temporarily, then ordinary ordering
+    resumes when focus moves elsewhere.
 13. The card adds local seven-day tokens, daily quota shares and model/reasoning-
     effort preferences. Its incremental cache stores no prompts, responses or credentials;
     missing model metadata is shown explicitly instead of guessed.

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -12,6 +13,9 @@ namespace CodexMeter
     internal sealed class CodexBarClient
     {
         private const int TimeoutMilliseconds = 45000;
+        internal const string BundledCliVersion = "0.45.2";
+        internal const string BundledCliSha256 =
+            "C0B737E1B36E0D90524AA6FAB169D718EBB9E54F00656695E340522D284ADFAD";
         private readonly int timeoutMilliseconds;
 
         public string ExecutablePath { get; private set; }
@@ -43,8 +47,14 @@ namespace CodexMeter
 
             if (String.IsNullOrEmpty(ExecutablePath))
             {
+                string bundledPath = BundledExecutablePath();
+                if (File.Exists(bundledPath) && !IsBundledExecutableValid(bundledPath))
+                {
+                    throw new InvalidOperationException(
+                        "内置 CodexBar CLI 校验失败，文件可能不完整或已被修改。请重新解压完整安装包。");
+                }
                 throw new FileNotFoundException(
-                    "未找到 codexbar-cli.exe。请先安装 Win-CodexBar，或通过 CODEXBAR_CLI 环境变量指定路径。");
+                    "未找到 codexbar-cli.exe。请重新解压完整安装包，或通过 CODEXBAR_CLI 环境变量指定路径。");
             }
 
             ProcessStartInfo startInfo = new ProcessStartInfo();
@@ -116,37 +126,75 @@ namespace CodexMeter
 
         public static string LocateExecutable()
         {
-            List<string> candidates = new List<string>();
+            string explicitPath = ApprovedExistingExecutable(
+                Environment.GetEnvironmentVariable("CODEXBAR_CLI"));
+            if (!String.IsNullOrEmpty(explicitPath))
+                return explicitPath;
+
+            string bundledPath = BundledExecutablePath();
+            if (IsBundledExecutableValid(bundledPath))
+                return Path.GetFullPath(bundledPath);
+
             string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            AddCandidate(candidates, Path.Combine(localAppData, "Programs", "CodexBar", "codexbar-cli.exe"));
-            AddCandidate(candidates, Path.Combine(localAppData, "Programs", "Win-CodexBar", "codexbar-cli.exe"));
-            AddCandidate(candidates, Environment.GetEnvironmentVariable("CODEXBAR_CLI"));
-            AddCandidate(candidates, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "codexbar-cli.exe"));
+            List<string> candidates = new List<string>();
+            candidates.Add(Path.Combine(localAppData, "Programs", "CodexBar", "codexbar-cli.exe"));
+            candidates.Add(Path.Combine(localAppData, "Programs", "Win-CodexBar", "codexbar-cli.exe"));
 
             foreach (string candidate in candidates)
             {
-                try
-                {
-                    string fullPath = Path.GetFullPath(candidate);
-                    string fileName = Path.GetFileName(fullPath);
-                    bool approvedName = String.Equals(fileName, "codexbar-cli.exe", StringComparison.OrdinalIgnoreCase);
-                    bool localPath = !fullPath.StartsWith("\\\\", StringComparison.Ordinal);
-                    if (approvedName && localPath && File.Exists(fullPath))
-                        return fullPath;
-                }
-                catch
-                {
-                    // Ignore malformed environment paths and continue probing.
-                }
+                string approved = ApprovedExistingExecutable(candidate);
+                if (!String.IsNullOrEmpty(approved))
+                    return approved;
             }
 
             return null;
         }
 
-        private static void AddCandidate(ICollection<string> candidates, string candidate)
+        internal static string BundledExecutablePath()
         {
-            if (!String.IsNullOrWhiteSpace(candidate))
-                candidates.Add(candidate.Trim().Trim('"'));
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "codexbar-cli.exe");
+        }
+
+        internal static bool IsBundledExecutableValid(string path)
+        {
+            try
+            {
+                string approved = ApprovedExistingExecutable(path);
+                if (String.IsNullOrEmpty(approved))
+                    return false;
+                using (SHA256 sha = SHA256.Create())
+                using (FileStream stream = File.OpenRead(approved))
+                {
+                    string actual = BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", String.Empty);
+                    return String.Equals(actual, BundledCliSha256,
+                        StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string ApprovedExistingExecutable(string candidate)
+        {
+            if (String.IsNullOrWhiteSpace(candidate))
+                return null;
+
+            try
+            {
+                string fullPath = Path.GetFullPath(candidate.Trim().Trim('"'));
+                string fileName = Path.GetFileName(fullPath);
+                bool approvedName = String.Equals(
+                    fileName, "codexbar-cli.exe", StringComparison.OrdinalIgnoreCase);
+                bool localPath = !fullPath.StartsWith("\\\\", StringComparison.Ordinal);
+                return approvedName && localPath && File.Exists(fullPath) ? fullPath : null;
+            }
+            catch
+            {
+                // Ignore malformed paths and continue probing.
+                return null;
+            }
         }
 
         private static string FriendlyError(string raw)

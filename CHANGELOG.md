@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (Windows weekly activity)
+## v0.1.3 (Windows weekly activity and self-contained package)
 
 - Renames the Windows product, window, tray and Start-menu identity to `CodexMeter`.
 - Replaces the Windows executable/window/tray icon with a medium blue-gray
@@ -12,6 +12,17 @@
 - Starts in compact mode and uses the pace row to expand or collapse the details.
 - Uses an incremental rollout cache that stores no prompts, responses or credentials.
 - Adds an in-app per-user startup toggle and preserves tray, edge-hide and manual-sync behavior.
+- Renames the menu action to `取消始终置顶`: unchecked keeps the default global
+  topmost behavior, while checked uses ordinary window ordering and still permits
+  temporary elevation above foreground Codex/ChatGPT on the same display.
+- Adds persistent reset-history inference, interval statistics and a draggable
+  daily timeline with source-aware confidence colors.
+- Splits rendering, window behavior, docking, refresh coordination, interaction
+  state and presentation rules into independently tested Windows modules.
+- Uses atomic cache replacement, sanitized rotating diagnostics and background
+  refresh policies while preserving the existing user-data paths and settings.
+- Bundles the pinned Win-CodexBar CLI 0.45.2 binary, verifies its SHA-256 during
+  the build and before execution, and removes the separate desktop dependency.
 
 ## v0.2.0 (unified main)
 
