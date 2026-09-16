@@ -1,5 +1,12 @@
-CodexMeter for Windows v0.1.3
+CodexMeter for Windows v0.1.4
 ==================================================
+
+v0.1.4 重置历史更新：
+点击重置倒计时直接打开时间轴；“查看历史时间”切换到可滚轮浏览的
+历史记录列表，“返回时间轴”切回时间轴。
+重置时间轴延伸到今天，连续无记录的日期也保留每日刻度。
+新增“距上次重置已过”的天、小时、分钟显示；悬停查看对应记录及可信度。
+打开历史面板时每分钟更新时长，跨天补刻度；浏览旧历史时保留所选位置。
 
 中文安装说明
 ------------
@@ -14,7 +21,8 @@ CodexMeter for Windows v0.1.3
 6. 若窗口被隐藏，请双击系统托盘中的 CodexMeter 图标恢复。
 7. 网速是整台电脑所有活动网卡的总流量，并非 Codex 专属流量。
 8. 聚焦显示每周额度和“xd xh 后重置”；悬停可查看当前预计的本机日期
-   和时间，点击可查看最近 3 次重置与平均间隔，并展开到最近 10 次。
+   和时间，点击直接查看带左右滑块的全部历史时间轴与间隔统计。
+   底部“查看历史时间”显示最近 3 次记录，可用滚轮浏览全部历史。
    本机日志回推记录会明确标为“推算”；Spark 不再作为单独整栏显示。
 9. 鼠标悬停在“实时”状态上，可通过与额度进度条同色系的圆角提示
    查看最近的数据更新时间。
@@ -59,9 +67,11 @@ English installation
 6. If the card is hidden, double-click its notification-area icon to restore it.
 7. Network speed is aggregate system traffic, not Codex-only traffic.
 8. The focused Windows card shows the weekly allowance and its "xd xh until
-   reset" text. Click it for the latest three reset records and average interval,
-   with an expandable list of up to ten. Log-derived records are marked as
-   estimates. Spark is no longer rendered as a separate row.
+   reset" text. Click it to open the full daily timeline through today, including
+   days with no reset events. The elapsed time since the latest reset updates
+   every minute. Choose "查看历史时间" for the scrollable records list, and
+   "返回时间轴" to return. Sources and confidence remain visible on hover.
+   Spark is no longer rendered as a separate row.
 9. Hover the status pill to see the latest data-update time in a rounded prompt
    that uses the same color palette as the allowance progress bar.
 10. Toggle "开机自启动" in the `•••` menu to start CodexMeter after the

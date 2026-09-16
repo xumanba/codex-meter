@@ -1,4 +1,4 @@
-# CodexMeter for Windows v0.1.3
+# CodexMeter for Windows v0.1.4
 
 这是 `xumanba/codex-meter` 的 Windows 原生改编版。它保留了上游的悬浮玻璃卡片交互，但将 SwiftUI/AppKit 界面替换成不需要额外 NuGet 包的 WinForms 单文件程序。
 
@@ -8,7 +8,8 @@
 
 - 聚焦显示每周主额度；仍兼容解析上游附加窗口，但不再绘制低价值的 Spark 整栏
 - 剩余额度、重置倒计时、每周节奏标记和预计耗尽时间
-- 点击重置倒计时打开历史面板：默认显示最近 3 次和间隔统计，可展开为带每日刻度及拖动滑块的完整历史时间轴
+- 点击重置倒计时直接打开每日刻度时间轴；点击底部“查看历史时间”切换到历史记录列表，默认显示最近 3 次，可用滚轮浏览；点击“返回时间轴”恢复时间轴
+- 时间轴延伸到今天，没有重置记录的日期也显示每日刻度；显示“距上次重置已过”的天、小时、分钟，悬停可查看对应记录的时间、来源与可信度。打开面板期间每分钟更新，跨天自动补刻度，正在浏览旧日期时保留当前位置
 - 重置记录分别显示来源与时间可信度：服务额度窗口、实时检测、本机日志推算或旧版历史；低/中/高可信度对应红/蓝/绿
 - 本机近 7 天 token 总量、每日活动柱状图，以及按模型/推理强度统计的偏好占比
 - 模型偏好颜色由使用占比连续决定：低占比为低饱和蓝灰，使用越多越接近醒目的高饱和蓝色；颜色不再固定代表某个模型
@@ -53,7 +54,7 @@
 windows\dist\CodexMeter.exe
 ```
 
-也可以从 Releases 页面下载 `Codex-Meter-Windows-portable-v0.1.3.zip`。必须完整解压，进入 `CodexMeter Windows v0.1.3` 文件夹后再运行 `CodexMeter.exe`；不需要另外安装 Win-CodexBar。
+也可以从 Releases 页面下载 `Codex-Meter-Windows-portable-v0.1.4.zip`。必须完整解压，进入 `CodexMeter Windows v0.1.4` 文件夹后再运行 `CodexMeter.exe`；不需要另外安装 Win-CodexBar。
 
 直接运行默认不会写注册表或添加开机启动项；只有在菜单中主动勾选“开机自启动”时，才会写入当前用户启动项。界面设置保存在：
 
@@ -104,10 +105,10 @@ Windows 模块和数据流说明见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 
 构建脚本使用 Windows 自带的 .NET Framework C# 编译器，不会下载依赖。源码按文件名稳定排序；生产 EXE 会在构建阶段明确排除测试入口 `TestProgram.cs`。构建还会验证 `windows\vendor\codexbar-cli.exe` 的固定 SHA-256，任何缺失或不匹配都会直接失败。输出位于 `windows\dist`。
 
-生成经过测试、带顶层文件夹并附 SHA-256 的 v0.1.3 Release 便携包：
+生成经过测试、带顶层文件夹并附 SHA-256 的 v0.1.4 Release 便携包：
 
 ```powershell
-.\windows\package-release.ps1 -Version 0.1.3
+.\windows\package-release.ps1 -Version 0.1.4
 ```
 
 验证解析器：

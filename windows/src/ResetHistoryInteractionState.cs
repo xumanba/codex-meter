@@ -65,10 +65,12 @@ namespace CodexMeter
         internal void UpdateTimelineRange(
             IList<DateTimeOffset> days, int viewportDays)
         {
+            bool followLatest = ShowAll && !DraggingTimelineSlider &&
+                TimelineStartDay == TimelineMaximumStartDay;
             TimelineTotalDays = days == null ? 1 : Math.Max(1, days.Count - 1);
             TimelineMaximumStartDay = Math.Max(0,
                 TimelineTotalDays - Math.Max(1, viewportDays));
-            TimelineStartDay = Math.Max(0,
+            TimelineStartDay = followLatest ? TimelineMaximumStartDay : Math.Max(0,
                 Math.Min(TimelineMaximumStartDay, TimelineStartDay));
         }
 

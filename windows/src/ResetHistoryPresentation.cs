@@ -78,19 +78,53 @@ namespace CodexMeter
             return left + Convert.ToSingle((right - left) * ratio);
         }
 
-        internal static List<DateTimeOffset> TimelineDays(IList<ResetHistoryEntry> entries)
+        internal static ResetHistoryEntry LatestPastEntry(ResetHistoryReport value,
+            DateTimeOffset now)
+        {
+            if (value == null || value.Entries == null)
+                return null;
+            return value.Entries.Where(item => item != null && item.ResetAt <= now)
+                .OrderByDescending(item => item.ResetUnixSeconds).FirstOrDefault();
+        }
+
+        internal static string ElapsedResetText(ResetHistoryReport value, DateTimeOffset now)
+        {
+            ResetHistoryEntry latest = LatestPastEntry(value, now);
+            if (latest == null)
+                return "暂无重置记录";
+
+            TimeSpan elapsed = now - latest.ResetAt;
+            long totalMinutes = (long)Math.Floor(elapsed.TotalMinutes);
+            string duration;
+            if (totalMinutes < 1)
+                duration = "不足1分钟";
+            else
+            {
+                long days = totalMinutes / (24 * 60);
+                long hours = (totalMinutes / 60) % 24;
+                long minutes = totalMinutes % 60;
+                duration = (days > 0 ? days + "天" : String.Empty) +
+                    (days > 0 || hours > 0 ? hours + "小时" : String.Empty) +
+                    minutes + "分钟";
+            }
+            return duration + (latest.Confidence < (int)ResetConfidence.Medium
+                ? "（低可信度）" : String.Empty);
+        }
+
+        internal static List<DateTimeOffset> TimelineDays(IList<ResetHistoryEntry> entries,
+            DateTimeOffset now)
         {
             List<ResetHistoryEntry> chronological = entries == null
                 ? new List<ResetHistoryEntry>()
-                : entries.Where(item => item != null)
+                : entries.Where(item => item != null && item.ResetAt <= now)
                     .OrderBy(item => item.ResetUnixSeconds)
                     .ToList();
             if (chronological.Count == 0)
                 return new List<DateTimeOffset>();
 
             DateTime firstDate = chronological[0].ResetAt.ToLocalTime().Date;
-            DateTime lastDate = chronological[chronological.Count - 1]
-                .ResetAt.ToLocalTime().Date.AddDays(1);
+            // The next midnight closes today's daily cell, even without a new reset.
+            DateTime lastDate = now.ToLocalTime().Date.AddDays(1);
             List<DateTimeOffset> days = new List<DateTimeOffset>();
             for (DateTime date = firstDate; date <= lastDate; date = date.AddDays(1))
             {
