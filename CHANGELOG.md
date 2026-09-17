@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.4 (Windows reset-history timeline update)
+
+- Opens the reset timeline directly when clicking the dashboard reset countdown.
+  The footer switches to the scrollable history list and back to the timeline.
+- Extends the reset-history daily timeline through today, including days without
+  reset records, and supports the timeline when only one reset has been recorded.
+- Shows the elapsed days, hours and minutes since the latest recorded reset;
+  hovering reveals its timestamp, source and confidence.
+- Uses the existing minute timer to refresh elapsed time and advance today's
+  timeline viewport across midnight while preserving a selected older viewport.
+
 ## v0.1.3 (Windows weekly activity and self-contained package)
 
 - Renames the Windows product, window, tray and Start-menu identity to `CodexMeter`.

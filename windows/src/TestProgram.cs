@@ -42,6 +42,9 @@ namespace CodexMeter
                 {
                     CheckResetHistoryDetection();
                     CheckResetHistoryWindowStartInference();
+                    CheckResetHistoryTimelinePresentation();
+                    CheckResetHistoryClock();
+                    CheckResetHistoryPopupCloseLifecycle();
                     Console.WriteLine(failures == 0 ? "RESET_HISTORY_TEST_OK" : "RESET_HISTORY_TEST_FAILED=" + failures);
                     return failures == 0 ? 0 : 1;
                 }
@@ -61,6 +64,7 @@ namespace CodexMeter
                 CheckResetHistoryDetection();
                 CheckResetHistoryWindowStartInference();
                 CheckResetHistoryTimelinePresentation();
+                CheckResetHistoryClock();
                 CheckResetHistoryPopupCloseLifecycle();
                 CheckDataFreshnessPresentation();
                 CheckDashboardStateTransitions();
@@ -948,9 +952,11 @@ namespace CodexMeter
                         index == 4 ? ResetConfidence.Low :
                             (index == 0 ? ResetConfidence.High : ResetConfidence.Medium)));
                 ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(entries);
-                using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
+                DateTimeOffset previewNow = latest.AddDays(5).AddHours(3).AddMinutes(12);
+                using (ResetHistorySurface surface = new ResetHistorySurface(report, false,
+                    mode.StartsWith("dark-", StringComparison.OrdinalIgnoreCase), 1.5f, previewNow))
                 {
-                    bool timeline = !String.Equals(mode, "list", StringComparison.OrdinalIgnoreCase);
+                    bool timeline = !mode.EndsWith("list", StringComparison.OrdinalIgnoreCase);
                     if (timeline)
                         surface.ExpandTimeline();
                     if (timeline && mode.StartsWith("hover-", StringComparison.OrdinalIgnoreCase))
@@ -958,7 +964,7 @@ namespace CodexMeter
                         using (Bitmap warmup = new Bitmap(surface.Width, surface.Height))
                             surface.DrawToBitmap(warmup, new Rectangle(Point.Empty, surface.Size));
                         List<DateTimeOffset> days =
-                            ResetHistoryPresentation.TimelineDays(entries);
+                            ResetHistoryPresentation.TimelineDays(entries, previewNow);
                         long timestamp;
                         if (String.Equals(mode, "hover-reset", StringComparison.OrdinalIgnoreCase))
                         {
@@ -985,7 +991,8 @@ namespace CodexMeter
                             BindingFlags.Instance | BindingFlags.NonPublic);
                         onMouseMove.Invoke(surface, new object[]
                         {
-                            new MouseEventArgs(MouseButtons.None, 0, x, 223, 0)
+                            new MouseEventArgs(MouseButtons.None, 0,
+                                Convert.ToInt32(x * 1.5f), Convert.ToInt32(259 * 1.5f), 0)
                         });
                     }
                     using (Bitmap image = new Bitmap(surface.Width, surface.Height))
@@ -1190,6 +1197,36 @@ namespace CodexMeter
                 };
 
                 popup.Show(new Point(-10000, -10000));
+                ResetHistorySurface popupSurface = (ResetHistorySurface)
+                    ((ToolStripControlHost)popup.Items[0]).Control;
+                using (Bitmap image = new Bitmap(popupSurface.Width, popupSurface.Height))
+                    popupSurface.DrawToBitmap(image, new Rectangle(Point.Empty, popupSurface.Size));
+                Expect(!popupSurface.TimelineSliderBounds.IsEmpty &&
+                    popup.Size == popupSurface.Size,
+                    "opening reset history displays the timeline immediately");
+
+                MethodInfo onMouseClick = typeof(Control).GetMethod("OnMouseClick",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                onMouseClick.Invoke(popupSurface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 1, 250, popupSurface.Height - 34, 0)
+                });
+                using (Bitmap image = new Bitmap(popupSurface.Width, popupSurface.Height))
+                    popupSurface.DrawToBitmap(image, new Rectangle(Point.Empty, popupSurface.Size));
+                Expect(popupSurface.TimelineSliderBounds.IsEmpty &&
+                    popupSurface.ListOffset == 0 && popup.Size == popupSurface.Size,
+                    "history time button switches from the timeline to the recent records list");
+
+                onMouseClick.Invoke(popupSurface, new object[]
+                {
+                    new MouseEventArgs(MouseButtons.Left, 1, 250, popupSurface.Height - 34, 0)
+                });
+                using (Bitmap image = new Bitmap(popupSurface.Width, popupSurface.Height))
+                    popupSurface.DrawToBitmap(image, new Rectangle(Point.Empty, popupSurface.Size));
+                Expect(!popupSurface.TimelineSliderBounds.IsEmpty &&
+                    popupSurface.TimelineStartDay == popupSurface.TimelineMaximumStartDay &&
+                    popup.Size == popupSurface.Size,
+                    "return button restores the timeline at the latest days");
                 popup.Close(ToolStripDropDownCloseReason.ItemClicked);
 
                 Expect(closedCount == 1, "reset history popup closes exactly once");
@@ -1217,9 +1254,9 @@ namespace CodexMeter
             float quarter = ResetHistoryPresentation.TimelineX(25, 0, 100, 10, 110);
             Expect(Math.Abs(quarter - 35f) < 0.001,
                 "reset timeline positions nodes by elapsed time");
-            using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f))
+            using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f, latest))
             {
-                Expect(surface.Width == 500 && surface.Height == 334,
+                Expect(surface.Width == 500 && surface.Height == 370,
                     "collapsed reset history uses the intended enlarged layout");
                 Expect(surface.ListOffset == 0,
                     "reset history list starts at the latest records");
@@ -1240,7 +1277,7 @@ namespace CodexMeter
                     "reset history list scrolls back to the latest records");
 
                 List<DateTimeOffset> dayTicks =
-                    ResetHistoryPresentation.TimelineDays(entries);
+                    ResetHistoryPresentation.TimelineDays(entries, latest);
                 Expect(dayTicks.Count > 3 &&
                     dayTicks[1].Date == dayTicks[0].Date.AddDays(1),
                     "reset timeline creates one grid cell per calendar day");
@@ -1293,7 +1330,7 @@ namespace CodexMeter
                     ResetHistoryPresentation.EntryStateText(localLog) == "日志推算 · 中",
                     "reset history source and confidence labels stay distinct");
                 surface.ExpandTimeline();
-                Expect(surface.Width == 500 && surface.Height == 388,
+                Expect(surface.Width == 500 && surface.Height == 424,
                     "expanded reset timeline uses the intended enlarged layout");
                 Expect(surface.TimelineMaximumStartDay > 0 &&
                     surface.TimelineStartDay == surface.TimelineMaximumStartDay,
@@ -1345,6 +1382,93 @@ namespace CodexMeter
                 });
                 Expect(surface.TimelineStartDay == surface.TimelineMaximumStartDay,
                     "timeline slider drag returns to the latest historical days");
+            }
+        }
+
+        private static void CheckResetHistoryClock()
+        {
+            DateTime localNow = new DateTime(2026, 9, 8, 14, 37, 0, DateTimeKind.Unspecified);
+            DateTimeOffset now = new DateTimeOffset(localNow,
+                TimeZoneInfo.Local.GetUtcOffset(localNow));
+            ResetHistoryEntry latest = HistoryEntry(now.AddDays(-5).AddHours(-3)
+                .AddMinutes(-12), ResetConfidence.High);
+            List<ResetHistoryEntry> entries = new List<ResetHistoryEntry>
+            {
+                HistoryEntry(now.AddDays(-30), ResetConfidence.Medium), latest
+            };
+            ResetHistoryReport report = ResetHistoryStore.BuildReportForTests(entries);
+            List<DateTimeOffset> days = ResetHistoryPresentation.TimelineDays(entries, now);
+            Expect(days.Count == 32 && days[days.Count - 2].Date == localNow.Date &&
+                days[days.Count - 1].Date == localNow.Date.AddDays(1),
+                "timeline includes every day through today after five days without resets");
+            Expect(days.Zip(days.Skip(1), (a, b) => b.Date == a.Date.AddDays(1)).All(x => x),
+                "timeline day ticks remain consecutive across the month boundary");
+            Expect(report.Entries.Count == 2 &&
+                report.Entries.Max(item => item.ResetUnixSeconds) == latest.ResetUnixSeconds,
+                "extending the timeline does not create synthetic reset events");
+            Expect(ResetHistoryPresentation.ElapsedResetText(report, now) == "5天3小时12分钟",
+                "elapsed reset time uses the latest event and keeps day hour minute precision");
+            Expect(ResetHistoryPresentation.ElapsedResetText(report, now.AddMinutes(1)) ==
+                "5天3小时13分钟", "elapsed reset time advances without new reset records");
+            ResetHistoryReport empty = new ResetHistoryReport();
+            Expect(ResetHistoryPresentation.ElapsedResetText(empty, now) == "暂无重置记录" &&
+                ResetHistoryPresentation.TimelineDays(empty.Entries, now).Count == 0,
+                "empty history has no fabricated elapsed time or timeline origin");
+            ResetHistoryReport single = new ResetHistoryReport();
+            single.Entries.Add(HistoryEntry(now.AddSeconds(-59), ResetConfidence.Low));
+            single.Entries.Add(HistoryEntry(now.AddDays(7), ResetConfidence.High));
+            Expect(ResetHistoryPresentation.ElapsedResetText(single, now) ==
+                "不足1分钟（低可信度）" &&
+                ResetHistoryPresentation.TimelineDays(single.Entries, now).Count == 2,
+                "future records cannot yield negative elapsed time or extend the axis past today");
+
+            ResetHistoryInteractionState navigation = new ResetHistoryInteractionState();
+            navigation.Expand(days, ResetHistorySurface.TimelineViewportDays);
+            int previousEnd = navigation.TimelineStartDay;
+            List<DateTimeOffset> nextDay = ResetHistoryPresentation.TimelineDays(entries, now.AddDays(1));
+            navigation.UpdateTimelineRange(nextDay, ResetHistorySurface.TimelineViewportDays);
+            Expect(navigation.TimelineStartDay == previousEnd + 1 &&
+                navigation.TimelineStartDay == navigation.TimelineMaximumStartDay,
+                "a viewport at the right edge follows today when the date changes");
+            navigation.UpdateTimelineFromSlider(48, 48, 404, 80);
+            navigation.UpdateTimelineRange(
+                ResetHistoryPresentation.TimelineDays(entries, now.AddDays(2)),
+                ResetHistorySurface.TimelineViewportDays);
+            Expect(navigation.TimelineStartDay == 0,
+                "date changes preserve the selected historical viewport");
+
+            using (ResetHistorySurface surface = new ResetHistorySurface(report, false, false, 1f, now))
+            {
+                surface.ExpandTimeline();
+                int originalStart = surface.TimelineStartDay;
+                surface.RefreshClock(now.AddDays(1));
+                using (Bitmap image = new Bitmap(surface.Width, surface.Height))
+                    surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
+                Expect(surface.TimelineStartDay == originalStart + 1,
+                    "an open history surface updates its timeline across midnight");
+                surface.Dispose();
+                surface.RefreshClock(now.AddDays(2));
+                Expect(surface.IsDisposed, "clock updates safely ignore a closed history surface");
+            }
+            ResetHistoryReport oneRecord = new ResetHistoryReport();
+            oneRecord.Entries.Add(latest);
+            using (ResetHistorySurface surface = new ResetHistorySurface(oneRecord, false, false, 1f, now))
+            {
+                surface.ExpandTimeline();
+                using (Bitmap image = new Bitmap(surface.Width, surface.Height))
+                    surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
+                Expect(surface.Height == 424 && !surface.TimelineSliderBounds.IsEmpty,
+                    "one reset record can show the following empty days on the timeline");
+            }
+            ResetHistoryReport futureOnly = new ResetHistoryReport();
+            futureOnly.Entries.Add(HistoryEntry(now.AddDays(7), ResetConfidence.High));
+            using (ResetHistorySurface surface = new ResetHistorySurface(futureOnly, false, false, 1f, now))
+            {
+                surface.ExpandTimeline();
+                using (Bitmap image = new Bitmap(surface.Width, surface.Height))
+                    surface.DrawToBitmap(image, new Rectangle(Point.Empty, surface.Size));
+                Expect(surface.TimelineSliderBounds.IsEmpty,
+                    "future-only history renders an empty state instead of fabricated points");
             }
         }
 

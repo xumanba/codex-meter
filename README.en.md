@@ -23,13 +23,13 @@ time on Windows, or use the detailed current-quota token view on macOS.
 </p>
 
 > [!IMPORTANT]
-> **CodexMeter supports both Windows and macOS.** Windows v0.1.3 uses the
+> **CodexMeter supports both Windows and macOS.** Windows v0.1.4 uses the
 > native WinForms client and bundles a verified Win-CodexBar CLI. macOS v0.2.0 uses
 > the SwiftUI/AppKit client, bundles the verified CodexBar CLI and adds detailed
 > current-quota token usage. Neither client stores account credentials.
 
 > [!NOTE]
-> The `main` branch now contains the complete Windows v0.1.3 and macOS v0.2.0
+> The `main` branch now contains the complete Windows v0.1.4 and macOS v0.2.0
 > source lines. The packaged macOS application remains available from the
 > [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0).
 
@@ -42,13 +42,19 @@ time on Windows, or use the detailed current-quota token view on macOS.
 
 | Platform | Native UI | Release / install | Data provider |
 |---|---|---|---|
-| Windows 10/11 | WinForms + DWM, Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip) | Bundled, verified Win-CodexBar CLI 0.45.2 |
+| Windows 10/11 | WinForms + DWM, Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.4.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.4/Codex-Meter-Windows-portable-v0.1.4.zip) | Bundled, verified Win-CodexBar CLI 0.45.2 |
 | macOS 14+ | SwiftUI + AppKit | [`ZIP`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) · [`DMG`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.dmg) | Bundled CodexBar CLI |
 
 Windows-specific build, install and troubleshooting instructions are available
 in [`windows/README.zh-CN.md`](windows/README.zh-CN.md). See the bilingual
 [`VERSION-GUIDE.md`](VERSION-GUIDE.md) for separate Windows/macOS downloads and
-the differences between Windows v0.1.0/v0.1.1/v0.1.3 and macOS v0.2.0.
+the differences between Windows v0.1.0/v0.1.1/v0.1.3/v0.1.4 and macOS v0.2.0.
+
+Windows v0.1.4 opens the reset timeline directly from the reset countdown. Daily
+ticks extend through today even without new resets, and elapsed time since the
+latest recorded reset updates every minute. The footer switches between the
+timeline and the scrollable history list. Existing Windows releases remain
+available, and the macOS v0.2.0 package is unchanged.
 
 ## Codex usage and quota visualization
 
@@ -174,11 +180,11 @@ Win-CodexBar installation is not required.
 
 ## Download and install
 
-### Windows v0.1.3
+### Windows v0.1.4
 
 1. Make sure the Codex desktop app is signed in, or run `codex login`.
-2. Download [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip).
-3. Fully extract the ZIP, open `CodexMeter Windows v0.1.3`, and run
+2. Download [`Codex-Meter-Windows-portable-v0.1.4.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.4/Codex-Meter-Windows-portable-v0.1.4.zip).
+3. Fully extract the ZIP, open `CodexMeter Windows v0.1.4`, and run
    `CodexMeter.exe`; no separate Win-CodexBar installation is required.
 4. Windows may show an unknown-publisher warning because CodexMeter and the
    bundled CLI are not Authenticode-signed. Verify the Release SHA-256 first.
@@ -322,7 +328,7 @@ network.
 ```powershell
 .\windows\build.ps1
 .\windows\dist\CodexMeter.Tests.exe
-.\windows\package-release.ps1 -Version 0.1.3
+.\windows\package-release.ps1 -Version 0.1.4
 ```
 
 The Windows build uses the .NET Framework compiler already present on Windows
@@ -372,7 +378,7 @@ settings are left untouched.
 ## Relationship to CodexBar
 
 This project is an **independent, unofficial application** powered by CodexBar.
-Windows v0.1.3 redistributes the pinned
+Windows v0.1.4 redistributes the pinned
 [Win-CodexBar](https://github.com/nesszer/Win-CodexBar) CLI 0.45.2 binary under
 its [MIT License](ThirdPartyLicenses/Win-CodexBar-LICENSE.txt); macOS v0.2.0
 redistributes the upstream [CodexBar](https://github.com/steipete/CodexBar) CLI
@@ -395,7 +401,7 @@ by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
 - CodexMeter does not copy, display or bundle passwords, OAuth tokens, cookies
   or account emails.
 - Screenshots in this repository contain usage percentages only.
-- The v0.2.0 macOS build is ad-hoc signed but not Apple-notarized. The v0.1.3
+- The v0.2.0 macOS build is ad-hoc signed but not Apple-notarized. The v0.1.4
   Windows binary is currently not Authenticode-signed. Both systems may therefore
   require explicit approval on first launch; review the source if required.
 

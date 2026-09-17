@@ -290,6 +290,8 @@ namespace CodexMeter
             {
                 if (Visible)
                     Invalidate();
+                if (resetHistoryPopup != null)
+                    resetHistoryPopup.RefreshClock(DateTimeOffset.Now);
                 RefreshResetHistory(false);
             };
             networkTimer.Interval = 1000;

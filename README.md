@@ -22,10 +22,10 @@
 </div>
 
 > [!IMPORTANT]
-> **Windows 和 macOS 都有对应版本。** Windows 当前是 v0.1.3，使用原生 WinForms 客户端并内置已校验的 Win-CodexBar CLI；macOS 当前是 v0.2.0，使用 SwiftUI/AppKit 客户端并内置已经验证的 CodexBar CLI。两端都不会保存账号凭证。
+> **Windows 和 macOS 都有对应版本。** Windows 当前是 v0.1.4，使用原生 WinForms 客户端并内置已校验的 Win-CodexBar CLI；macOS 当前是 v0.2.0，使用 SwiftUI/AppKit 客户端并内置已经验证的 CodexBar CLI。两端都不会保存账号凭证。
 
 > [!NOTE]
-> **统一主线。** `main` 现在同时包含 Windows v0.1.3 和 macOS v0.2.0 的完整源码；两端安装包彼此独立，macOS 安装包仍可从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载。
+> **统一主线。** `main` 现在同时包含 Windows v0.1.4 和 macOS v0.2.0 的完整源码；两端安装包彼此独立，macOS 安装包仍可从 [v0.2.0 Release](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0) 下载。
 
 ## 当前浮窗界面
 
@@ -37,17 +37,18 @@
 
 | 平台 | 原生界面 | 当前版本 / 安装包 | 数据来源 |
 |---|---|---|---|
-| Windows 10/11 | WinForms + DWM，Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip) | 内置并校验 Win-CodexBar CLI 0.45.2 |
+| Windows 10/11 | WinForms + DWM，Per-Monitor V2 DPI | [`Codex-Meter-Windows-portable-v0.1.4.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.4/Codex-Meter-Windows-portable-v0.1.4.zip) | 内置并校验 Win-CodexBar CLI 0.45.2 |
 | macOS 14+ | SwiftUI + AppKit | [`ZIP`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) · [`DMG`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.dmg) | 内置 CodexBar CLI |
 
 Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](windows/README.zh-CN.md)。不同平台的版本差异请看 [`VERSION-GUIDE.md`](VERSION-GUIDE.md)。
 
 ## 功能概览
 
-### Windows v0.1.3
+### Windows v0.1.4
 
 - 聚焦显示每周主额度、重置时间和使用节奏，不再绘制单独的 Spark 整栏。
-- 点击重置倒计时可查看最近 3 次重置和间隔统计，并展开为可拖动的完整历史时间轴；重置来源与时间可信度分别显示。
+- 点击重置倒计时直接打开可拖动的每日时间轴，延伸到今天，没有重置记录的日期也保留刻度；点击“查看历史时间”切换到可滚轮浏览的记录列表。
+- 显示“距上次重置已过”的天、小时、分钟，每分钟刷新；悬停可查看对应记录的时间、来源和可信度，跨天自动补刻度。
 - 默认使用简易卡片；点击节奏行展开近 7 天 token 与模型/推理强度偏好。
 - 模型偏好颜色按使用占比从低饱和蓝灰连续增强为高饱和蓝色。
 - 支持左右边缘吸附、悬停展开、托盘模式、开机自启动和多显示器 DPI。
@@ -95,11 +96,11 @@ Windows 的构建、安装和故障排查请看 [`windows/README.zh-CN.md`](wind
 
 ## 安装
 
-### Windows v0.1.3
+### Windows v0.1.4
 
 1. 确保 Codex 桌面客户端已经登录；也可以先运行 `codex login`。
-2. 下载 [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip)。
-3. 完整解压后打开 `CodexMeter Windows v0.1.3`，运行 `CodexMeter.exe`；无需另外安装 Win-CodexBar。
+2. 下载 [`Codex-Meter-Windows-portable-v0.1.4.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.4/Codex-Meter-Windows-portable-v0.1.4.zip)。
+3. 完整解压后打开 `CodexMeter Windows v0.1.4`，运行 `CodexMeter.exe`；无需另外安装 Win-CodexBar。
 4. Windows 可能提示未知发布者，因为 CodexMeter 和内置 CLI 均没有 Authenticode 签名；请先核对 Release 中的 SHA-256。
 
 ### macOS v0.2.0
@@ -118,7 +119,7 @@ macOS v0.2.0 安装包同时支持 Apple 芯片和 Intel Mac，不需要单独�
 ```powershell
 .\windows\build.ps1
 .\windows\dist\CodexMeter.Tests.exe
-.\windows\package-release.ps1 -Version 0.1.3
+.\windows\package-release.ps1 -Version 0.1.4
 ```
 
 ### macOS v0.2.0
@@ -157,7 +158,7 @@ CodexBar 读取你本机 Codex 配置中的 OAuth 会话并请求该账号的额
 
 ## 第三方组件与许可证
 
-CodexMeter 是基于 [steipete/CodexBar](https://github.com/steipete/CodexBar) 的独立、非官方应用。Windows v0.1.3 内置 [Win-CodexBar](https://github.com/nesszer/Win-CodexBar) CLI 0.45.2，macOS v0.2.0 内置上游 CodexBar CLI；对应完整 MIT 许可证位于 `ThirdPartyLicenses/` 和各安装包内。
+CodexMeter 是基于 [steipete/CodexBar](https://github.com/steipete/CodexBar) 的独立、非官方应用。Windows v0.1.4 内置 [Win-CodexBar](https://github.com/nesszer/Win-CodexBar) CLI 0.45.2，macOS v0.2.0 内置上游 CodexBar CLI；对应完整 MIT 许可证位于 `ThirdPartyLicenses/` 和各安装包内。
 
 本项目使用 [MIT License](LICENSE)，与 CodexBar、OpenAI 或 Apple 没有隶属或官方背书关系。
 

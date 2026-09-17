@@ -1,11 +1,11 @@
 # Codex Meter 版本选择 / Version guide
 
 CodexMeter 的 Windows 与 macOS 安装包彼此独立，不能跨系统使用。当前 `main`
-同时维护两端完整源码；每个 ZIP 都可以单独下载。Windows v0.1.3 内置并校验
+同时维护两端完整源码；每个 ZIP 都可以单独下载。Windows v0.1.4 内置并校验
 Win-CodexBar CLI 0.45.2，macOS v0.2.0 内置上游 CodexBar CLI。
 
 CodexMeter packages for Windows and macOS are separate and are not
-interchangeable. The `main` branch contains both source lines. Windows v0.1.3
+interchangeable. The `main` branch contains both source lines. Windows v0.1.4
 bundles and verifies Win-CodexBar CLI 0.45.2; macOS v0.2.0 bundles the upstream
 CodexBar CLI.
 
@@ -13,15 +13,16 @@ CodexBar CLI.
 
 | 系统 / System | 版本 / Version | 安装包 / Package | 建议 / Recommendation |
 |---|---:|---|---|
-| Windows 10/11 | v0.1.3 | [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip) | Windows 用户推荐 / Recommended for Windows |
+| Windows 10/11 | v0.1.4 | [`Codex-Meter-Windows-portable-v0.1.4.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.4/Codex-Meter-Windows-portable-v0.1.4.zip) | Windows 用户推荐；时间轴交互更新 / Recommended for Windows; timeline update |
+| Windows 10/11 | v0.1.3 | [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip) | 保留的上一版本 / Preserved previous release |
 | Windows 10/11 | v0.1.1 | [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip) | 保留的上一版本 / Preserved previous release |
 | Windows 10/11 | v0.1.0 | [`Codex-Meter-Windows-portable-v0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-Windows-portable-v0.1.0.zip) | 保留的首发版本 / Preserved initial release |
 | macOS 14+ | v0.2.0 | [`CodexMeter-macos-universal-0.2.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) | 当前 Mac 版本；Apple silicon 与 Intel 通用 / Current universal Mac build |
 
-macOS 当前使用 v0.2.0 安装包。Windows v0.1.3 与 macOS v0.2.0 的源码现已
+macOS 当前使用 v0.2.0 安装包。Windows v0.1.4 与 macOS v0.2.0 的源码现已
 统一在 `main`，两端的安装包仍分别发布。
 
-The current macOS package is v0.2.0. Windows v0.1.3 and macOS v0.2.0 source
+The current macOS package is v0.2.0. Windows v0.1.4 and macOS v0.2.0 source
 lines are now unified on `main`, while their install packages remain separate.
 
 > Windows v0.1.3 包含 `CodexMeter` 统一命名、中等蓝灰新图标、默认简易
@@ -31,6 +32,23 @@ lines are now unified on `main`, while their install packages remain separate.
 > Windows v0.1.3 includes the unified `CodexMeter` identity, medium blue-gray
 > icon, compact-by-default UI, expandable local seven-day/model details and the
 > reset-history timeline. Windows and macOS packages remain separate downloads.
+
+## Windows v0.1.4：相对 v0.1.3 的变化 / Changes from v0.1.3
+
+- 点击重置倒计时直接打开时间轴；“查看历史时间”切换到可滚轮浏览的
+  记录列表，“返回时间轴”切回时间轴。
+- 每日刻度延伸到今天，无重置记录的日期也保留刻度；只有一条记录时也能查看时间轴。
+- 新增“距上次重置已过”的天、小时、分钟显示，悬停查看记录时间、来源与可信度。
+- 面板打开时每分钟刷新，跨天自动补刻度；浏览旧日期时保留位置。
+- 延续 v0.1.3 的内置 CLI、托盘、自启动、贴边和同步功能；保留已有设置和历史数据。
+- 历史 v0.1.3 安装包仍可单独下载，macOS 安装包继续使用 v0.2.0。
+
+- Opens the timeline directly; the footer switches to the scrollable history list and back.
+- Extends daily ticks through today, including days without resets and single-record histories.
+- Shows elapsed days/hours/minutes since the latest recorded reset, with source/confidence on hover.
+- Refreshes each minute and across midnight without moving a selected older viewport.
+- Retains the bundled CLI, tray/startup/docking/sync behavior and existing settings/history.
+- Preserves the separate v0.1.3 download and the macOS v0.2.0 packages.
 
 ## Windows v0.1.3
 
