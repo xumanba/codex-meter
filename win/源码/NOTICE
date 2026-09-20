@@ -1,0 +1,64 @@
+CodexMeter is an independent, unofficial application powered by CodexBar.
+
+Windows v0.1.4 packages include the Win-CodexBar 0.45.2 standalone console CLI
+so users do not need to install the Win-CodexBar desktop application. The exact
+binary is pinned and verified with SHA-256 at build time and before execution.
+Its MIT license is included at:
+
+  ThirdPartyLicenses/Win-CodexBar-LICENSE.txt
+
+and beside the Windows executable as:
+
+  Win-CodexBar-LICENSE.txt
+
+Win-CodexBar:
+  https://github.com/nesszer/Win-CodexBar
+  Licensed under the MIT License:
+  https://github.com/nesszer/Win-CodexBar/blob/main/LICENSE
+
+macOS packages include the upstream CodexBar CLI and its license at:
+
+  ThirdPartyLicenses/CodexBar-LICENSE.txt
+
+and inside the application bundle at:
+
+  CodexMeter.app/Contents/Resources/ThirdPartyLicenses/
+
+CodexBar:
+  https://github.com/steipete/CodexBar
+  Copyright (c) 2025 Peter Steinberger
+  Licensed under the MIT License:
+  https://github.com/steipete/CodexBar/blob/main/LICENSE
+
+The bundled CodexBar CLI also incorporates these pinned open-source
+dependencies. Their complete license and notice files are included in the
+application bundle:
+
+  Commander 0.2.2
+  https://github.com/steipete/Commander
+
+  SweetCookieKit 0.4.1
+  https://github.com/steipete/SweetCookieKit
+
+  Swift Crypto 3.15.1
+  https://github.com/apple/swift-crypto
+
+  SwiftLog 1.13.2
+  https://github.com/apple/swift-log
+
+  Swift ASN.1 1.7.1
+  https://github.com/apple/swift-asn1
+
+The edge docking interaction was informed by SideTerminal's compact
+edge-reveal approach. CodexMeter contains an independent AppKit implementation
+and does not redistribute SideTerminal source code.
+
+SideTerminal:
+  https://github.com/bunnysayzz/sideterminal
+  Copyright (c) 2026 Bunny Says
+  Licensed under the MIT License:
+  https://github.com/bunnysayzz/sideterminal/blob/main/LICENSE
+
+"CodexBar", "Codex", "OpenAI", and "Apple" are names or trademarks of their
+respective owners. This project is not affiliated with or endorsed by
+CodexBar, OpenAI, or Apple.

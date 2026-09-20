@@ -26,7 +26,7 @@ features and installation package are unchanged.
 
 - Windows: `Codex-Meter-Windows-portable-v0.1.1.zip`
 - Windows v0.1.1 checksum: `SHA256SUMS-v0.1.1.txt`
-- Version differences: `README-v0.1.1.txt` and [`VERSION-GUIDE.md`](../../VERSION-GUIDE.md)
+- Version differences: `README-v0.1.1.txt` and [`VERSION-GUIDE.md`](../../../.github/docs/VERSION-GUIDE.md)
 - macOS: keep using the unchanged v0.1.0 Release and `Codex-Meter-macos-universal-0.1.0.zip`
 
 The Windows binary is not Authenticode-signed. The macOS v0.1.0 package remains

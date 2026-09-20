@@ -3,11 +3,11 @@ name: Windows CI
 on:
   push:
     paths:
-      - "windows/**"
+      - "win/源码/**"
       - ".github/workflows/windows.yml"
   pull_request:
     paths:
-      - "windows/**"
+      - "win/源码/**"
       - ".github/workflows/windows.yml"
   workflow_dispatch:
 
@@ -24,39 +24,39 @@ jobs:
 
       - name: Build Windows application
         shell: powershell
-        run: .\windows\build.ps1
+        run: .\win\源码\build.ps1
 
       - name: Run self-tests
         shell: powershell
-        run: .\windows\dist\CodexMeter.Tests.exe
+        run: .\win\源码\dist\CodexMeter.Tests.exe
 
       - name: Render interface regression previews
         shell: powershell
         run: |
-          .\windows\dist\CodexMeter.Tests.exe --preview-status-hover .\windows\qa\preview-status-hover.png
+          .\win\源码\dist\CodexMeter.Tests.exe --preview-status-hover .\win\源码\qa\preview-status-hover.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\windows\dist\CodexMeter.Tests.exe --preview-hover .\windows\qa\preview-budget-hover.png
+          .\win\源码\dist\CodexMeter.Tests.exe --preview-hover .\win\源码\qa\preview-budget-hover.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\windows\dist\CodexMeter.Tests.exe --preview-reset-history .\windows\qa\preview-reset-history-list.png list
+          .\win\源码\dist\CodexMeter.Tests.exe --preview-reset-history .\win\源码\qa\preview-reset-history-list.png list
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .\windows\dist\CodexMeter.Tests.exe --preview-reset-history .\windows\qa\preview-reset-history-timeline.png timeline
+          .\win\源码\dist\CodexMeter.Tests.exe --preview-reset-history .\win\源码\qa\preview-reset-history-timeline.png timeline
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Validate Windows portable package
         shell: powershell
-        run: .\windows\package-release.ps1 -Version 0.1.4
+        run: .\win\源码\package-release.ps1 -Version 0.1.4
 
       - name: Upload unsigned test build
         uses: actions/upload-artifact@v4
         with:
           name: CodexMeter-Windows-unsigned
           path: |
-            windows/dist/CodexMeter.exe
-            windows/dist/CodexMeter.exe.config
-            windows/qa/preview-status-hover.png
-            windows/qa/preview-budget-hover.png
-            windows/qa/preview-reset-history-list.png
-            windows/qa/preview-reset-history-timeline.png
-            windows/Codex-Meter-Windows-portable-v0.1.4.zip
-            windows/Codex-Meter-Windows-portable-v0.1.4.zip.sha256
+            win/源码/dist/CodexMeter.exe
+            win/源码/dist/CodexMeter.exe.config
+            win/源码/qa/preview-status-hover.png
+            win/源码/qa/preview-budget-hover.png
+            win/源码/qa/preview-reset-history-list.png
+            win/源码/qa/preview-reset-history-timeline.png
+            win/源码/Codex-Meter-Windows-portable-v0.1.4.zip
+            win/源码/Codex-Meter-Windows-portable-v0.1.4.zip.sha256
           if-no-files-found: error

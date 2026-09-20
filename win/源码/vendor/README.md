@@ -8,11 +8,11 @@ application separately.
 - CLI version: `0.45.2`
 - File: `codexbar-cli.exe`
 - SHA-256: `C0B737E1B36E0D90524AA6FAB169D718EBB9E54F00656695E340522D284ADFAD`
-- License: MIT; see `../../ThirdPartyLicenses/Win-CodexBar-LICENSE.txt`
+- License: MIT; see `../ThirdPartyLicenses/Win-CodexBar-LICENSE.txt`
 
-`windows/build.ps1` refuses to build if the bundled binary is absent or its
+`win/源码/build.ps1` refuses to build if the bundled binary is absent or its
 hash differs. `CodexBarClient` verifies the same hash before executing the
 bundled copy. To update the CLI, replace the binary and update the version and
-hash together in this file, `windows/build.ps1`, and
-`windows/src/CodexBarClient.cs`, then run the full Windows test and package
+hash together in this file, `win/源码/build.ps1`, and
+`win/源码/src/CodexBarClient.cs`, then run the full Windows test and package
 workflow.

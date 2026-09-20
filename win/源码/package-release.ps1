@@ -6,7 +6,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 $windowsDirectory = $PSScriptRoot
-$repositoryDirectory = Split-Path -Parent $windowsDirectory
 $distDirectory = Join-Path $windowsDirectory "dist"
 $archiveName = "Codex-Meter-Windows-portable-v$Version.zip"
 $archivePath = Join-Path $windowsDirectory $archiveName

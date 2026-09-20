@@ -1,0 +1,41 @@
+name: Repository layout and macOS source CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  layout:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check platform layout, local links and script syntax
+        shell: pwsh
+        run: ./.github/scripts/verify-layout.ps1
+
+  macos-source:
+    runs-on: macos-15
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mac/源码
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate existing shell scripts
+        run: |
+          for script in build-app.sh install.sh uninstall.sh Scripts/*.sh; do
+            zsh -n "$script"
+          done
+      - name: Compile macOS application
+        run: swift build -c release
+      - name: Run existing decoder and token-period checks
+        run: |
+          swiftc Sources/UsageSnapshot.swift Tests/UsageSnapshotDecoderCheck.swift -o .build/usage-snapshot-check
+          .build/usage-snapshot-check
+          swiftc Sources/TokenUsageScanner.swift Tests/TokenUsagePeriodCheck.swift -o .build/token-period-check
+          .build/token-period-check

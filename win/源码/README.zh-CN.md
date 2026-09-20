@@ -2,7 +2,7 @@
 
 这是 `xumanba/codex-meter` 的 Windows 原生改编版。它保留了上游的悬浮玻璃卡片交互，但将 SwiftUI/AppKit 界面替换成不需要额外 NuGet 包的 WinForms 单文件程序。
 
-项目同时支持 Windows 与 macOS；跨平台总览和 macOS 使用方式见仓库根目录的 [`README.md`](../README.md)。本目录中的改动只针对 Windows 客户端，不修改 macOS 源码、功能或安装包。
+项目同时支持 Windows 与 macOS；跨平台总览和 macOS 使用方式见仓库根目录的 [`README.md`](../../README.md)。本目录中的改动只针对 Windows 客户端，不修改 macOS 源码、功能或安装包。
 
 ## 已实现功能
 
@@ -51,7 +51,7 @@
 双击：
 
 ```text
-windows\dist\CodexMeter.exe
+win\源码\dist\CodexMeter.exe
 ```
 
 也可以从 Releases 页面下载 `Codex-Meter-Windows-portable-v0.1.4.zip`。必须完整解压，进入 `CodexMeter Windows v0.1.4` 文件夹后再运行 `CodexMeter.exe`；不需要另外安装 Win-CodexBar。
@@ -78,13 +78,13 @@ Windows 模块和数据流说明见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 从仓库源码根目录运行：
 
 ```powershell
-.\windows\install.ps1 -Launch
+.\win\源码\install.ps1 -Launch
 ```
 
 如果当前目录已经是解压后的 Windows ZIP，请运行 `./install.ps1 -Launch`。安装脚本把文件复制到 `%LOCALAPPDATA%\Programs\CodexMeter`，并创建开始菜单快捷方式，不请求管理员权限。只有显式增加 `-StartWithWindows` 时才写入当前用户的 Windows 启动项；它与菜单中的“开机自启动”使用同一个设置。源码根目录与解压目录分别使用：
 
 ```powershell
-.\windows\install.ps1 -Launch -StartWithWindows
+.\win\源码\install.ps1 -Launch -StartWithWindows
 # 或在解压目录：
 .\install.ps1 -Launch -StartWithWindows
 ```
@@ -100,39 +100,39 @@ Windows 模块和数据流说明见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
 ## 从源码构建
 
 ```powershell
-.\windows\build.ps1
+.\win\源码\build.ps1
 ```
 
-构建脚本使用 Windows 自带的 .NET Framework C# 编译器，不会下载依赖。源码按文件名稳定排序；生产 EXE 会在构建阶段明确排除测试入口 `TestProgram.cs`。构建还会验证 `windows\vendor\codexbar-cli.exe` 的固定 SHA-256，任何缺失或不匹配都会直接失败。输出位于 `windows\dist`。
+构建脚本使用 Windows 自带的 .NET Framework C# 编译器，不会下载依赖。源码按文件名稳定排序；生产 EXE 会在构建阶段明确排除测试入口 `TestProgram.cs`。构建还会验证 `win\源码\vendor\codexbar-cli.exe` 的固定 SHA-256，任何缺失或不匹配都会直接失败。输出位于 `win\源码\dist`。
 
 生成经过测试、带顶层文件夹并附 SHA-256 的 v0.1.4 Release 便携包：
 
 ```powershell
-.\windows\package-release.ps1 -Version 0.1.4
+.\win\源码\package-release.ps1 -Version 0.1.4
 ```
 
 验证解析器：
 
 ```powershell
-.\windows\dist\CodexMeter.Tests.exe
+.\win\源码\dist\CodexMeter.Tests.exe
 ```
 
 用当前 CodexBar 登录做一次真实只读查询：
 
 ```powershell
-.\windows\dist\CodexMeter.Tests.exe --live
+.\win\源码\dist\CodexMeter.Tests.exe --live
 ```
 
 只验证本机近 7 天日志统计和增量缓存：
 
 ```powershell
-.\windows\dist\CodexMeter.Tests.exe --weekly-live
+.\win\源码\dist\CodexMeter.Tests.exe --weekly-live
 ```
 
-进行只读资源耐久采样（默认 10 分钟，结果写入 `windows\qa`）：
+进行只读资源耐久采样（默认 10 分钟，结果写入 `win\源码\qa`）：
 
 ```powershell
-.\windows\tools\measure-resource-soak.ps1 -Minutes 10
+.\win\源码\tools\measure-resource-soak.ps1 -Minutes 10
 ```
 
 ## 与 macOS 上游的差异
