@@ -23,15 +23,15 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Windows application
-        shell: powershell
+        shell: pwsh
         run: .\win\源码\build.ps1
 
       - name: Run self-tests
-        shell: powershell
+        shell: pwsh
         run: .\win\源码\dist\CodexMeter.Tests.exe
 
       - name: Render interface regression previews
-        shell: powershell
+        shell: pwsh
         run: |
           .\win\源码\dist\CodexMeter.Tests.exe --preview-status-hover .\win\源码\qa\preview-status-hover.png
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -43,7 +43,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Validate Windows portable package
-        shell: powershell
+        shell: pwsh
         run: .\win\源码\package-release.ps1 -Version 0.1.4
 
       - name: Upload unsigned test build
