@@ -1,3 +1,5 @@
+> 此标签为 Windows v0.1.2 历史补发源码。来源、验证结果及限制见 [Windows v0.1.2 归档说明](WINDOWS-v0.1.2-ARCHIVE.md)；其余内容保留基线文档，不表示重新发布 Mac 或替换当前 Windows 版本。
+
 <div align="center">
 
 # ✦ CodexMeter

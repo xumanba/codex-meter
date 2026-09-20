@@ -1,3 +1,5 @@
+> This tag archives verified reconstructed sources for the historical Windows v0.1.2 package. See [provenance and verification](WINDOWS-v0.1.2-ARCHIVE.md). The inherited documentation below describes the source baseline; no macOS package is republished.
+
 <div align="center">
 
 # ✦ CodexMeter

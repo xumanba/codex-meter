@@ -1,4 +1,4 @@
-CodexMeter for Windows v0.1.3
+CodexMeter for Windows v0.1.2
 ==================================================
 
 中文安装说明
