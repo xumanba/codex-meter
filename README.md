@@ -23,13 +23,15 @@ win/
   版本/
     v0.1.4/README.md
     v0.1.3/README.md
+    v0.1.2/README.md         经核验补发的历史版本
     v0.1.1/README.md
     v0.1.0/README.md
 ```
 
 - **只想安装**：进入对应平台 → 版本 → 点击安装包下载链接。真正的 ZIP / DMG 保存在 [GitHub Releases](https://github.com/xumanba/codex-meter/releases)，不会在源码仓库中再复制一份。
 - **想开发**：进入对应平台的“源码”。各历史版本页还提供对应 Git tag 的源码快照链接；不要用当前源码冒充历史版本。
-- 版本目录只列已正式发布的版本。Windows 的本地开发版本号不一定对应公开 Release；Windows 与 Mac 的数字也不表示功能完全一致。
+- Windows 保留 v0.1.0 至 v0.1.4 共 5 个版本，不重新编号、不把最新版覆盖成旧版。v0.1.2 为经过二进制 / 源码对应性核验的历史补发；v0.1.4 仍为最新推荐版本。
+- Windows 与 Mac 分别维护源码和版本入口；两端相同的版本号不表示功能完全一致。历史共享 Release 保持原样，各平台页面直接链接对应系统的安装包。
 - `.github/` 保留自动构建和共用说明，`LICENSE`、`.gitignore` 是仓库必要文件，因此根目录不严格限制为三个条目。
 
 ## 安装注意

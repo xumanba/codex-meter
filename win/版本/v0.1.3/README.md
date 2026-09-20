@@ -4,6 +4,8 @@
 
 保留的上一版本。内置并校验 Win-CodexBar CLI；支持简易 / 展开模式、近 7 天 token、模型偏好、重置历史时间轴，并完成 Windows 模块化重构。尚不包含 v0.1.4 的延伸至今天和距上次重置显示。
 
+与后来补发的内置 CLI 版 [v0.1.2](../v0.1.2/README.md) 对比，两者核心程序相同，差别为版本标识和编译元数据；不应把两者描述为不同功能版本。
+
 ## 安装包
 
 - [下载 Windows ZIP](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip)

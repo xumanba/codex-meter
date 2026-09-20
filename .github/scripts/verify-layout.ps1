@@ -15,7 +15,7 @@ $required = @(
     'win/源码/src/Program.cs', 'win/源码/assets/CodexMeter.ico',
     'win/源码/vendor/codexbar-cli.exe', 'win/源码/NOTICE'
 )
-foreach ($version in @('v0.1.0', 'v0.1.1', 'v0.1.3', 'v0.1.4')) {
+foreach ($version in @('v0.1.0', 'v0.1.1', 'v0.1.2', 'v0.1.3', 'v0.1.4')) {
     $required += "win/版本/$version/README.md"
 }
 foreach ($version in @('v0.1.0', 'v0.2.0')) {

@@ -17,6 +17,7 @@ CodexBar CLI.
 |---|---:|---|---|
 | Windows 10/11 | v0.1.4 | [`Codex-Meter-Windows-portable-v0.1.4.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.4/Codex-Meter-Windows-portable-v0.1.4.zip) | Windows 用户推荐；时间轴交互更新 / Recommended for Windows; timeline update |
 | Windows 10/11 | v0.1.3 | [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip) | 保留的上一版本 / Preserved previous release |
+| Windows 10/11 | v0.1.2 | [`Codex-Meter-Windows-portable-v0.1.2.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.2/Codex-Meter-Windows-portable-v0.1.2.zip) | 经核验的历史补发；核心程序与 v0.1.3 相同 / Verified historical archive; same core program as v0.1.3 |
 | Windows 10/11 | v0.1.1 | [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip) | 保留的上一版本 / Preserved previous release |
 | Windows 10/11 | v0.1.0 | [`Codex-Meter-Windows-portable-v0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-Windows-portable-v0.1.0.zip) | 保留的首发版本 / Preserved initial release |
 | macOS 14+ | v0.2.0 | [`CodexMeter-macos-universal-0.2.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) | 当前 Mac 版本；Apple silicon 与 Intel 通用 / Current universal Mac build |
@@ -53,6 +54,8 @@ lines are now unified on `main`, while their install packages remain separate.
 - Preserves the separate v0.1.3 download and the macOS v0.2.0 packages.
 
 ## Windows v0.1.3
+
+与本次补发的内置 CLI 版 v0.1.2 相比，v0.1.3 的程序差异限于版本标识和编译元数据。v0.1.2 上传的是本地保存的原 ZIP，对应源码为经二进制比对验证的重建快照，不是伪造的原始历史提交。详见 [v0.1.2 的来源与验证](../../win/版本/v0.1.2/README.md)。
 
 - 默认使用简易卡片，点击节奏行可展开近 7 天 token、每日占比和模型/推理
   强度偏好。
