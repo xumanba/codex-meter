@@ -1,16 +1,18 @@
+> Repository navigation: [Home](../../README.md), [Windows](../../win/README.md), [macOS](../../mac/README.md). This page retains the detailed documentation. Build each platform from its own `源码` source directory.
+
 <div align="center">
 
 # ✦ CodexMeter
 
 ### Native Codex usage visualization for Windows and macOS
 
-[简体中文](README.md) · English
+[简体中文](README.zh-CN.md) · English
 
-[![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows11&logoColor=white)](windows/README.zh-CN.md)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-0078D4?style=flat-square&logo=windows11&logoColor=white)](../../win/源码/README.zh-CN.md)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-111827?style=flat-square&logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![Swift 6](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org/)
 [![CodexBar](https://img.shields.io/badge/Powered%20by-CodexBar-0A84FF?style=flat-square)](https://github.com/steipete/CodexBar)
-[![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-34C759?style=flat-square)](../../LICENSE)
 [![Downloads](https://img.shields.io/badge/Download-Releases-0A84FF?style=flat-square&logo=github)](https://github.com/xumanba/codex-meter/releases)
 
 Visualize your remaining Codex allowance, rate-limit windows, pacing and reset
@@ -19,7 +21,7 @@ time on Windows, or use the detailed current-quota token view on macOS.
 </div>
 
 <p align="center">
-  <img src="assets/CodexMeter-icon.png" alt="CodexMeter app icon" width="128">
+  <img src="../../mac/源码/assets/CodexMeter-icon.png" alt="CodexMeter app icon" width="128">
 </p>
 
 > [!IMPORTANT]
@@ -46,7 +48,7 @@ time on Windows, or use the detailed current-quota token view on macOS.
 | macOS 14+ | SwiftUI + AppKit | [`ZIP`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) · [`DMG`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.dmg) | Bundled CodexBar CLI |
 
 Windows-specific build, install and troubleshooting instructions are available
-in [`windows/README.zh-CN.md`](windows/README.zh-CN.md). See the bilingual
+in the [Windows documentation](../../win/源码/README.zh-CN.md). See the bilingual
 [`VERSION-GUIDE.md`](VERSION-GUIDE.md) for separate Windows/macOS downloads and
 the differences between Windows v0.1.0/v0.1.1/v0.1.3/v0.1.4 and macOS v0.2.0.
 
@@ -101,8 +103,8 @@ count the raw tokens used by each individual prompt.
     <th align="center">Light interface</th>
   </tr>
   <tr>
-    <td><img src="assets/codexmeter-dark.png" alt="CodexMeter dark interface"></td>
-    <td><img src="assets/codexmeter-light.png" alt="CodexMeter light interface"></td>
+    <td><img src="../../mac/源码/assets/codexmeter-dark.png" alt="CodexMeter dark interface"></td>
+    <td><img src="../../mac/源码/assets/codexmeter-light.png" alt="CodexMeter light interface"></td>
   </tr>
 </table>
 
@@ -214,7 +216,7 @@ download the pinned, checksum-verified CodexBar CLI release:
 
 ```bash
 git clone https://github.com/xumanba/codex-meter.git
-cd codex-meter
+cd codex-meter/mac/源码
 chmod +x install.sh uninstall.sh build-app.sh
 ./install.sh
 ```
@@ -326,9 +328,9 @@ network.
 ### Windows
 
 ```powershell
-.\windows\build.ps1
-.\windows\dist\CodexMeter.Tests.exe
-.\windows\package-release.ps1 -Version 0.1.4
+.\win\源码\build.ps1
+.\win\源码\dist\CodexMeter.Tests.exe
+.\win\源码\package-release.ps1 -Version 0.1.4
 ```
 
 The Windows build uses the .NET Framework compiler already present on Windows
@@ -339,7 +341,7 @@ version, runs the test suite, checks ZIP/DMG contents and prints SHA-256 hashes.
 
 ```bash
 git clone https://github.com/xumanba/codex-meter.git
-cd codex-meter
+cd codex-meter/mac/源码
 chmod +x build-app.sh
 ./build-app.sh
 open ".build/CodexMeter.app"
@@ -380,14 +382,14 @@ settings are left untouched.
 This project is an **independent, unofficial application** powered by CodexBar.
 Windows v0.1.4 redistributes the pinned
 [Win-CodexBar](https://github.com/nesszer/Win-CodexBar) CLI 0.45.2 binary under
-its [MIT License](ThirdPartyLicenses/Win-CodexBar-LICENSE.txt); macOS v0.2.0
+its [MIT License](../../win/源码/ThirdPartyLicenses/Win-CodexBar-LICENSE.txt); macOS v0.2.0
 redistributes the upstream [CodexBar](https://github.com/steipete/CodexBar) CLI
-under its corresponding [MIT License](ThirdPartyLicenses/CodexBar-LICENSE.txt).
+under its corresponding [MIT License](../../mac/源码/ThirdPartyLicenses/CodexBar-LICENSE.txt).
 The complete notices are included in each package.
 
 CodexMeter does not redistribute CodexBar icons or present itself as an
 official CodexBar product. This repository is not affiliated with or endorsed
-by CodexBar, OpenAI or Apple. See [NOTICE](NOTICE) for attribution details.
+by CodexBar, OpenAI or Apple. See [NOTICE](../../mac/源码/NOTICE) for attribution details.
 
 ## Security and privacy
 
@@ -413,7 +415,7 @@ corresponding screenshots/assets together.
 
 ## License
 
-CodexMeter is available under the [MIT License](LICENSE).
+CodexMeter is available under the [MIT License](../../LICENSE).
 
 ---
 

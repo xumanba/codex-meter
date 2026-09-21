@@ -27,7 +27,7 @@
 - 本 Release 仅提供 Windows 安装包。
 - [Windows v0.1.3](https://github.com/xumanba/codex-meter/releases/tag/v0.1.3) 保留，可独立下载。
 - macOS 继续使用现有 [v0.2.0 ZIP / DMG](https://github.com/xumanba/codex-meter/releases/tag/v0.2.0)，本次不修改 macOS 程序和安装包。
-- 详细版本差异见仓库 [VERSION-GUIDE.md](https://github.com/xumanba/codex-meter/blob/main/VERSION-GUIDE.md)。
+- 详细版本差异见仓库 [VERSION-GUIDE.md](https://github.com/xumanba/codex-meter/blob/main/.github/docs/VERSION-GUIDE.md)。
 
 ## 校验与验证
 

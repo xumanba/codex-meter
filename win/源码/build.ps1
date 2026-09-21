@@ -3,7 +3,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 $windowsDirectory = $PSScriptRoot
-$repositoryDirectory = Split-Path -Parent $windowsDirectory
+$repositoryDirectory = $windowsDirectory # Platform-local licenses keep this source tree self-contained.
 $sourceDirectory = Join-Path $windowsDirectory "src"
 $outputDirectory = Join-Path $windowsDirectory "dist"
 $iconPath = Join-Path $windowsDirectory "assets\CodexMeter.ico"

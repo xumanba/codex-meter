@@ -1,5 +1,7 @@
 # Codex Meter 版本选择 / Version guide
 
+[Windows 分版本下载](../../win/README.md) · [macOS 分版本下载](../../mac/README.md) · [仓库首页](../../README.md)
+
 CodexMeter 的 Windows 与 macOS 安装包彼此独立，不能跨系统使用。当前 `main`
 同时维护两端完整源码；每个 ZIP 都可以单独下载。Windows v0.1.4 内置并校验
 Win-CodexBar CLI 0.45.2，macOS v0.2.0 内置上游 CodexBar CLI。
@@ -15,6 +17,7 @@ CodexBar CLI.
 |---|---:|---|---|
 | Windows 10/11 | v0.1.4 | [`Codex-Meter-Windows-portable-v0.1.4.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.4/Codex-Meter-Windows-portable-v0.1.4.zip) | Windows 用户推荐；时间轴交互更新 / Recommended for Windows; timeline update |
 | Windows 10/11 | v0.1.3 | [`Codex-Meter-Windows-portable-v0.1.3.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.3/Codex-Meter-Windows-portable-v0.1.3.zip) | 保留的上一版本 / Preserved previous release |
+| Windows 10/11 | v0.1.2 | [`Codex-Meter-Windows-portable-v0.1.2.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.2/Codex-Meter-Windows-portable-v0.1.2.zip) | 经核验的历史补发；核心程序与 v0.1.3 相同 / Verified historical archive; same core program as v0.1.3 |
 | Windows 10/11 | v0.1.1 | [`Codex-Meter-Windows-portable-v0.1.1.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.1/Codex-Meter-Windows-portable-v0.1.1.zip) | 保留的上一版本 / Preserved previous release |
 | Windows 10/11 | v0.1.0 | [`Codex-Meter-Windows-portable-v0.1.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.1.0/Codex-Meter-Windows-portable-v0.1.0.zip) | 保留的首发版本 / Preserved initial release |
 | macOS 14+ | v0.2.0 | [`CodexMeter-macos-universal-0.2.0.zip`](https://github.com/xumanba/codex-meter/releases/download/v0.2.0/CodexMeter-macos-universal-0.2.0.zip) | 当前 Mac 版本；Apple silicon 与 Intel 通用 / Current universal Mac build |
@@ -51,6 +54,8 @@ lines are now unified on `main`, while their install packages remain separate.
 - Preserves the separate v0.1.3 download and the macOS v0.2.0 packages.
 
 ## Windows v0.1.3
+
+与本次补发的内置 CLI 版 v0.1.2 相比，v0.1.3 的程序差异限于版本标识和编译元数据。v0.1.2 上传的是本地保存的原 ZIP，对应源码为经二进制比对验证的重建快照，不是伪造的原始历史提交。详见 [v0.1.2 的来源与验证](../../win/版本/v0.1.2/README.md)。
 
 - 默认使用简易卡片，点击节奏行可展开近 7 天 token、每日占比和模型/推理
   强度偏好。
@@ -93,8 +98,8 @@ lines are now unified on `main`, while their install packages remain separate.
 Windows v0.1.1 保留 v0.1.0 的额度卡片功能，并增加或改进：
 
 - 实时上传/下载网速显示，以及最小化到系统托盘。
-- 单实例恢复、可通过“取消始终置顶”切换到普通窗口层级、F5 立即同步和
-  Esc 最小化到托盘；Codex/ChatGPT 同屏前台时仍临时抬高。
+- 单实例恢复、可关闭“始终置顶”、F5 立即同步和 Esc 最小化到托盘。
+  “取消始终置顶”的反向菜单语义及 Codex/ChatGPT 同屏临时抬高属于后续版本。
 - 每周额度与 Spark 额度统一使用 `xd xh 后重置`，并对齐重置时间。
 - 悬停重置时间可查看准确本机日期；悬停“实时”可查看数据更新时间。
 - 使用上游数据时间判断是否过期，避免把旧缓存错误显示为“实时”。
@@ -111,9 +116,9 @@ Windows v0.1.0 是首个跨平台正式版本，继续保留供回退和复现�
 Windows v0.1.1 keeps the v0.1.0 allowance card and adds or improves:
 
 - Aggregate live upload/download speed and notification-area minimize/restore.
-- Single-instance restore, a “取消始终置顶” action for ordinary window ordering,
-  F5 refresh and Esc minimize-to-tray; same-screen foreground Codex/ChatGPT still
-  raises the card temporarily.
+- Single-instance restore, an independent always-on-top toggle, F5 refresh and
+  Esc minimize-to-tray. The inverse “取消始终置顶” menu wording and temporary
+  elevation over same-screen Codex/ChatGPT belong to later versions.
 - Consistent and aligned `xd xh until reset` text for weekly and Spark quotas.
 - Exact reset time on hover and latest data-update time on status hover.
 - Provider timestamp freshness checks so old cached data is not shown as live.
